@@ -247,7 +247,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
     
     #update noodle role if dm
     noodleString = "Current :star:: " + str(noodles)
-
+    playerList = "";
     # if the game received rewards
     if role != "": 
         # clear the embed message to repopulate it
@@ -257,6 +257,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             temp = ""
             # for every player of this reward
             for v in value:
+                playerList += f"{v['Mention']} "
                 vRewardList = []
                 # for every brough consumable for the character
                 for r in  v["Magic Items"]+ v["Consumables"]["Add"]+ v["Inventory"]["Add"]:
@@ -319,11 +320,11 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             dm_text = f"{dm['Character Name']} {', '.join(dmRewardsList)}"
             dm_name_text = f"DM {dm_double_string}Rewards (Tier {dm_tier_num}):\n**{dmtreasureArray[0]} CP, {sum(dmtreasureArray[1].values())} TP, {dmtreasureArray[2]} GP**\n"
         sessionLogEmbed.add_field(value=f"{dm['Mention']} | {dm_text}\n{'Gained :star:: ' + str(noodlesGained)} \n{noodleString}", name=dm_name_text)
-        
+        playerList += f"{dm['Mention']}"
         # if there are guild rewards then add a field with relevant information
         if guildRewardsStr != "":
             sessionLogEmbed.add_field(value=guildRewardsStr, name=f"Guild Rewards", inline=False)
-        await editMessage.edit(embed=sessionLogEmbed)
+        await editMessage.edit(content=playerList, embed=sessionLogEmbed)
     
     pass
         

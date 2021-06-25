@@ -25,15 +25,6 @@ def timeConversion (time):
 		minutes = time//60
 		return ('%d Hours %d Minutes' %(hours,minutes))
 		
-# def getTiers (tiers):
-#     getTierArray = []
-#     for i in range(len(tiers)):
-#         if tiers[i] != "":
-#             getTierArray.append(i)
-#     getTierArray.append(len(sheet.row_values(3)) + 1)
-
-#     return getTierArray
-
 async def traceBack (ctx,error,silent=False):
     ctx.command.reset_cooldown(ctx)
     etype = type(error)
@@ -273,13 +264,6 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
     if records == list():
         return None, apiEmbed, apiEmbedmsg
     else:
-        # if theres an exact match return
-        # if 'Name' in records[0]:
-            # print([r['Name'].lower() for r in records])
-            # for r in records:
-                # if query.lower() == r['Name'].lower():
-                    # return r, apiEmbed, apiEmbedmsg
-    
         #create a string to provide information about the items to the user
         infoString = ""
         if (len(records) > 1):
@@ -461,38 +445,6 @@ def refreshKey (timeStarted):
             refreshTime = time.time()
     return
 
-# use creds to create a client to interact with the Google Drive API
-# gSecret = {
-#   "type": "service_account",
-#   "project_id": "magic-item-table",
-#   "private_key_id": os.environ['PKEY_ID'],
-#   "private_key": os.environ['PKEY'],
-#   "client_email": os.environ['CEMAIL'],
-#   "client_id": os.environ['C_ID'],
-#   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-#   "token_uri": "https://oauth2.googleapis.com/token",
-#   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-#   "client_x509_cert_url": os.environ['C_CERT']
-# }
-
-# scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
-# creds = ServiceAccountCredentials.from_json_keyfile_dict(gSecret, scope)
-
-# gClient = gspread.authorize(creds)
-# refreshTime = time.time()
-
-# Find a workbook by name and open the first sheet
-# Make sure you use the right name here.
-# sheet = gClient.open("Magic Items Document").sheet1
-# ritSheet = gClient.open("Magic Items Document").get_worksheet(1)
-# charDatabase = gClient.open("Character Database").worksheet("Character Database")
-# refListSheet = gClient.open("Character Database").worksheet("Reference Lists")
-
-
-# sheet = gClient.open("Magic Item Table").sheet1
-# ritSheet = gClient.open("Reward Item Table").sheet1
-
-# token = os.environ['TOKEN']
 currentTimers = []
 
 gameCategory = ["🎲 game rooms", "🐉 campaigns", "mod friends"]
@@ -509,26 +461,6 @@ timezoneVar = 'US/Eastern'
 tier_reward_dictionary = [[50, 0.5], [100, 0.5], [150, 1], [200, 1], [200, 1]]
 
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
-# settingsRecord = {"QB List" : {781021043778781195 : 382025597041246210, 728476108940640297 : 259732415319244800},
-                    # "Role Channel List" : {777046003832193034 : 382025597041246210, 781360717101400084 : 259732415319244800},
-                    # 382025597041246210: 
-                    # {"Sessions" : 737076677238063125, "QB" : 781021043778781195, 
-                        # "CB" : 382027251618938880,
-                        # "Player Logs" : 788158884329422848 ,
-                        # "Game Rooms" : 575798293913796619, 
-                        # "Guild Rooms" :452704598440804375,
-                        # "Campaign Rooms" : 698784680488730666, 
-                        # "Messages" : {777051070110498846: "Roll20", 777051209299132456: "Foundry"},
-                        # "Emotes" : {"Roll20" : "<:roll20:777767592684421130>" , "Foundry": "<:foundry:777767632471719956>"}}, 
-                  # 259732415319244800 : 
-                    # {"Sessions" : 728456783466725427, "QB" : 728476108940640297, 
-                        # "CB" : 781360342483075113,
-                        # "Player Logs" : 728729922205647019 ,
-                        # "Game Rooms" : 728456686024523810, 
-                        # "Guild Rooms" : 734586911901089832,
-                        # "Campaign Rooms" : 734276389322096700, 
-                        # "Messages" : {781360780162760765: "Roll20", 781360787854852106: "Foundry"},
-                        # "Emotes" : {"Roll20" : "<:adorabat:733763021008273588>" , "Foundry": "🗡️"}}}
 
 
 # Quest Buffs - 2x Rewards, 2x Items, Recruitment Drive
@@ -568,33 +500,3 @@ liner_dic = {"Find" : list([line["Text"] for line in db.liners_find.find()]),
              "Meme" : list([line["Text"] for line in db.liners_meme.find()]),
              "Craft" : list([line["Text"] for line in db.liners_craft.find()])}
 
-
-# API_URL = ('https://api.airtable.com/v0/appF4hiT6A0ISAhUu/'+ 'races')
-# # API_URL += '?offset=' + 'itr4Z54rnNABYW8jj/recr2ss2DkyF4Q84X' 
-# r = requests.get(API_URL, headers=headers)
-# r = r.json()['records']
-# playersCollection = db.races
-# addList = []
-# for i in r:
-#     print(i['fields'])
-#     addList.append(i['fields'])
-
-# playersCollection.insert_many(addList)
-
-# collection = db['mit']
-# cl = list(collection.find({"Name": {"$regex": 'Vicious.*\+1$', '$options': 'i' }}))
-# cData = list(map(lambda item: UpdateOne({'_id': item['_id']}, {'$set': {'TP':12, 'GP':5280 } }, upsert=True), cl))
-# collection.bulk_write(cData)
-
-# records = list(collection.find({"Modifiers": {"$regex": '', '$options': 'i' }}))
-
-
-# i = 0
-# for r in sorted(records, key = lambda i: i['Name']) :
-#     print(r['Name'])
-#     i+=1
-
-# print (i)
-
-# # delete
-# collection.remove(({"Modifiers": {"$regex": '', '$options': 'i' }}))

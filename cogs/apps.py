@@ -77,7 +77,7 @@ class Apps(commands.Cog):
             botEmbed.set_footer(text=f"Application Message ID: {botMsg.id}\nMod: {mMessage.author}")
 
             if appMember is None:
-                ctx.channel.send(content=f"Something went wrong. The application could not find the discord name {appDiscord} for application {appNum}. Please delete this message once this is resolved.")
+                channel.send(content=f"Something went wrong. The application could not find the discord name {appDiscord} for application {appNum}. Please delete this message once this is resolved.")
                 return
 
             if 'approve' in mMessage.content:

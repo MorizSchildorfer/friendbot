@@ -320,8 +320,8 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
         elif noodles < 1 and noodleFinal >= 1:
             noodleCongrats = "Congratulations on hosting your first game!"
         
-        sessionLogEmbed.title = f"\n**{game}**\n*Tier {tierNum} Quest* \n{sessionInfo['Channel']}"
-        sessionLogEmbed.description = f"{guildsListStr}\n**Start**: {datestart} EDT\n**End**: {dateend} EDT\n**Runtime**: {totalDuration}\n"+description
+        sessionLogEmbed.title = f"\n**{game}**\n*Tier {tierNum} Quest*"
+        sessionLogEmbed.description = f"{sessionInfo['Channel']}\n{guildsListStr}\n**Start**: {datestart} EDT\n**End**: {dateend} EDT\n**Runtime**: {totalDuration}\n"+description
         status_text = "Log is being processed! Characters are currently on hold."
         await editMessage.clear_reactions()
         if sessionInfo["Status"] == "Approved":
@@ -546,32 +546,14 @@ class Log(commands.Cog):
                 consumablesString = ""
                 
                 
-                #if we know they didnt have any items, we know that changes could only be additions
-                if(character["Consumables"]=="None"):
-                    # turn the list of added items into the new string
-                    consumablesString = ", ".join(player["Consumables"]["Add"])
-                else:
-                    #remove the removed items from the list of original items and then combine the remaining and the new items                
-                    for i in player["Consumables"]["Remove"]:
-                        consumableList.remove(i)
-                    consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
+                #remove the removed items from the list of original items and then combine the remaining and the new items                
+                for i in player["Consumables"]["Remove"]:
+                    consumableList.remove(i)
+                consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
                     
-                # if the string is empty, turn it into none
-                consumablesString += "None"*(consumablesString=="")
                 
-                # magic items cannot be removed so we only care about addtions
-                # if we have no items and no additions, string is None
-                
-                magicItemString = "None"
-                if(character["Magic Items"]=="None"):
-                    if(len(player["Magic Items"])==0):
-                        pass
-                    else:
-                        # otherwise it is just the combination of new items
-                        magicItemString = ", ".join(player["Magic Items"])
-                else:
-                    # otherwise connect up the old and new items
-                    magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
+                # magic items cannot be removed so we only care about addtions                
+                magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
                 
                 
                 # increase the relevant inventory entries and create them if necessary
@@ -672,44 +654,28 @@ class Log(commands.Cog):
             
             # create a list of all items the character has
             consumableList = character["Consumables"].split(", ")
-            consumablesString = ""
             
-            
-            #if we know they didnt have any items, we know that changes could only be additions
-            if(character["Consumables"]=="None"):
-                # turn the list of added items into the new string
-                consumablesString = ", ".join(player["Consumables"]["Add"])
-            else:
-                #remove the removed items from the list of original items and then combine the remaining and the new items                
-                for i in player["Consumables"]["Remove"]:
-                    consumableList.remove(i)
-                consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
+            #remove the removed items from the list of original items and then combine the remaining and the new items                
+            for i in player["Consumables"]["Remove"]:
+                consumableList.remove(i)
+            consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
                 
             # if the string is empty, turn it into none
-            consumablesString += "None"*(consumablesString=="")
             
             # magic items cannot be removed so we only care about addtions
             # if we have no items and no additions, string is None
-            magicItemString = "None"
-            if(character["Magic Items"]=="None"):
-                if(len(player["Magic Items"])==0):
-                    pass
-                else:
-                    # otherwise it is just the combination of new items
-                    magicItemString = ", ".join(player["Magic Items"])
-            else:
-                # otherwise connect up the old and new items
-                magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
+            magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
                 
                 
             
             # increase the relevant inventory entries and create them if necessary
             for i in player["Inventory"]["Add"]:
                 if i in character["Inventory"]:
-                    character["Inventory"][i] += 1
+                    character["Inventory"][i]["Menge"] += 1
                 else:
-                    character["Inventory"][i] = 1
-            
+                    character["Inventory"][i] = {"Menge" : 1, "Gekauft?": False}
+                 
+                
             # decrement the relevant items and delete the entry when necessary
             for i in player["Inventory"]["Remove"]:
                 character["Inventory"][i] -= 1

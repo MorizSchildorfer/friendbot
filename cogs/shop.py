@@ -219,7 +219,7 @@ class Shop(commands.Cog):
                             pass
                         # If it's a consumable, throw it in consumables, otherwise magic item list
                         elif "Consumable" in bRecord:
-                            if charRecords['Consumables'] != "None":
+                            if charRecords['Consumables']:
                                 charRecords['Consumables'] += (', ' + bRecord['Name'])*amount
                             else:
                                 charRecords['Consumables'] = bRecord['Name'] + (', ' + bRecord['Name'])*(amount -1 )
@@ -234,13 +234,10 @@ class Shop(commands.Cog):
                                     else:
                                         charRecords['Inventory'][pk] += int(pv)
                         else:
-                            if charRecords['Inventory'] == "None":
-                                charRecords['Inventory'] = {f"{bRecord['Name']}" : amount}
+                            if bRecord['Name'] not in charRecords['Inventory']:
+                                charRecords['Inventory'][f"{bRecord['Name']}"] = amount 
                             else:
-                                if bRecord['Name'] not in charRecords['Inventory']:
-                                    charRecords['Inventory'][f"{bRecord['Name']}"] = amount 
-                                else:
-                                    charRecords['Inventory'][f"{bRecord['Name']}"] += amount 
+                                charRecords['Inventory'][f"{bRecord['Name']}"] += amount 
                         try:
                             playersCollection = db.players
                             playersCollection.update_one({'_id': charRecords['_id']}, {"$set": {"Inventory":charRecords['Inventory'], 'GP':newGP, "Consumables": charRecords['Consumables']}})
@@ -277,7 +274,7 @@ class Shop(commands.Cog):
         buyList = []
         buyString=""
         numI = 0
-        if charRecords['Inventory'] == "None":
+        if charRecords['Inventory']:
             await channel.send(f'You do not have any valid items in your inventory. Please try again with an item.')
             ctx.command.reset_cooldown(ctx)
             return False
@@ -564,7 +561,7 @@ class Shop(commands.Cog):
         if not charDict:
             return
         consumables_list = []
-        if charDict["Consumables"] != "None":
+        if charDict["Consumables"]:
             consumables_list  = charDict["Consumables"].split(", ")
         foundItem = None
         for j in consumables_list:
@@ -592,7 +589,6 @@ class Shop(commands.Cog):
                 consumables_list.remove(foundItem)
                 # update the characters consumables to reflect the item removal
                 charDict["Consumables"] = ', '.join(consumables_list).strip()
-                charDict["Consumables"] += "None"*(charDict["Consumables"]=="")
             elif item_type == "Inventory":
                 charDict[item_type][foundItem] -= 1
                         
@@ -952,7 +948,7 @@ class Shop(commands.Cog):
                     else:
                         consumes.remove(spellCopied)
                         if consumes == list():
-                            consumes = ["None"]
+                            consumes = []
 
                 newGP = charRecords['GP'] - gpNeeded
 

@@ -182,6 +182,9 @@ class Character(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
         
+        # Reserved for regex, lets not use these for character names please
+        self.invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
+        
     def is_log_channel():
         async def predicate(ctx):
             return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
@@ -230,11 +233,11 @@ class Character(commands.Cog):
                 msg = ":warning: You're missing a level for the character you want to create.\n"
             elif error.param.name == "race":
                 msg = ":warning: You're missing a race for the character you want to create.\n"
-            elif error.param.name == "cclass":
+            elif error.param.name == "character_class":
                 msg = ":warning: You're missing a class for the character you want to create.\n"
-            elif error.param.name == 'bg':
+            elif error.param.name == 'background':
                 msg = ":warning: You're missing a background for the character you want to create.\n"
-            elif error.param.name == 'sStr' or  error.param.name == 'sDex' or error.param.name == 'sCon' or error.param.name == 'sInt' or error.param.name == 'sWis' or error.param.name == 'sCha':
+            elif error.param.name == 'statsStr' or  error.param.name == 'statsDex' or error.param.name == 'statsCon' or error.param.name == 'statsInt' or error.param.name == 'statsWis' or error.param.name == 'statsCha':
                 msg = ":warning: You're missing a stat (STR, DEX, CON, INT, WIS, or CHA) for the character you want to create.\n"
             elif error.param.name == 'url':
                 msg = ":warning: You're missing a URL to add an image to your character's information window.\n"
@@ -318,7 +321,7 @@ class Character(commands.Cog):
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command()
-    async def create(self,ctx, name, level: int, race, cclass, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", campaignName = "", timeTransfer = None):
+    async def create(self,ctx, name, level: int, race, character_class, background, statsStr : int, statsDex :int, statsCon:int, statsInt:int, statsWis:int, statsCha :int, consumes="", campaignName = "", timeTransfer = None):
         name = name.strip()
         characterCog = self.bot.get_cog('Character')
         roleCreationDict = {
@@ -332,8 +335,6 @@ class Character(commands.Cog):
             'Ascended Noodle':[4,5,6,7],
             'Immortal Noodle':[4,5,6,7,8],
             'Eternal Noodle':[4,5,6,7,8,9]
-            #'Friend Fanatic': [11,10,9],
-            #'Guild Fanatic':[11,10,9]
         }
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author
@@ -350,24 +351,26 @@ class Character(commands.Cog):
           'Name': name,
           'Level': int(level),
           'HP': 0,
-          'Class': cclass,
-          'Background': bg,
-          'STR': int(sStr),
-          'DEX': int(sDex),
-          'CON': int(sCon),
-          'INT': int(sInt),
-          'WIS': int(sWis),
-          'CHA': int(sCha),
+          'Class': character_class,
+          'Background': background,
+          'STR': int(statsStr),
+          'DEX': int(statsDex),
+          'CON': int(statsCon),
+          'INT': int(statsInt),
+          'WIS': int(statsWis),
+          'CHA': int(statsCha),
           'Alignment': 'Unknown',
           'CP' : 0,
           'GP': 0,
-          'Magic Items': 'None',
-          'Consumables': 'None',
-          'Feats': 'None',
+          'Magic Items': {},
+          'Consumables': [],
+          'Feats': '',
           'Inventory': {},
           'Predecessor': {},
-          'Games': 0
+          'Games': 0,
+          'Max Stats': {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
         }
+        
 
         # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
         if not name:
@@ -386,12 +389,12 @@ class Character(commands.Cog):
             self.bot.get_command('create').reset_cooldown(ctx)
             return
 
-        if not cclass:
+        if not character_class:
             await channel.send(content=":warning: The class of your character cannot be blank! Please try again.\n")
             self.bot.get_command('create').reset_cooldown(ctx)
             return
         
-        if not bg:
+        if not background:
             await channel.send(content=":warning: The background of your character cannot be blank! Please try again.\n")
             self.bot.get_command('create').reset_cooldown(ctx)
             return
@@ -401,18 +404,7 @@ class Character(commands.Cog):
         # Provides an error message at the end. If there are more than one, it will join msg.
         msg = ""
 
-        
-        # Name should be less then 65 chars
-        if len(name) > 64:
-            msg += ":warning: Your character's name is too long! The limit is 64 characters.\n"
-
-        # Reserved for regex, lets not use these for character names please
-        invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
-
-        for i in invalidChars:
-            if i in name:
-                msg += f":warning: Your character's name cannot contain `{i}`. Please revise your character name.\n"
-
+        msg = self.name_check(name)
 
         if msg == "":
             query = name
@@ -451,6 +443,9 @@ class Character(commands.Cog):
           
         if lvl not in roleSet:
             msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role!\n"
+        
+        x["Menge"]
+        y[0]
         
         # Checks CP
         if lvl < 5:
@@ -506,7 +501,7 @@ class Character(commands.Cog):
                         msg += f":warning: I could not find a number in your time amount!\n"
                         totalTime = 0
                         
-                    if userRecords["Campaigns"][campaignKey]["Time"]< 3600*4 or totalTime > userRecords["Campaigns"][campaignKey]["Time"]:
+                    if userRecords["Campaigns"][campaignKey]["Time"] < 3600*4 or totalTime > userRecords["Campaigns"][campaignKey]["Time"]:
                         msg += f":warning: You do not have enough hours to transfer from {campaignChannels[0].mention}!\n"
                     else:
                         cp = ((totalTime) // 1800) / 2
@@ -526,13 +521,7 @@ class Character(commands.Cog):
             levelCP = ((lvl -1) * 4)
         cp_tp_gp_array = calculateTreasure(1, 0, 1, (levelCP+cp)*3600)
         totalGP = cp_tp_gp_array[2]
-        bankTP = []
-        bankTP = cp_tp_gp_array[1]
-        tpBank = [0,0,0,0,0]
-        #grab the available TP of the character
-        for x in range(1,6):
-            if f'T{x} TP' in bankTP.keys():
-                tpBank[x-1] = (float(bankTP[f'T{x} TP']))
+        bankTP = cp_tp_gp_array[1
         
         tierNum = 5
         # calculate the tier of the rewards
@@ -547,33 +536,7 @@ class Character(commands.Cog):
         
         # Stats - Point Buy
         if msg == "":
-            statsArray = [int(sStr), int(sDex), int(sCon), int(sInt), int(sWis), int(sCha)]
-            
-            totalPoints = 0
-            for s in statsArray:
-                if (13-s) < 0:
-                    totalPoints += ((s - 13) * 2) + 5
-                else:
-                    totalPoints += (s - 8)
-                    
-            if any([s < 8 for s in statsArray]):
-                msg += f":warning: You have at least one stat below the minimum of 8.\n"
-            if totalPoints != 27:
-                msg += f":warning: Your stats do not add up to 27 using point buy ({totalPoints}/27). Remember that you must list your stats before applying racial modifiers! Please check your point allocation using this calculator: <https://chicken-dinner.com/5e/5e-point-buy.html>\n"
-            
-        
-        
-        # ███╗░░░███╗░█████╗░░██████╗░██╗░█████╗░  ██╗████████╗███████╗███╗░░░███╗  ░░░░██╗  ████████╗██████╗░
-        # ████╗░████║██╔══██╗██╔════╝░██║██╔══██╗  ██║╚══██╔══╝██╔════╝████╗░████║  ░░░██╔╝  ╚══██╔══╝██╔══██╗
-        # ██╔████╔██║███████║██║░░██╗░██║██║░░╚═╝  ██║░░░██║░░░█████╗░░██╔████╔██║  ░░██╔╝░  ░░░██║░░░██████╔╝
-        # ██║╚██╔╝██║██╔══██║██║░░╚██╗██║██║░░██╗  ██║░░░██║░░░██╔══╝░░██║╚██╔╝██║  ░██╔╝░░  ░░░██║░░░██╔═══╝░
-        # ██║░╚═╝░██║██║░░██║╚██████╔╝██║╚█████╔╝  ██║░░░██║░░░███████╗██║░╚═╝░██║  ██╔╝░░░  ░░░██║░░░██║░░░░░
-        # ╚═╝░░░░░╚═╝╚═╝░░╚═╝░╚═════╝░╚═╝░╚════╝░  ╚═╝░░░╚═╝░░░╚══════╝╚═╝░░░░░╚═╝  ╚═╝░░░░  ░░░╚═╝░░░╚═╝░░░░░
-        # Magic Item / TP
-        # Check if magic items exist, and calculates the TP cost of each magic item.
-        mItems = ""
-        magicItems = mItems.strip().split(',')
-        allMagicItemsString = []
+            msg = self.point_buy_check(self, ctx, statsStr, statDex, statsCon, statsInt, statsWis, statsCha)
 
 
         # ██████╗░███████╗░██╗░░░░░░░██╗░█████╗░██████╗░██████╗░  ██╗████████╗███████╗███╗░░░███╗░██████╗
@@ -620,9 +583,6 @@ class Character(commands.Cog):
                         allRewardItemsString.append(reRecord)
                 allRewardItemsString.sort(key=lambda x: x["Tier"])
                 tier1CountMNC = 0
-                rewardConsumables = []
-                rewardMagics = []
-                rewardInv = []
                 tierRewards = [[], [], [], [], []]
                 tierConsumableCounts = [0,0,0,0,0,0]
                 if 'Good Noodle' in roles:
@@ -670,12 +630,29 @@ class Character(commands.Cog):
                     if item["Tier"] > tierNum:
                         msg += ":warning: One or more of these reward items cannot be acquired at Level " + str(lvl) + ".\n"
                         break
+                        
                     elif item["Type"] == 'Consumables':
-                      rewardConsumables.append(item)
+                        # for consumables we care about the charges
+                        tracked_data = {key:value for key,value in item.items() if key in ["Name", "Charges"]}
+                        tracked_data["Awarded"] = True
+                        charDict['Consumables'].append(tracked_data)
+                        
                     elif item["Type"] == 'Magic Items':
-                      rewardMagics.append(item)
+                        # for consumables we care if they are attunable
+                        tracked_data = {key:value for key,value in item.items() if key in ["Attunement"]}
+                        tracked_data["Awarded"] = True
+                        
+                        # to maintain parity we just give a default value
+                        tracked_data["Item Spend"] = {"GP": 0}
+                        charDict['Magic Items'][item["Name"]](tracked_data)
+                        
                     else:
-                        rewardInv.append(item)
+                        if r["Name"] in charDict['Inventory'].keys():
+                            charDict['Inventory'][r['Name']]["Amount"] += 1
+                            charDict['Inventory'][r['Name']]["Awarded"] += 1
+                        else:
+                            charDict['Inventory'][r['Name']] = {"Amount" : 1, "Awarded": 1}
+                        
 
 
                 if tier1CountMNC < 0 or any([count < 0 for count in tierConsumableCounts]):
@@ -686,22 +663,6 @@ class Character(commands.Cog):
                             msg += f", and **{amount}** Tier {z} (or lower) item(s)"
                         z += 1
                     msg += "\n"
-                else:
-                    for r in rewardConsumables:
-                        if charDict['Consumables'] != "None":
-                            charDict['Consumables'] += ', ' + r['Name']
-                        else:
-                            charDict['Consumables'] = r['Name']
-                    for r in rewardMagics:
-                        if charDict['Magic Items'] != "None":
-                            charDict['Magic Items'] += ', ' + r['Name']
-                        else:
-                            charDict['Magic Items'] = r['Name']
-                    for r in rewardInv:
-                        if r["Name"] in charDict['Inventory'].keys():
-                            charDict['Inventory'][r['Name']] +=1
-                        else:
-                            charDict['Inventory'][r['Name']] =1
                       
         # ██████╗░░█████╗░░█████╗░███████╗░░░  ░█████╗░██╗░░░░░░█████╗░░██████╗░██████╗
         # ██╔══██╗██╔══██╗██╔══██╗██╔════╝░░░  ██╔══██╗██║░░░░░██╔══██╗██╔════╝██╔════╝
@@ -712,365 +673,25 @@ class Character(commands.Cog):
         # check race
         
         if msg == "":
-            rRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'races',race)
+            raceRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'races',race)
             if charEmbedmsg == "Fail":
                 return
-            if not rRecord:
+            if not raceRecord:
                 msg += f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
             else:
-                charDict['Race'] = rRecord['Name']
+                charDict['Race'] = raceRecord['Name']
 
         
         # Check Character's class
-        classStat = []
-        cRecord = []
-        totalLevel = 0
-        mLevel = 0
-        broke = []
-        # If there's a /, character is creating a multiclass character
-        if '/' in cclass:
-            multiclassList = cclass.replace(' ', '').split('/')
-            # Iterates through the multiclass list 
-            
-            for m in multiclassList:
-                # Separate level and class
-                mLevel = re.search('\d+', m)
-                if not mLevel:
-                    msg += ":warning: You are missing the level for your multiclass class. Please check your format.\n"
-
-                    break
-                mLevel = mLevel.group()
-                mClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'classes',m[:len(m) - len(mLevel)])
-                if not mClass:
-                    cRecord = None
-                    broke.append(m[:len(m) - len(mLevel)])
-
-                # Check for class duplicates (ex. Paladin 1 / Paladin 2 = Paladin 3)
-                classDupe = False
-                if(cRecord or cRecord==list()):
-                    for c in cRecord:
-                        if c['Class'] == mClass:
-                            c['Level'] = str(int(c['Level']) + int(mLevel))
-                            classDupe = True                    
-                            break
-
-                    if not classDupe:
-                        cRecord.append({'Class': mClass, 'Level':mLevel})
-                    totalLevel += int(mLevel)
-
-        else:
-            singleClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'classes',cclass)
-            if singleClass:
-                cRecord.append({'Class':singleClass, 'Level':lvl, 'Subclass': 'None'})
-            else:
-                cRecord = None
-                broke.append(cclass)
-
-        charDict['Class'] = ""
-        if not mLevel and '/' in cclass:
-            pass
-        elif len(broke)>0:
-            msg += f':warning: **{broke}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
-        elif totalLevel != lvl and len(cRecord) > 1:
-            msg += ':warning: Your classes do not add up to the total level. Please double-check your multiclasses.\n'
-        elif msg == "":
-            #cRecord = sorted(cRecord, key = lambda i: i['Level'], reverse=True) 
-
-            # starting equipment
-            def alphaEmbedCheck(r, u):
-                sameMessage = False
-                if charEmbedmsg.id == r.message.id:
-                    sameMessage = True
-                return sameMessage and ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author
-
-            if 'Starting Equipment' in cRecord[0]['Class'] and msg == "":
-                startEquipmentLength = 0
-                if not charEmbedmsg:
-                    charEmbedmsg = await channel.send(embed=charEmbed)
-                elif charEmbedmsg == "Fail":
-                    msg += ":warning: You have either cancelled the command or a value was not found."
-                else:
-                    await charEmbedmsg.edit(embed=charEmbed)
-
-                for item in cRecord[0]['Class']['Starting Equipment']:
-                    seTotalString = ""
-                    alphaIndex = 0
-                    for seList in item:
-                        seString = []
-                        for elk, elv in seList.items():
-                            if 'Pack' in elk:
-                                seString.append(f"{elk} x1")
-                            else:
-                                seString.append(f"{elk} x{elv}")
-                                
-                        seTotalString += f"{alphaEmojis[alphaIndex]}: {', '.join(seString)}\n"
-                        alphaIndex += 1
-
-                    await charEmbedmsg.clear_reactions()
-                    charEmbed.add_field(name=f"Starting Equipment: {startEquipmentLength+ 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seTotalString, inline=False)
-                    await charEmbedmsg.edit(embed=charEmbed)
-                    if len(item) > 1:
-                        for num in range(0,alphaIndex): await charEmbedmsg.add_reaction(alphaEmojis[num])
-                        await charEmbedmsg.add_reaction('❌')
-                        try:
-                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                        except asyncio.TimeoutError:
-                            await charEmbedmsg.delete()
-                            await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                            self.bot.get_command('create').reset_cooldown(ctx)
-                            return 
-                        else:
-                            if tReaction.emoji == '❌':
-                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                await charEmbedmsg.clear_reactions()
-                                self.bot.get_command('create').reset_cooldown(ctx)
-                                return 
-                        startEquipmentItem = item[alphaEmojis.index(tReaction.emoji)]
-                    else:
-                        startEquipmentItem = item[0]
-
-                    await charEmbedmsg.clear_reactions()
-
-                    seiString = ""
-                    for seik, seiv in startEquipmentItem.items():
-                        seiString += f"{seik} x{seiv}\n"
-                        if "Pack" in seik:
-                            seiString = f"{seik}:\n"
-                            for pk, pv in seiv.items():
-                                charDict['Inventory'][pk] = pv
-                                seiString += f"+ {pk} x{pv}\n"
-
-                    charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength + 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seiString, inline=False)
-                    
-                    for k,v in startEquipmentItem.items():
-                        if '[' in k and ']' in k:
-                            iType = k.split('[')
-                            invCollection = db.shop
-                            if 'Instrument' in iType[1]:
-                                charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[1].replace(']','')}.*")]}}))
-                            else:
-                                charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[0]}.*"),re.compile(f".*{iType[1].replace(']','')}.*")]}}))
-
-                            charInv = sorted(charInv, key = lambda i: i['Name']) 
-
-                            typeEquipmentList = []
-                            for i in range (0,int(v)):
-                                charInvString = f"Please choose from the choices below for {iType[0]} {i+1}:\n"
-                                alphaIndex = 0
-                                charInv = list(filter(lambda c: 'Yklwa' not in c['Name'] and 'Light Repeating Crossbow' not in c['Name'] and 'Double-Bladed Scimitar' not in c['Name'] and 'Oversized Longbow' not in c['Name'], charInv))
-                                for c in charInv:
-                                    charInvString += f"{alphaEmojis[alphaIndex]}: {c['Name']}\n"
-                                    alphaIndex += 1
-
-                                charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=charInvString, inline=False)
-                                await charEmbedmsg.clear_reactions()
-                                await charEmbedmsg.add_reaction('❌')
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                                try:
-                                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                                except asyncio.TimeoutError:
-                                    await charEmbedmsg.delete()
-                                    await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                                    self.bot.get_command('create').reset_cooldown(ctx)
-                                    return 
-                                else:
-                                    if tReaction.emoji == '❌':
-                                        await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                        await charEmbedmsg.clear_reactions()
-                                        self.bot.get_command('create').reset_cooldown(ctx)
-                                        return 
-                                
-                                
-                                p = 0
-                                for a in charInv:
-                                    p+=1
-                                typeEquipmentList.append(charInv[alphaEmojis.index(tReaction.emoji)]['Name'])
-                            typeCount = collections.Counter(typeEquipmentList)
-                            typeString = ""
-                            for tk, tv in typeCount.items():
-                                if tk in charDict['Inventory']:
-                                    charDict['Inventory'][tk] += tv
-                                else:
-                                    charDict['Inventory'][tk] = tv
-                                
-                                typeString += f"{tk} x{charDict['Inventory'][tk]}\n"
-
-                            charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seiString.replace(f"{k} x{v}\n", typeString), inline=False)
-
-                        elif 'Pack' not in k:
-                            
-                            if k in charDict['Inventory']:
-                                charDict['Inventory'][k] += v
-                            else:
-                                charDict['Inventory'][k] = v
-                                
-                    startEquipmentLength += 1
-                await charEmbedmsg.clear_reactions()
-                charEmbed.clear_fields()
-
-            # Subclass
-            for m in cRecord:
-                m['Subclass'] = 'None'
-                if int(m['Level']) < lvl:
-                    className = f'{m["Class"]["Name"]} {m["Level"]}'
-                else:
-                    className = f'{m["Class"]["Name"]}'
-
-                classStatName = f'{m["Class"]["Name"]}'
-
-                if int(m['Class']['Subclass Level']) <= int(m['Level']) and msg == "":
-                    subclassesList = m['Class']['Subclasses'].split(',')
-                    subclass, charEmbedmsg = await characterCog.chooseSubclass(ctx, subclassesList, m['Class']['Name'], charEmbed, charEmbedmsg)
-                    if not subclass:
-                        return
-
-                    m['Subclass'] = f'{className} ({subclass})' 
-                    classStat.append(f'{classStatName}-{subclass}')
-
-
-                    if charDict['Class'] == "": 
-                        charDict['Class'] = f'{className} ({subclass})'
-                    else:
-                        charDict['Class'] += f' / {className} ({subclass})'
-                else:
-                    classStat.append(classStatName)
-                    if charDict['Class'] == "": 
-                        charDict['Class'] = className
-                    else:
-                        charDict['Class'] += f' / {className}'
-        # check bg and gp
-
-        def bgTopItemCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return ((r.emoji in alphaEmojis[:alphaIndexTop]) or (str(r.emoji) == '❌')) and u == author and sameMessage
-
-        def bgItemCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author and sameMessage
-
-
+        msg, subclasses, classStat, charEmbed, charEmbedmsg = class_select_kernel(ctx, msg, lvl, charDict, classRecord, charEmbed, charEmbedmsg)
+        
         if msg == "":
-            bRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'backgrounds',bg)
-
             if charEmbedmsg == "Fail":
-                self.bot.get_command('create').reset_cooldown(ctx)
+                    return
+            if not class_item_select_kernel(ctx, msg, charDict, character_class, classRecord, charEmbed, charEmbedmsg):
                 return
-            if not bRecord:
-                msg += f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
-            else:
-                charDict['Background'] = bRecord['Name']
-
-                # TODO: make function for inputing in inventory
-                # Background items: goes through each background and give extra items for inventory.
-                
-                for e in bRecord['Equipment']:
-                    beTopChoiceList = []
-                    beTopChoiceKeys = []
-                    alphaIndexTop = 0
-                    beTopChoiceString = ""
-                    for ek, ev in e.items():
-                        if type(ev) == dict:
-                            beTopChoiceKeys.append(ek)
-                            beTopChoiceList.append(ev)
-                            beTopChoiceString += f"{alphaEmojis[alphaIndexTop]}: {ek}\n"
-                            alphaIndexTop += 1
-                        else:
-                            if charDict['Inventory'] == "None":
-                                charDict['Inventory'] = {ek : int(ev)}
-                            else:
-                                if ek not in charDict['Inventory']:
-                                    charDict['Inventory'][ek] = int(ev)
-                                else:
-                                    charDict['Inventory'][ek] += int(ev)
-
-                    if len(beTopChoiceList) > 0:
-                        # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
-                        if len(beTopChoiceList) > 1:
-                            charEmbed.add_field(name=f"Your {bRecord['Name']} background lets you choose one type.", value=beTopChoiceString, inline=False)
-                            if not charEmbedmsg:
-                                charEmbedmsg = await channel.send(embed=charEmbed)
-                            else:
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                            await charEmbedmsg.add_reaction('❌')
-                            try:
-                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=bgTopItemCheck , timeout=60)
-                            except asyncio.TimeoutError:
-                                await charEmbedmsg.delete()
-                                await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                                self.bot.get_command('create').reset_cooldown(ctx)
-                                return
-                            else:
-                                await charEmbedmsg.clear_reactions()
-                                if tReaction.emoji == '❌':
-                                    await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                    await charEmbedmsg.clear_reactions()
-                                    self.bot.get_command('create').reset_cooldown(ctx)
-                                    return
-
-                            beTopValues = beTopChoiceList[alphaEmojis.index(tReaction.emoji)]
-                            beTopKey = beTopChoiceKeys[alphaEmojis.index(tReaction.emoji)]
-                        elif len(beTopChoiceList) == 1:
-                            beTopValues = beTopChoiceList[0]
-                            beTopKey = beTopChoiceKeys[0]
-
-                        beChoiceString = ""
-                        alphaIndex = 0
-                        beList = []
-
-                        if 'Pack' in beTopKey:
-                          for c in beTopValues:
-                              if charDict['Inventory'] == "None":
-                                  charDict['Inventory'] = {c : 1}
-                              else:
-                                  if c not in charDict['Inventory']:
-                                      charDict['Inventory'][c] = 1
-                                  else:
-                                      charDict['Inventory'][c] += 1
-                        else:
-                            for c in beTopValues:
-                                beChoiceString += f"{alphaEmojis[alphaIndex]}: {c}\n"
-                                beList.append(c)
-                                alphaIndex += 1
-
-                            charEmbed.add_field(name=f"Your {bRecord['Name']} background lets you choose one {beTopKey}.", value=beChoiceString, inline=False)
-                            if not charEmbedmsg:
-                                charEmbedmsg = await channel.send(embed=charEmbed)
-                            else:
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                            await charEmbedmsg.add_reaction('❌')
-                            try:
-                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=bgItemCheck , timeout=60)
-                            except asyncio.TimeoutError:
-                                await charEmbedmsg.delete()
-                                await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                                self.bot.get_command('create').reset_cooldown(ctx)
-                                return
-                            else:
-                                await charEmbedmsg.clear_reactions()
-                                if tReaction.emoji == '❌':
-                                    await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                    await charEmbedmsg.clear_reactions()
-                                    self.bot.get_command('create').reset_cooldown(ctx)
-                                    return
-                                beKey = beList[alphaEmojis.index(tReaction.emoji)]
-                                if charDict['Inventory'] == "None":
-                                    charDict['Inventory'] = {beKey : 1}
-                                else:
-                                    if beKey not in charDict['Inventory']:
-                                        charDict['Inventory'][beKey] = 1
-                                    else:
-                                        charDict['Inventory'][beKey] += 1
-
-                        charEmbed.clear_fields()
-                
-                charDict['GP'] = int(bRecord['GP']) + totalGP
+            if not background_item_select_kernel(ctx, msg, charDict, background, charEmbed, charEmbedmsg):
+                return
         
         # ░██████╗████████╗░█████╗░████████╗░██████╗░░░  ███████╗███████╗░█████╗░████████╗░██████╗
         # ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝░░░  ██╔════╝██╔════╝██╔══██╗╚══██╔══╝██╔════╝
@@ -1081,8 +702,7 @@ class Character(commands.Cog):
         # Stats - Point Buy
         
         if msg == "":
-            statsArray, charEmbedmsg = await characterCog.pointBuy(ctx, statsArray, rRecord, charEmbed, charEmbedmsg)
-
+            statsArray, charEmbedmsg = await characterCog.pointBuy(ctx, statsArray, raceRecord, charEmbed, charEmbedmsg)
             
             if not statsArray:
                 return
@@ -1092,222 +712,23 @@ class Character(commands.Cog):
             charDict["INT"] = statsArray[3]
             charDict["WIS"] = statsArray[4]
             charDict["CHA"] = statsArray[5]
+            
         #Stats - Feats
         if msg == "":
-            featLevels = []
-            featChoices = []
-            featsChosen = []
-            if "Feat" in rRecord:
-                featLevels.append('Extra Feat')
-
-            for c in cRecord:
-                if int(c['Level']) > 3:
-                    featLevels.append(4)
-                if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 5:
-                    featLevels.append(6)
-                if int(c['Level']) > 7:
-                    featLevels.append(8)
-                if 'Rogue' in c['Class']['Name'] and int(c['Level']) > 9:
-                    featLevels.append(10)
-                if int(c['Level']) > 11:
-                    featLevels.append(12)
-                if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 13:
-                    featLevels.append(14)
-                if int(c['Level']) > 15:
-                    featLevels.append(16)
-                if int(c['Level']) > 18:
-                    featLevels.append(19)
-            featsChosen, statsFeats, charEmbedmsg = await characterCog.chooseFeat(ctx, rRecord['Name'], charDict['Class'], cRecord, featLevels, charEmbed, charEmbedmsg, charDict, "")
-
-            if not featsChosen and not statsFeats and not charEmbedmsg:
-                self.bot.get_command('create').reset_cooldown(ctx)
+            msg, hpRecords, featsChosen = asi_select_kernel(ctx, msg, charDict, classRecord, raceRecord, charEmbed, charEmbedmsg)
+            if not hpRecords:
                 return
-
-            if featsChosen:
-                charDict['Feats'] = featsChosen 
-            else: 
-                charDict['Feats'] = "None" 
-            
-            for key, value in statsFeats.items():
-                charDict[key] = value
-
-            #HP
-            hpRecords = []
-            for cc in cRecord:
-                # Wizards get 2 free spells per wizard level
-                if cc['Class']['Name'] == "Wizard":
-                    charDict['Free Spells'] = [6,0,0,0,0,0,0,0,0]
-                    fsIndex = 0
-                    for i in range (2, int(cc['Level']) + 1 ):
-                        if i % 2 != 0:
-                            fsIndex += 1
-                        charDict['Free Spells'][fsIndex] += 2
-
-                hpRecords.append({'Level':cc['Level'], 'Subclass': cc['Subclass'], 'Name': cc['Class']['Name'], 'Hit Die Max': cc['Class']['Hit Die Max'], 'Hit Die Average':cc['Class']['Hit Die Average']})
-
-            # Multiclass Requirements
-            if '/' in cclass and len(cRecord) > 1:
-                for m in cRecord:
-                    reqFufillList = []
-                    statReq = m['Class']['Multiclass'].split(' ')
-                    if m['Class']['Multiclass'] != 'None':
-                        if '/' not in m['Class']['Multiclass'] and '+' not in m['Class']['Multiclass']:
-                            if int(charDict[statReq[0]]) < int(statReq[1]):
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{statReq[0]} {charDict[statReq[0]]}**!\n"
-
-                        elif '/' in m['Class']['Multiclass']:
-                            statReq[0] = statReq[0].split('/')
-                            reqFufill = False
-                            for s in statReq[0]:
-                                if int(charDict[s]) >= int(statReq[1]):
-                                  reqFufill = True
-                                else:
-                                  reqFufillList.append(f"{s} {charDict[s]}")
-                            if not reqFufill:
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!\n"
-
-                        elif '+' in m['Class']['Multiclass']:
-                            statReq[0] = statReq[0].split('+')
-                            reqFufill = True
-                            for s in statReq[0]:
-                                if int(charDict[s]) < int(statReq[1]):
-                                  reqFufill = False
-                                  reqFufillList.append(f"{s} {charDict[s]}")
-                            if not reqFufill:
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!\n"
         
-        if msg:
-            if charEmbedmsg and charEmbedmsg != "Fail":
-                await charEmbedmsg.delete()
-            elif charEmbedmsg == "Fail":
-                msg = ":warning: You have either cancelled the command or a value was not found."
-            await ctx.channel.send(f'There were error(s) when creating your character:\n{msg}')
-
-            self.bot.get_command('create').reset_cooldown(ctx)
-            return 
-        
-        if 'Max Stats' not in charDict:
-            charDict['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
-        charClass = charDict["Class"]
-        subclasses = []
-        if '/' in charClass:
-            tempClassList = charClass.split(' / ')
-            for t in tempClassList:
-                temp = t.split(' ')
-                tempSub = ""
-                if '(' and ')' in t:
-                    tempSub = t[t.find("(")+1:t.find(")")]
-
-                subclasses.append({'Name':temp[0], 'Subclass':tempSub, 'Level':int(temp[1])})
-        else:
-            tempSub = ""
-            if '(' and ')' in charClass:
-                tempSub = charClass[charClass.find("(")+1:charClass.find(")")]
-            subclasses.append({'Name':charClass, 'Subclass':tempSub, 'Level':lvl})
-        #Special stat bonuses (Barbarian cap / giant soul sorc)
-        specialCollection = db.special
-        specialRecords = list(specialCollection.find())
-        specialStatStr = ""
-        for s in specialRecords:
-            if 'Bonus Level' in s:
-                for c in subclasses:
-                    if s['Bonus Level'] <= c['Level'] and s['Name'] in f"{c['Name']} ({c['Subclass']})":
-                        if 'MAX' in s['Stat Bonuses']:
-                            statSplit = s['Stat Bonuses'].split('MAX ')[1].split(', ')
-                            for stat in statSplit:
-                                maxSplit = stat.split(' +')
-                                charDict[maxSplit[0]] += int(maxSplit[1])
-                                charDict['Max Stats'][maxSplit[0]] += int(maxSplit[1]) 
-
-                            specialStatStr = f"Level {s['Bonus Level']} {c['Name']} stat bonus unlocked! {s['Stat Bonuses']}"
-
-
         maxStatStr = ""
         for sk in charDict['Max Stats'].keys():
             if charDict[sk] > charDict['Max Stats'][sk]:
                 charDict[sk] = charDict['Max Stats'][sk]
         if hpRecords:
             charDict['HP'] = await characterCog.calcHP(ctx,hpRecords,charDict,lvl)
-        
-        
-        
-        charLevel = charDict['Level']
-        tierNum = 5
-        # calculate the tier of the rewards
-        if charLevel < 5:
-            tierNum = 1
-        elif charLevel < 11:
-            tierNum = 2
-        elif charLevel < 17:
-            tierNum = 3
-        elif charLevel < 20:
-            tierNum = 4
-        charEmbed.clear_fields()    
-        charEmbed.title = f"{charDict['Name']} (Lv {charDict['Level']}): {charDict['CP']}/{cp_bound_array[tierNum-1][1]} CP"
-        charEmbed.description = f"**Race**: {charDict['Race']}\n**Class**: {charDict['Class']}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} " + (campaignTransferSuccess * ("\n**Transfered from:** " + campaignKey))
-
-        
-        for x in range(1,6):
-            if tpBank[x-1]>0:
-              charDict[f'T{x} TP'] = tpBank[x-1]
-              charEmbed.add_field(name=f':warning: Unused T{x} TP', value=charDict[f'T{x} TP'], inline=True)
-        if charDict['Magic Items'] != 'None':
-            charEmbed.add_field(name='Magic Items', value=charDict['Magic Items'], inline=False)
-        if charDict['Consumables'] != 'None':
-            charEmbed.add_field(name='Consumables', value=charDict['Consumables'], inline=False)
-        charEmbed.add_field(name='Feats', value=charDict['Feats'], inline=True)
-        charEmbed.add_field(name='Stats', value=f"**STR**: {charDict['STR']} **DEX**: {charDict['DEX']} **CON**: {charDict['CON']} **INT**: {charDict['INT']} **WIS**: {charDict['WIS']} **CHA**: {charDict['CHA']}", inline=False)
-
-        if 'Wizard' in charDict['Class']:
-            charEmbed.add_field(name='Spellbook (Wizard)', value=f"At 1st level, you have a spellbook containing six 1st-level Wizard spells of your choice (+2 free spells for each wizard level). Please use the `{commandPrefix}shop copy` command." , inline=False)
-
-            fsString = ""
-            fsIndex = 0
-            for el in charDict['Free Spells']:
-                if el > 0:
-                    fsString += f"Level {fsIndex+1}: {el} free spells\n"
-                fsIndex += 1
-
-            if fsString:
-                charEmbed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
-
-        
-        charDictInvString = ""
-        if charDict['Inventory'] != "None":
-            for k,v in charDict['Inventory'].items():
-                charDictInvString += f"• {k} x{v}\n"
-            charEmbed.add_field(name='Starting Equipment', value=charDictInvString, inline=False)
-
-
-        def charCreateCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
-
-
-        if not charEmbedmsg:
-            charEmbedmsg = await channel.send(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-        else:
-            await charEmbedmsg.edit(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-
-        await charEmbedmsg.add_reaction('✅')
-        await charEmbedmsg.add_reaction('❌')
-        try:
-            tReaction, tUser = await self.bot.wait_for("reaction_add", check=charCreateCheck , timeout=60)
-        except asyncio.TimeoutError:
-            await charEmbedmsg.delete()
-            await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-            self.bot.get_command('create').reset_cooldown(ctx)
+        error_msg = =f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```"
+        if not await self.creation_confirm_kernel(ctx, error_msg, charDict, tierNum, charEmbed, charEmbedmsg):
             return
-        else:
-            await charEmbedmsg.clear_reactions()
-            if tReaction.emoji == '❌':
-                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                await charEmbedmsg.clear_reactions()
-                self.bot.get_command('create').reset_cooldown(ctx)
-                return
-
+            
         statsCollection = db.stats
         statsRecord  = statsCollection.find_one({'Life': 1})
 
@@ -1365,7 +786,7 @@ class Character(commands.Cog):
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
     @commands.command(aliases=['rs'])
-    async def respec(self,ctx, name, newname, race, cclass, bg, sStr:int, sDex:int, sCon:int, sInt:int, sWis:int, sCha:int):
+    async def respec(self,ctx, name, newname, race, character_class, background, statsStr:int, statsDex:int, statsCon:int, statsInt:int, statsWis:int, statsCha:int):
         newname = newname.strip()
         characterCog = self.bot.get_cog('Character')
         author = ctx.author
@@ -1382,60 +803,34 @@ class Character(commands.Cog):
         if not charDict:
             return
 
-        # Reset  values here
-        charNoneKeyList = ['Magic Items', 'Inventory', 'Current Item', 'Consumables']
-
-        charRemoveKeyList = ['Predecessor','Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'Attuned', 'Spellbook', 'Guild', 'Guild Rank', 'Grouped']
+        charRemoveKeyList = ['Predecessor','Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'T5 TP', 'Attuned', 'Spellbook', 'Guild', 'Guild Rank', 'Grouped']
         
         guild_name = ""
         
         if "Guild" in charDict:
             guild_name = charDict["Guild"]
         
-        m_save = charDict['Magic Items'].split(", ")
-        # i_save = list(charDict['Inventory'].keys())
-        check_list = m_save #+i_save
-        
-        searched_items = list(db.rit.find({"Name" : {"$in": check_list}}))
-        searched_items_names = []
-        
-        for element in searched_items:
-            if "Grouped" in element:
-                searched_items_names += element["Name"]
-            else:
-                searched_items_names.append(element["Name"])
-        
-        m_saved_list = []
-        for m_item in m_save:
-            if m_item in searched_items_names:
-                m_saved_list.append(m_item)
-                
-        # i_saved_list = []
-        # for i_item in i_save:
-            # if i_item in searched_items_names:
-                # i_saved_list.append([i_item, charDict["Inventory"][i_item]])
-        
-        for c in charNoneKeyList:
-            charDict[c] = "None"
 
         for c in charRemoveKeyList:
             if c in charDict:
                 del charDict[c]
         name = charDict["Name"]
-        charDict["Magic Items"] = ", ".join(m_saved_list) + ("None" * (len(m_saved_list) == 0))
-        charDict["Inventory"] = {}
+        charDict["Magic Items"] = {item : data for item, data in charDict["Magic Items"].items() if "Awarded" in data}
+        charDict["Inventory"] = {item : data for item, data in charDict["Magic Items"].items() 
+                                        if "Awarded" in data and data["Awarded"]>0}
+        for data in charDict["Inventory"].values():
+            data["Amount"] = data["Awarded"]
         
-        # for i_item in i_saved_list:
-            # charDict["Inventory"][i_item[0]] = i_item[1]
-        charDict["Predecessor"]= {}
+        charDict["Consumables"] = list(filter(lambda consum: "Awarded" in consum, charDict["Consumables"]))
+            
         
         charID = charDict['_id']
-        charDict['STR'] = int(sStr)
-        charDict['DEX'] = int(sDex)
-        charDict['CON'] = int(sCon)
-        charDict['INT'] = int(sInt)
-        charDict['WIS'] = int(sWis)
-        charDict['CHA'] = int(sCha)
+        charDict['STR'] = int(statsStr)
+        charDict['DEX'] = int(statsDex)
+        charDict['CON'] = int(statsCon)
+        charDict['INT'] = int(statsInt)
+        charDict['WIS'] = int(statsWis)
+        charDict['CHA'] = int(statsCha)
         charDict['GP'] = 0
 
         charDict['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
@@ -1454,22 +849,13 @@ class Character(commands.Cog):
             self.bot.get_command('respec').reset_cooldown(ctx) 
             return
         
-        # new name should be less then 64 chars
-        if len(newname) > 64:
-            msg += ":warning: Your character's new name is too long! The limit is 64 characters.\n"
-        # Reserved for regex, lets not use these for character names please
-        invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
-        for i in invalidChars:
-            if i in newname:
-                msg += f":warning: Your character's name cannot contain `{i}`. Please revise your character name.\n"
-
-
         # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
         if not newname:
             await channel.send(content=":warning: The new name of your character cannot be blank! Please try again.\n")
             self.bot.get_command('respec').reset_cooldown(ctx)
             return
         
+        msg = self.name_check(newname)
         
         query = newname
         query = query.replace('(', '\\(')
@@ -1489,21 +875,18 @@ class Character(commands.Cog):
             self.bot.get_command('respec').reset_cooldown(ctx)
             return
 
-        if not cclass:
+        if not character_class:
             await channel.send(content=":warning: The class of your character cannot be blank! Please try again.\n")
             self.bot.get_command('respec').reset_cooldown(ctx)
             return
         
-        if not bg:
+        if not background:
             await channel.send(content=":warning: The background of your character cannot be blank! Please try again.\n")
             self.bot.get_command('respec').reset_cooldown(ctx)
             return
 
 
-        allMagicItemsString = []
-
-        # Because we are respeccing we are also adding extra TP based on CP.
-        # no needed to to bankTP2 now because limit is lvl 4 to respec
+        
         extraCp = charDict['CP']
         charLevel = charDict['Level']
         if "Respecc" in charDict:
@@ -1538,23 +921,11 @@ class Character(commands.Cog):
         cp_tp_gp_array = calculateTreasure(1, 0, 1, (levelCP+extraCp)*3600)
         totalGP = cp_tp_gp_array[2]
         bankTP = cp_tp_gp_array[1]
+        
         # Stats - Point Buy
         if msg == "":
-            statsArray = [int(sStr), int(sDex), int(sCon), int(sInt), int(sWis), int(sCha)]
-            
-            totalPoints = 0
-            for s in statsArray:
-                if (13-s) < 0:
-                    totalPoints += ((s - 13) * 2) + 5
-                else:
-                    totalPoints += (s - 8)
-                    
-            if any([s < 8 for s in statsArray]):
-                msg += f":warning: You have at least one stat below the minimum of 8.\n"
-            if totalPoints != 27:
-                msg += f":warning: Your stats do not add up to 27 using point buy ({totalPoints}/27). Remember that you must list your stats before applying racial modifiers! Please check your point allocation using this calculator: <https://chicken-dinner.com/5e/5e-point-buy.html>\n"
-            
-        
+            msg = self.point_buy_check
+
         
         # ██████╗░░█████╗░░█████╗░███████╗░░░  ░█████╗░██╗░░░░░░█████╗░░██████╗░██████╗
         # ██╔══██╗██╔══██╗██╔══██╗██╔════╝░░░  ██╔══██╗██║░░░░░██╔══██╗██╔════╝██╔════╝
@@ -1568,357 +939,17 @@ class Character(commands.Cog):
             msg += f':warning: **{race}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
         else:
             charDict['Race'] = rRecord['Name']
-        
+         
         # Check Character's class
-        classStat = []
-        cRecord = []
-        totalLevel = 0
-        mLevel = 0
-        broke = []
-        # If there's a /, character is creating a multiclass character
-        if '/' in cclass:
-            multiclassList = cclass.replace(' ', '').split('/')
-            # Iterates through the multiclass list 
-            
-            for m in multiclassList:
-                # Separate level and class
-                mLevel = re.search('\d+', m)
-                if not mLevel:
-                    msg += ":warning: You are missing the level for your multiclass class. Please check your format.\n"
-
-                    break
-                mLevel = mLevel.group()
-                mClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'classes',m[:len(m) - len(mLevel)])
-                if not mClass:
-                    cRecord = None
-                    broke.append(m[:len(m) - len(mLevel)])
-
-                # Check for class duplicates (ex. Paladin 1 / Paladin 2 = Paladin 3)
-                classDupe = False
-                
-                if(cRecord or cRecord==list()):
-                    for c in cRecord:
-                        if c['Class'] == mClass:
-                            c['Level'] = str(int(c['Level']) + int(mLevel))
-                            classDupe = True                    
-                            break
-
-                    if not classDupe:
-                        cRecord.append({'Class': mClass, 'Level':mLevel})
-                    totalLevel += int(mLevel)
-
-        else:
-            singleClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'classes',cclass)
-            if singleClass:
-                cRecord.append({'Class':singleClass, 'Level':lvl, 'Subclass': 'None'})
-            else:
-                cRecord = None
-                broke.append(cclass)
-
-        charDict['Class'] = ""
-        if not mLevel and '/' in cclass:
-            pass
-        elif len(broke)>0:
-            msg += f':warning: **{broke}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
+        msg, subclasses, classStat, charEmbed, charEmbedmsg = class_select_kernel(ctx, msg, lvl, charDict, classRecord, charEmbed, charEmbedmsg)
         
-        elif len(broke)>0:
-            msg += f':warning: **{broke}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
-        elif totalLevel != lvl and len(cRecord) > 1:
-            msg += ':warning: Your classes do not add up to the total level. Please double-check your multiclasses.\n'
-        elif msg == "":
-
-            # starting equipment
-            def alphaEmbedCheck(r, u):
-                sameMessage = False
-                if charEmbedmsg.id == r.message.id:
-                    sameMessage = True
-                return sameMessage and ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author
-
-            if 'Starting Equipment' in cRecord[0]['Class'] and msg == "":
-                if charDict['Inventory'] == "None":
-                    charDict['Inventory'] = {}
-                startEquipmentLength = 0
-                if not charEmbedmsg:
-                    charEmbedmsg = await channel.send(embed=charEmbed)
-                elif charEmbedmsg == "Fail":
-                    msg += ":warning: You have either cancelled the command or a value was not found."
-                else:
-                    await charEmbedmsg.edit(embed=charEmbed)
-
-                for item in cRecord[0]['Class']['Starting Equipment']:
-                    seTotalString = ""
-                    alphaIndex = 0
-                    for seList in item:
-                        seString = []
-                        for elk, elv in seList.items():
-                            if 'Pack' in elk:
-                                seString.append(f"{elk} x1")
-                            else:
-                                seString.append(f"{elk} x{elv}")
-                                
-                        seTotalString += f"{alphaEmojis[alphaIndex]}: {', '.join(seString)}\n"
-                        alphaIndex += 1
-
-                    await charEmbedmsg.clear_reactions()
-                    charEmbed.add_field(name=f"Starting Equipment: {startEquipmentLength+ 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seTotalString, inline=False)
-                    await charEmbedmsg.edit(embed=charEmbed)
-                    if len(item) > 1:
-                        for num in range(0,alphaIndex): await charEmbedmsg.add_reaction(alphaEmojis[num])
-                        await charEmbedmsg.add_reaction('❌')
-                        try:
-                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                        except asyncio.TimeoutError:
-                            await charEmbedmsg.delete()
-                            await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}respec "character name" level "race" "class" "background" STR DEX CON INT WIS CHA```')
-                            self.bot.get_command('respec').reset_cooldown(ctx)
-                            return 
-                        else:
-                            if tReaction.emoji == '❌':
-                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                                await charEmbedmsg.clear_reactions()
-                                self.bot.get_command('respec').reset_cooldown(ctx)
-                                return 
-                                
-                        startEquipmentItem = item[alphaEmojis.index(tReaction.emoji)]
-                    else:
-                        startEquipmentItem = item[0]
-
-                    await charEmbedmsg.clear_reactions()
-
-                    seiString = ""
-                    for seik, seiv in startEquipmentItem.items():
-                        seiString += f"{seik} x{seiv}\n"
-                        if "Pack" in seik:
-                            seiString = f"{seik}:\n"
-                            for pk, pv in seiv.items():
-                                charDict['Inventory'][pk] = pv
-                                seiString += f"+ {pk} x{pv}\n"
-
-                    charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength + 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seiString, inline=False)
-
-                    for k,v in startEquipmentItem.items():
-                        if '[' in k and ']' in k:
-                            iType = k.split('[')
-                            invCollection = db.shop
-                            if 'Instrument' in iType[1]:
-                                charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[1].replace(']','')}.*")]}}))
-                            else:
-                                charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[0]}.*"),re.compile(f".*{iType[1].replace(']','')}.*")]}}))
-
-                            charInv = sorted(charInv, key = lambda i: i['Name']) 
-
-                            typeEquipmentList = []
-                            for i in range (0,int(v)):
-                                charInvString = f"Please choose from the choices below for {iType[0]} {i+1}:\n"
-                                alphaIndex = 0
-                                
-                                charInv = list(filter(lambda c: 'Yklwa' not in c['Name'] and 'Light Repeating Crossbow' not in c['Name'] and 'Double-Bladed Scimitar' not in c['Name'] and 'Oversized Longbow' not in c['Name'], charInv))
-                                for c in charInv:
-                                    charInvString += f"{alphaEmojis[alphaIndex]}: {c['Name']}\n"
-                                    alphaIndex += 1
-
-                                charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=charInvString, inline=False)
-                                await charEmbedmsg.clear_reactions()
-                                await charEmbedmsg.add_reaction('❌')
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                                try:
-                                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                                except asyncio.TimeoutError:
-                                    await charEmbedmsg.delete()
-                                    await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}respec "character name" level "race" "class" "background" STR DEX CON INT WIS CHA```')
-                                    self.bot.get_command('respec').reset_cooldown(ctx)
-                                    return 
-                                else:
-                                    if tReaction.emoji == '❌':
-                                        await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                                        await charEmbedmsg.clear_reactions()
-                                        self.bot.get_command('respec').reset_cooldown(ctx)
-                                        return 
-                                typeEquipmentList.append(charInv[alphaEmojis.index(tReaction.emoji)]['Name'])
-                            typeCount = collections.Counter(typeEquipmentList)
-                            typeString = ""
-                            for tk, tv in typeCount.items():
-                                typeString += f"{tk} x{tv}\n"
-                                if tk in charDict['Inventory']:
-                                    charDict['Inventory'][tk] += tv
-                                else:
-                                    charDict['Inventory'][tk] = tv
-
-                            charEmbed.set_field_at(startEquipmentLength, name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seiString.replace(f"{k} x{v}\n", typeString), inline=False)
-
-                        elif 'Pack' not in k:
-                            if k in charDict['Inventory']:
-                                charDict['Inventory'][k] += v
-                            else:
-                                charDict['Inventory'][k] = v
-                    startEquipmentLength += 1
-                await charEmbedmsg.clear_reactions()
-                charEmbed.clear_fields()
-
-            # Subclass
-            for m in cRecord:
-                m['Subclass'] = 'None'
-                if int(m['Level']) < lvl:
-                    className = f'{m["Class"]["Name"]} {m["Level"]}'
-                else:
-                    className = f'{m["Class"]["Name"]}'
-
-                classStatName = f'{m["Class"]["Name"]}'
-
-                if int(m['Class']['Subclass Level']) <= int(m['Level']) and msg == "":
-                    subclassesList = m['Class']['Subclasses'].split(',')
-                    subclass, charEmbedmsg = await characterCog.chooseSubclass(ctx, subclassesList, m['Class']['Name'], charEmbed, charEmbedmsg)
-                    if not subclass:
-                        return
-
-                    m['Subclass'] = f'{className} ({subclass})' 
-                    classStat.append(f'{classStatName}-{subclass}')
-
-
-                    if charDict['Class'] == "": 
-                        charDict['Class'] = f'{className} ({subclass})'
-                    else:
-                        charDict['Class'] += f' / {className} ({subclass})'
-                else:
-                    classStat.append(classStatName)
-                    if charDict['Class'] == "": 
-                        charDict['Class'] = className
-                    else:
-                        charDict['Class'] += f' / {className}'
-
-        # check bg and gp
-
-        def bgTopItemCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return ((r.emoji in alphaEmojis[:alphaIndexTop]) or (str(r.emoji) == '❌')) and u == author and sameMessage
-
-        def bgItemCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author and sameMessage
-
-
         if msg == "":
-            bRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'backgrounds',bg)
-
             if charEmbedmsg == "Fail":
-                self.bot.get_command('respec').reset_cooldown(ctx)
+                    return
+            if not class_item_select_kernel(ctx, msg, charDict, character_class, classRecord, charEmbed, charEmbedmsg):
                 return
-            if not bRecord:
-                msg += f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
-            else:
-                charDict['Background'] = bRecord['Name']
-
-                # TODO: make function for inputing in inventory
-                # Background items: goes through each background and give extra items for inventory.
-                
-                for e in bRecord['Equipment']:
-                    beTopChoiceList = []
-                    beTopChoiceKeys = []
-                    alphaIndexTop = 0
-                    beTopChoiceString = ""
-                    for ek, ev in e.items():
-                        if type(ev) == dict:
-                            beTopChoiceKeys.append(ek)
-                            beTopChoiceList.append(ev)
-                            beTopChoiceString += f"{alphaEmojis[alphaIndexTop]}: {ek}\n"
-                            alphaIndexTop += 1
-                        else:
-                            if charDict['Inventory'] == "None":
-                                charDict['Inventory'] = {ek : int(ev)}
-                            else:
-                                if ek not in charDict['Inventory']:
-                                    charDict['Inventory'][ek] = int(ev)
-                                else:
-                                    charDict['Inventory'][ek] += int(ev)
-
-                    if len(beTopChoiceList) > 0:
-                        # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
-                        if len(beTopChoiceList) > 1:
-                            charEmbed.add_field(name=f"Your {bRecord['Name']} background lets you choose one type.", value=beTopChoiceString, inline=False)
-                            if not charEmbedmsg:
-                                charEmbedmsg = await channel.send(embed=charEmbed)
-                            else:
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                            await charEmbedmsg.add_reaction('❌')
-                            try:
-                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=bgTopItemCheck , timeout=60)
-                            except asyncio.TimeoutError:
-                                await charEmbedmsg.delete()
-                                await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec "character name" level "race" "class" "background" STR DEX CON INT WIS CHA```')
-                                self.bot.get_command('respec').reset_cooldown(ctx)
-                                return
-                            else:
-                                await charEmbedmsg.clear_reactions()
-                                if tReaction.emoji == '❌':
-                                    await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                                    await charEmbedmsg.clear_reactions()
-                                    self.bot.get_command('respec').reset_cooldown(ctx)
-                                    return
-
-                            beTopValues = beTopChoiceList[alphaEmojis.index(tReaction.emoji)]
-                            beTopKey = beTopChoiceKeys[alphaEmojis.index(tReaction.emoji)]
-                        elif len(beTopChoiceList) == 1:
-                            beTopValues = beTopChoiceList[0]
-                            beTopKey = beTopChoiceKeys[0]
-
-                        beChoiceString = ""
-                        alphaIndex = 0
-                        beList = []
-
-                        if 'Pack' in beTopKey:
-                          for c in beTopValues:
-                              if charDict['Inventory'] == "None":
-                                  charDict['Inventory'] = {c : 1}
-                              else:
-                                  if c not in charDict['Inventory']:
-                                      charDict['Inventory'][c] = 1
-                                  else:
-                                      charDict['Inventory'][c] += 1
-                        else:
-                            for c in beTopValues:
-                                beChoiceString += f"{alphaEmojis[alphaIndex]}: {c}\n"
-                                beList.append(c)
-                                alphaIndex += 1
-
-                            charEmbed.add_field(name=f"Your {bRecord['Name']} background lets you choose one {beTopKey}.", value=beChoiceString, inline=False)
-                            if not charEmbedmsg:
-                                charEmbedmsg = await channel.send(embed=charEmbed)
-                            else:
-                                await charEmbedmsg.edit(embed=charEmbed)
-
-                            await charEmbedmsg.add_reaction('❌')
-                            try:
-                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=bgItemCheck , timeout=60)
-                            except asyncio.TimeoutError:
-                                await charEmbedmsg.delete()
-                                await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec "character name" level "race" "class" "background" STR DEX CON INT WIS CHA"```')
-                                self.bot.get_command('respec').reset_cooldown(ctx)
-                                return
-                            else:
-                                await charEmbedmsg.clear_reactions()
-                                if tReaction.emoji == '❌':
-                                    await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                                    await charEmbedmsg.clear_reactions()
-                                    self.bot.get_command('respec').reset_cooldown(ctx)
-                                    return
-                                beKey = beList[alphaEmojis.index(tReaction.emoji)]
-                                if charDict['Inventory'] == "None":
-                                    charDict['Inventory'] = {beKey : 1}
-                                else:
-                                    if beKey not in charDict['Inventory']:
-                                        charDict['Inventory'][beKey] = 1
-                                    else:
-                                        charDict['Inventory'][beKey] += 1
-
-                        charEmbed.clear_fields()
-                
-                charDict['GP'] = int(bRecord['GP']) + totalGP
+            if not background_item_select_kernel(ctx, msg, charDict, background, charEmbed, charEmbedmsg):
+                return
         
         # ░██████╗████████╗░█████╗░████████╗░██████╗░░░  ███████╗███████╗░█████╗░████████╗░██████╗
         # ██╔════╝╚══██╔══╝██╔══██╗╚══██╔══╝██╔════╝░░░  ██╔════╝██╔════╝██╔══██╗╚══██╔══╝██╔════╝
@@ -1940,138 +971,7 @@ class Character(commands.Cog):
             charDict["WIS"] = statsArray[4]
             charDict["CHA"] = statsArray[5]
 
-        #Stats - Feats
-        if msg == "":
-            featLevels = []
-            featChoices = []
-            featsChosen = []
-            if "Feat" in rRecord:
-                featLevels.append('Extra Feat')
-            for c in cRecord:
-                if int(c['Level']) > 3:
-                    featLevels.append(4)
-                if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 5:
-                    featLevels.append(6)
-                if int(c['Level']) > 7:
-                    featLevels.append(8)
-                if 'Rogue' in c['Class']['Name'] and int(c['Level']) > 9:
-                    featLevels.append(10)
-                if int(c['Level']) > 11:
-                    featLevels.append(12)
-                if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 13:
-                    featLevels.append(14)
-                if int(c['Level']) > 15:
-                    featLevels.append(16)
-                if int(c['Level']) > 18:
-                    featLevels.append(19)
-
-            featsChosen, statsFeats, charEmbedmsg = await characterCog.chooseFeat(ctx, rRecord['Name'], charDict['Class'], cRecord, featLevels, charEmbed, charEmbedmsg, charDict, "")
-
-            if not featsChosen and not statsFeats and not charEmbedmsg:
-                return
-
-            if featsChosen:
-                charDict['Feats'] = featsChosen 
-            else: 
-                charDict['Feats'] = "None" 
-            
-            for key, value in statsFeats.items():
-                charDict[key] = value
-
-
-            #HP
-            hpRecords = []
-            for cc in cRecord:
-                # Wizards get 2 free spells per wizard level
-                if cc['Class']['Name'] == "Wizard":
-                    charDict['Free Spells'] = [6,0,0,0,0,0,0,0,0]
-                    fsIndex = 0
-                    for i in range (2, int(cc['Level']) + 1 ):
-                        if i % 2 != 0:
-                            fsIndex += 1
-                        charDict['Free Spells'][min(fsIndex, 8)] += 2
-                hpRecords.append({'Level':cc['Level'], 'Subclass': cc['Subclass'], 'Name': cc['Class']['Name'], 'Hit Die Max': cc['Class']['Hit Die Max'], 'Hit Die Average':cc['Class']['Hit Die Average']})
-                
-            
-            # Multiclass Requirements
-            if '/' in cclass and len(cRecord) > 1:
-                for m in cRecord:
-                    reqFufillList = []
-                    statReq = m['Class']['Multiclass'].split(' ')
-                    if m['Class']['Multiclass'] != 'None':
-                        if '/' not in m['Class']['Multiclass'] and '+' not in m['Class']['Multiclass']:
-                            if int(charDict[statReq[0]]) < int(statReq[1]):
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{statReq[0]} {charDict[statReq[0]]}**\n"
-
-                        elif '/' in m['Class']['Multiclass']:
-                            statReq[0] = statReq[0].split('/')
-                            reqFufill = False
-                            for s in statReq[0]:
-                                if int(charDict[s]) >= int(statReq[1]):
-                                  reqFufill = True
-                                else:
-                                  reqFufillList.append(f"{s} {charDict[s]}")
-                            if not reqFufill:
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**\n"
-
-                        elif '+' in m['Class']['Multiclass']:
-                            statReq[0] = statReq[0].split('+')
-                            reqFufill = True
-                            for s in statReq[0]:
-                                if int(charDict[s]) < int(statReq[1]):
-                                  reqFufill = False
-                                  reqFufillList.append(f"{s} {charDict[s]}")
-                            if not reqFufill:
-                                msg += f":warning: In order to multiclass to or from **{m['Class']['Name']}** you need at least **{m['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**\n"
-
-
-        if msg:
-            if charEmbedmsg and charEmbedmsg != "Fail":
-                await charEmbedmsg.delete()
-            elif charEmbedmsg == "Fail":
-                msg = ":warning: You have either cancelled the command or a value was not found."
-            await ctx.channel.send(f'There were error(s) when creating your character:\n{msg}')
-
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return 
         
-        if 'Max Stats' not in charDict:
-            charDict['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
-        
-        charClass = charDict["Class"]
-        subclasses = []
-        if '/' in charClass:
-            tempClassList = charClass.split(' / ')
-            for t in tempClassList:
-                temp = t.split(' ')
-                tempSub = ""
-                if '(' and ')' in t:
-                    tempSub = t[t.find("(")+1:t.find(")")]
-
-                subclasses.append({'Name':temp[0], 'Subclass':tempSub, 'Level':int(temp[1])})
-        else:
-            tempSub = ""
-            if '(' and ')' in charClass:
-                tempSub = charClass[charClass.find("(")+1:charClass.find(")")]
-            subclasses.append({'Name':charClass, 'Subclass':tempSub, 'Level':charLevel})
-        #Special stat bonuses (Barbarian cap / giant soul sorc)
-        specialCollection = db.special
-        specialRecords = list(specialCollection.find())
-        specialStatStr = ""
-        for s in specialRecords:
-            if 'Bonus Level' in s:
-                for c in subclasses:
-                    if s['Bonus Level'] <= c['Level'] and s['Name'] in f"{c['Name']} ({c['Subclass']})":
-                        if 'MAX' in s['Stat Bonuses']:
-                            statSplit = s['Stat Bonuses'].split('MAX ')[1].split(', ')
-                            for stat in statSplit:
-                                maxSplit = stat.split(' +')
-                                charDict[maxSplit[0]] += int(maxSplit[1])
-                                charDict['Max Stats'][maxSplit[0]] += int(maxSplit[1]) 
-
-                            specialStatStr = f"Level {s['Bonus Level']} {c['Name']} stat bonus unlocked! {s['Stat Bonuses']}"
-
-
         maxStatStr = ""
         for sk in charDict['Max Stats'].keys():
             if charDict[sk] > charDict['Max Stats'][sk]:
@@ -2079,72 +979,9 @@ class Character(commands.Cog):
         if hpRecords:
             charDict['HP'] = await characterCog.calcHP(ctx,hpRecords,charDict,lvl)
 
-        
-        charEmbed.clear_fields()    
-        charEmbed.title = f"{charDict['Name']} (Lv {charDict['Level']}): {charDict['CP']}/{cp_bound_array[tierNum-1][1]} CP"
-        charEmbed.description = f"**Race**: {charDict['Race']}\n**Class**: {charDict['Class']}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} "
-
-        
-        for key, amount in bankTP.items():
-            if  amount > 0:
-                charDict[key] = amount
-                charEmbed.add_field(name=f':warning: Unused {key}:', value=amount, inline=True)
-        if charDict['Magic Items'] != 'None':
-            charEmbed.add_field(name='Magic Items', value=charDict['Magic Items'], inline=False)
-        if charDict['Consumables'] != 'None':
-            charEmbed.add_field(name='Consumables', value=charDict['Consumables'], inline=False)
-        charEmbed.add_field(name='Feats', value=charDict['Feats'], inline=True)
-        charEmbed.add_field(name='Stats', value=f"**STR**: {charDict['STR']} **DEX**: {charDict['DEX']} **CON**: {charDict['CON']} **INT**: {charDict['INT']} **WIS**: {charDict['WIS']} **CHA**: {charDict['CHA']}", inline=False)
-        
-        if 'Wizard' in charDict['Class']:
-            charEmbed.add_field(name='Spellbook (Wizard)', value=f"At 1st level, you have a spellbook containing six 1st-level Wizard spells of your choice (+2 free spells for each Wizard level). Please use the `{commandPrefix}shop copy` command.", inline=False)
-
-# Put the text below after the last sentence in the previous line if this breaks anything.
-# **{charDict['Free Spells']} Free Spells Available**
-
-            fsString = ""
-            fsIndex = 0
-            for el in charDict['Free Spells']:
-                if el > 0:
-                    fsString += f"Level {fsIndex+1}: {el} free spells\n"
-                fsIndex += 1
-
-            if fsString:
-                charEmbed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
-
-        charDictInvString = ""
-        if charDict['Inventory'] != "None":
-            for k,v in charDict['Inventory'].items():
-                charDictInvString += f"• {k} x{v}\n"
-            charEmbed.add_field(name='Starting Equipment', value=charDictInvString, inline=False)
-            charEmbed.set_footer(text= charEmbed.Empty)
-        
-        def charCreateCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
-        if not charEmbedmsg:
-            charEmbedmsg = await channel.send(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-        else:
-            await charEmbedmsg.edit(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-
-        await charEmbedmsg.add_reaction('✅')
-        await charEmbedmsg.add_reaction('❌')
-        try:
-            tReaction, tUser = await self.bot.wait_for("reaction_add", check=charCreateCheck , timeout=60)
-        except asyncio.TimeoutError:
-            await charEmbedmsg.delete()
-            await channel.send(f'Character respec cancelled. Use the following command to try again:\n```yaml\n{commandPrefix}respec "character name" "new character name" level "race" "class" "background" STR DEX CON INT WIS CHA```')
-            self.bot.get_command('respec').reset_cooldown(ctx)
+        error_msg =  f"Character respec cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" \"new character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```"
+        if not await self.creation_confirm_kernel(ctx, error_msg, charDict, tierNum, charEmbed, charEmbedmsg):
             return
-        else:
-            await charEmbedmsg.clear_reactions()
-            if tReaction.emoji == '❌':
-                await charEmbedmsg.edit(embed=None, content=f"Character respec cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" \"new character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                await charEmbedmsg.clear_reactions()
-                self.bot.get_command('respec').reset_cooldown(ctx)
-                return
 
 
         try:
@@ -2256,18 +1093,15 @@ class Character(commands.Cog):
                 else:
                     shopEmbedmsg = await channel.send(embed=shopEmbed)
                 if bRecord["Type"] != "Inventory":
-                    if charRecords[bRecord["Type"]] != "None":
+                    if charRecords[bRecord["Type"]]:
                         charRecords[bRecord["Type"]] += ', ' + selected_item
                     else:
                         charRecords[bRecord["Type"]] = selected_item
                 else:
-                    if charRecords['Inventory'] == "None":
-                        charRecords['Inventory'] = {f"{selected_item}" : 1}
+                    if bRecord['Name'] not in charRecords['Inventory']:
+                        charRecords['Inventory'][f"{selected_item}"] = 1 
                     else:
-                        if bRecord['Name'] not in charRecords['Inventory']:
-                            charRecords['Inventory'][f"{selected_item}"] = 1 
-                        else:
-                            charRecords['Inventory'][f"{selected_item}"] += 1 
+                        charRecords['Inventory'][f"{selected_item}"] += 1 
                 try:
                     playersCollection = db.players
                     playersCollection.update_one({'_id': charRecords['_id']}, {"$set": {bRecord["Type"]:charRecords[bRecord["Type"]]}, "$inc": {"Event Token": -1}})
@@ -2347,13 +1181,7 @@ class Character(commands.Cog):
                             if (len(guildAmount) <= 1):
                                 await author.remove_roles(get(guild.roles, name = charDict['Guild']), reason=f"Left guild {charDict['Guild']}")
 
-                        # usersRecord = list(usersCollection.find({"User ID": charDict['User ID']}))[0]
-                        # if 'Games' not in usersRecord:
-                            # usersRecord['Games'] = charDict['Games']
-                        # else:
-                            # usersRecord['Games'] += charDict['Games']
-                        # usersCollection.update_one({'User ID': charDict['User ID']}, {"$set": {'Games': usersRecord['Games']}}, upsert=True)
-                        playersCollection.delete_one({'_id': charID})
+                         playersCollection.delete_one({'_id': charID})
                         
                         deadCollection.insert_one(charDict)
                     except Exception as e:
@@ -2567,8 +1395,14 @@ class Character(commands.Cog):
 
     
             # Show Consumables in inventory.
+            consumable_strings = []
+            for consumable in charDict['Consumables']:
+                consumable_data_string = consumable["Name"]
+                if "Charges" in consumable:
+                    consumable_data_string += f" (Charges: {consumable['Charges']}"
+            
             consumesString = ""
-            consumesCount = collections.Counter(charDict['Consumables'].split(', '))
+            consumesCount = collections.Counter()
             for k, v in consumesCount.items():
                 if v == 1:
                     consumesString += f"• {k}\n"
@@ -2581,7 +1415,7 @@ class Character(commands.Cog):
             # Show Magic items in inventory.
 
             miString = ""
-            miArray = collections.Counter(charDict['Magic Items'].split(', '))
+            miArray = collections.Counter(charDict['Magic Items'].keys())
 
             for m,v in miArray.items():
                 if "Predecessor" in charDict and m in charDict["Predecessor"]:
@@ -2596,7 +1430,7 @@ class Character(commands.Cog):
 
             charDictAuthor = guild.get_member(int(charDict['User ID']))
             
-            if charDict['Inventory'] != 'None':
+            if charDict['Inventory']:
                 typeDict = {}
                 invCollection = db.shop
                 namingDict = {}
@@ -2824,7 +1658,13 @@ class Character(commands.Cog):
             
             
             notValidConsumables = ""
-            consumesCount = collections.Counter(charDict['Consumables'].split(', '))
+            consumesCount = {}
+            for item in charDict['Consumables']]:
+                consumable_text = item["Name"]
+                if "Charges" in item:
+                    consumable_text += f'[{item["Charges"]} Charges]'
+                if consumable_text in consumesCount:
+                    consumesCount[consumable_text] += 1
             if cons:
                 consumablesList = list(map(lambda x: x.strip(), cons.split(',')))
                 brought_consumables = {}
@@ -2840,10 +1680,10 @@ class Character(commands.Cog):
         
                 # consumablesList is the consumable list the player intends to bring
                 # consumesCount are the consumables that the character has available.
-                for i in consumablesList:
+                for item in consumablesList:
                     itemFound = False
                     for jk, jv in consumesCount.items():
-                        if i.strip() != "" and i.lower().replace(" ", "").strip() in jk.lower().replace(" ", ""):
+                        if item.strip() != "" and item.lower().replace(" ", "").strip() in jk.lower().replace(" ", ""):
                             if jv > 0 :
                                 consumesCount[jk] -= 1
                                 if jk in brought_consumables:
@@ -2855,7 +1695,7 @@ class Character(commands.Cog):
                                 break
 
                     if not itemFound:
-                        notValidConsumables += f"{i.strip()}, "
+                        notValidConsumables += f"{item.strip()}, "
                         
 
                 # if there were any invalid consumables, inform the user on which ones cause the issue
@@ -2893,17 +1733,9 @@ class Character(commands.Cog):
             # Show Magic items in inventory.
             mPages = 1
             mPageStops = [0]
-
-
-            
-            attune_list = []
-            if 'Attuned' in charDict:
-                for attune_item in charDict['Attuned'].split(", "):
-                    attune_list.append(attune_item.split(" [", 1)[0])
-            
             
             miString = ""
-            miArray = collections.Counter(charDict['Magic Items'].split(', '))
+            miArray = collections.Counter(charDict['Magic Items'].keys())
             notValidMagicItems = ""
             
             if mits:
@@ -2917,15 +1749,10 @@ class Character(commands.Cog):
                     itemFound = False
                     for jk, jv in miArray.items():
                         if i.strip() != "" and i.lower().replace(" ", "").strip() in jk.lower().replace(" ", ""):
-                            if jv > 0 :
-                                miArray[jk] -= 1
-                                if jk in brought_mits:
-                                    brought_mits[jk] += 1
-                                else:
-                                    brought_mits[jk] = 1
-                                
-                                itemFound = True
-                                break
+                            brought_mits[jk] = jv
+                            
+                            itemFound = True
+                            break
 
                     if not itemFound:
                         notValidMagicItems += f"{i.strip()}, "
@@ -2938,26 +1765,26 @@ class Character(commands.Cog):
                     return
                 rit_db_entries = []
                 miArray = brought_mits
-            else:
-                rit_db_entries = [x["Name"] for x in list(db.rit.find({"Name": {"$in" : list(miArray.keys())}}))]
             
             for m,v in miArray.items():
-                # mi was a non-con
-                if m in rit_db_entries:
-                    continue
+                    
                 bolding = ""
-                if m in attune_list:
+                if "Attuned" in v and v["Attuned"]:
                     bolding = "**"
-                if "Predecessor" in charDict and m in charDict["Predecessor"]:
-                    upgrade_names = charDict['Predecessor'][m]["Names"]
-                    stage = charDict['Predecessor'][m]["Stage"]
+                    
+                # mi was a non-con and not attuned and not requested
+                if not mits and not bolding and "Count" in v:
+                    continue
+                    
+                if "Predecessor" in v:
+                    upgrade_names = v["Names"]
+                    stage = v["Stage"]
                     m = m + f" ({upgrade_names[stage]})"
                 
                 miString += f"• {bolding}{m}{bolding}"
-                if v == 1:
-                    miString+="\n"
-                else:
-                    miString += f" x{v}\n"
+                if "Count" in v and v["Count"]>1:
+                    miString += f" x{v['Count']}"
+                miString += "\n"
 
                 if len(miString) > (768 * mPages):
                     mPageStops.append(len(miString))
@@ -2979,31 +1806,6 @@ class Character(commands.Cog):
                 charEmbedmsg = await ctx.channel.send(embed=charEmbed)
             else:
                 await charEmbedmsg.edit(embed=charEmbed)
-
-    # @commands.cooldown(1, 5, type=commands.BucketType.member)
-    # @is_log_channel_or_game()
-    # @commands.command()
-    async def unapply(self, ctx):
-        bot = self.bot
-        author = ctx.author
-        channel = ctx.channel
-        infoMessage = await channel.send(f"You have 60 seconds to react to your application with the ❌ emoji (`:x:`)!")
-        def pinnedEmbedCheck(event):
-            return str(event.emoji) == '❌' and event.user_id == author.id
-        try:
-            event = await self.bot.wait_for("raw_reaction_add", check=pinnedEmbedCheck , timeout=60)
-        except asyncio.TimeoutError:
-            await infoMessage.edit(content=f'The `{ctx.invoked_with}` command has timed out! Try again.')
-            return
-        message = await channel.fetch_message(event.message_id)
-        fail = True
-        await ctx.message.delete()
-        if message.author.id == bot.user.id and len(message.embeds) > 0 and message.embeds[0].author.name == (author.name+"#"+author.discriminator):
-            await message.delete()
-            fail = False
-        await infoMessage.edit(content = f"You have {'un'*fail}successfully unapplied! This message will self-destruct in 10 seconds.")     
-        await asyncio.sleep(10) 
-        await infoMessage.delete()
         
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()
@@ -3112,32 +1914,25 @@ class Character(commands.Cog):
                 if charDict[sk] > charDict['Max Stats'][sk]:
                     charDict[sk] = charDict['Max Stats'][sk]
             
-            specialCollection = db.special
-            specialRecords = list(specialCollection.find())
-
+            
             totalHPAdd = 0
-            for s in specialRecords:
-                                            
-                                    
-                if 'Attuned' in charDict:
-                    if s['Type'] == "Attuned":
-                        if s['Name'] in charDict[s['Type']]:
-                            if 'HP' in s:
-                                totalHPAdd += s['HP']
 
             # Check for stat increases in attuned magic items.
             if 'Attuned' in charDict:
+                if 'HP' in s:
+                    totalHPAdd += s['HP']
+                    
                 charEmbed.add_field(name='Attuned', value='• ' + charDict['Attuned'].replace(', ', '\n• '), inline=False)
                 statBonusDict = { 'STR': 0 ,'DEX': 0,'CON': 0, 'INT': 0, 'WIS': 0,'CHA': 0}
                 for a in charDict['Attuned'].split(', '):
-                    if '[' in a and ']' in a:
-                        statBonus = a[a.find("[")+1:a.find("]")] 
-                        if '+' not in statBonus and '-' not in statBonus:
+                    
+                    
+                        if '+' not in statBonus:
                             statSplit = statBonus.split(' ')
                             modStat = str(charDict[statSplit[0]]).replace(')', '').split(' (')[0]
                             if '[' in modStat and ']' in modStat:
                                 oldStat = modStat[modStat.find("[")+1:modStat.find("]")] 
-                                if '+' not in modStat and '-' not in modStat:
+                                if '+' not in modStat:
                                     modStat = modStat.split(' [')[0]
                                     if int(oldStat) > int(statSplit[1]):
                                         charDict[statSplit[0]] = f"{modStat} ({oldStat})"
@@ -3331,7 +2126,7 @@ class Character(commands.Cog):
         channel = ctx.channel
         author = ctx.author
         guild = ctx.guild
-        msg = self.name_check(new_name, author)
+        msg = self.name_check(new_name)
         if msg:
             await channel.send(msg)
             return
@@ -3355,25 +2150,17 @@ class Character(commands.Cog):
             else:
                 await ctx.channel.send(content=f'I have updated the name for ***{char}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
             
-    def name_check(self, name, author):
+    def name_check(self, name):
         msg = ""
         # Name should be less then 65 chars
         if len(name) > 64:
             msg += ":warning: Your character's name is too long! The limit is 64 characters.\n"
 
-        # Reserved for regex, lets not use these for character names please
-        invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|", "(",")" ]
 
-        for i in invalidChars:
+        for i in self.invalidChars:
             if i in name:
                 msg += f":warning: Your character's name cannot contain `{i}`. Please revise your character name.\n"
-        # if msg == "":
-            # playersCollection = db.players
-            # userRecords = list(playersCollection.find({"User ID": str(author.id), "Name": name }))
 
-            # if userRecords != list():
-                # msg += f":warning: You already have a character by the name of ***{name}***! Please use a different name.\n"
-        
         return msg
     
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
@@ -4388,10 +3175,7 @@ class Character(commands.Cog):
         featsPickedList = []
         featsChosen = ""
         featsCollection = db.feats
-
-        if 'Max Stats' not in charStats:
-            charStats['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
-
+        
         spellcasting = False
         for f in featLevels:
             charEmbed.clear_fields()
@@ -4756,5 +3540,562 @@ class Character(commands.Cog):
         return featsChosen, charStats, charEmbedmsg        
     
 
+    async def class_select_kernel(self, ctx, msg, lvl, charDict, classRecord, charEmbed, charEmbedmsg):
+        channel= ctx. channel
+        
+        classStat = []
+        classRecord = []
+        totalLevel = 0
+        multiLevel = 0
+        broke = []
+        # If there's a /, character is creating a multiclass character
+        if '/' in character_class:
+            multiclassList = character_class.replace(' ', '').split('/')
+            # Iterates through the multiclass list 
+            
+            for multiclass_text in multiclassList:
+                # Separate level and class
+                multiLevel = re.search('\d+', multiclass_text)
+                if not multiLevel:
+                    msg += ":warning: You are missing the level for your multiclass class. Please check your format.\n"
+
+                    break
+                multiLevel = multiLevel.group()
+                multiClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'classes',multiclass_text[:len(multiclass_text) - len(multiLevel)])
+                if not multiClass:
+                    classRecord = None
+                    broke.append(multiclass_text[:len(multiclass_text) - len(multiLevel)])
+                
+                # Check for class duplicates (ex. Paladin 1 / Paladin 2 = Paladin 3)
+                classDupe = False
+                if(classRecord or classRecord==list()):
+                    for class_data in classRecord:
+                        if class_data['Class'] == multiClass:
+                            class_data['Level'] = str(int(class_data['Level']) + int(multiLevel))
+                            classDupe = True                    
+                            break
+
+                    if not classDupe:
+                        classRecord.append({'Class': multiClass, 'Level':multiLevel})
+                    totalLevel += int(multiLevel)
+
+        else:
+            singleClass, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'classes',character_class)
+            if singleClass:
+                classRecord.append({'Class':singleClass, 'Level':lvl, 'Subclass': 'None'})
+            else:
+                classRecord = None
+                broke.append(character_class)
+
+        charDict['Class'] = ""
+        if not multiLevel and '/' in character_class:
+            pass
+        elif len(broke)>0:
+            msg += f':warning: **{broke}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
+        elif totalLevel != lvl and len(classRecord) > 1:
+            msg += ':warning: Your classes do not add up to the total level. Please double-check your multiclasses.\n'
+        else:
+            # Subclass
+            for class_data in classRecord:
+                class_data['Subclass'] = 'None'
+                if int(m['Level']) < lvl:
+                    className = f'{class_data["Class"]["Name"]} {class_data["Level"]}'
+                else:
+                    className = f'{class_data["Class"]["Name"]}'
+
+                classStatName = f'{class_data["Class"]["Name"]}'
+
+                if int(class_data['Class']['Subclass Level']) <= int(class_data['Level']) and msg == "":
+                    subclassesList = class_data['Class']['Subclasses'].split(',')
+                    subclass, charEmbedmsg = await characterCog.chooseSubclass(ctx, subclassesList, m['Class']['Name'], charEmbed, charEmbedmsg)
+                    if not subclass:
+                        return msg, subclasses, classStat, charEmbed, charEmbedmsg
+
+                    class_data['Subclass'] = f'{className} ({subclass})' 
+                    classStat.append(f'{classStatName}-{subclass}')
+
+
+                    if charDict['Class'] == "": 
+                        charDict['Class'] = f'{className} ({subclass})'
+                    else:
+                        charDict['Class'] += f' / {className} ({subclass})'
+                else:
+                    classStat.append(classStatName)
+                    if charDict['Class'] == "": 
+                        charDict['Class'] = className
+                    else:
+                        charDict['Class'] += f' / {className}'
+                        
+        charClass = charDict["Class"]
+        subclasses = []
+        if '/' in charClass:
+            tempClassList = charClass.split(' / ')
+            for t in tempClassList:
+                temp = t.split(' ')
+                tempSub = ""
+                if '(' and ')' in t:
+                    tempSub = t[t.find("(")+1:t.find(")")]
+
+                subclasses.append({'Name':temp[0], 'Subclass':tempSub, 'Level':int(temp[1])})
+        else:
+            tempSub = ""
+            if '(' and ')' in charClass:
+                tempSub = charClass[charClass.find("(")+1:charClass.find(")")]
+            subclasses.append({'Name':charClass, 'Subclass':tempSub, 'Level':lvl})
+        #Special stat bonuses (Barbarian cap / giant soul sorc)
+        specialCollection = db.special
+        specialRecords = list(specialCollection.find())
+        for special in specialRecords:
+            if 'Bonus Level' in special:
+                for subclass in subclasses:
+                    if special['Bonus Level'] <= subclass['Level'] and special['Name'] in f"{subclass['Name']} ({subclass['Subclass']})":
+                        if 'MAX' in special['Stat Bonuses']:
+                            statSplit = special['Stat Bonuses'].split('MAX ')[1].split(', ')
+                            for stat in statSplit:
+                                maxSplit = stat.split(' +')
+                                charDict[maxSplit[0]] += int(maxSplit[1])
+                                charDict['Max Stats'][maxSplit[0]] += int(maxSplit[1]) 
+        return msg, subclasses, classStat, charEmbed, charEmbedmsg
+        
+        
+    async def class_item_select_kernel(self, ctx, msg, charDict, classRecord, charEmbed, charEmbedmsg):
+        channel= ctx. channel
+        # starting equipment
+        def alphaEmbedCheck(r, u):
+            sameMessage = False
+            if charEmbedmsg.id == r.message.id:
+                sameMessage = True
+            return sameMessage and ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author
+
+        if 'Starting Equipment' in classRecord[0]['Class'] and msg == "":
+            startEquipmentLength = 0
+            if not charEmbedmsg:
+                charEmbedmsg = await channel.send(embed=charEmbed)
+            else:
+                await charEmbedmsg.edit(embed=charEmbed)
+
+            for item in classRecord[0]['Class']['Starting Equipment']:
+                seTotalString = ""
+                alphaIndex = 0
+                for seList in item:
+                    seString = []
+                    for elk, elv in seList.items():
+                        if 'Pack' in elk:
+                            seString.append(f"{elk} x1")
+                        else:
+                            seString.append(f"{elk} x{elv}")
+                            
+                    seTotalString += f"{alphaEmojis[alphaIndex]}: {', '.join(seString)}\n"
+                    alphaIndex += 1
+
+                await charEmbedmsg.clear_reactions()
+                charEmbed.add_field(name=f"Starting Equipment: {startEquipmentLength+ 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", value=seTotalString, inline=False)
+                await charEmbedmsg.edit(embed=charEmbed)
+                if len(item) > 1:
+                    for num in range(0,alphaIndex): await charEmbedmsg.add_reaction(alphaEmojis[num])
+                    await charEmbedmsg.add_reaction('❌')
+                    try:
+                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
+                    except asyncio.TimeoutError:
+                        await charEmbedmsg.delete()
+                        await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                        return False
+                    else:
+                        if tReaction.emoji == '❌':
+                            await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                            await charEmbedmsg.clear_reactions()
+                            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                            return False
+                    startEquipmentItem = item[alphaEmojis.index(tReaction.emoji)]
+                else:
+                    startEquipmentItem = item[0]
+
+                await charEmbedmsg.clear_reactions()
+
+                seiString = ""
+                for seik, seiv in startEquipmentItem.items():
+                    seiString += f"{seik} x{seiv}\n"
+                    if "Pack" in seik:
+                        seiString = f"{seik}:\n"
+                        for pk, pv in seiv.items():
+                            charDict['Inventory'][pk] = pv
+                            seiString += f"+ {pk} x{pv}\n"
+
+                charEmbed.set_field_at(startEquipmentLength, 
+                                        name=f"Starting Equipment: {startEquipmentLength + 1} of {len(cRecord[0]['Class']['Starting Equipment'])}", 
+                                        value=seiString, inline=False)
+                
+                for k,v in startEquipmentItem.items():
+                    if '[' in k and ']' in k:
+                        iType = k.split('[')
+                        invCollection = db.shop
+                        if 'Instrument' in iType[1]:
+                            charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[1].replace(']','')}.*")]}}))
+                        else:
+                            charInv = list(invCollection.find({"Type": {'$all': [re.compile(f".*{iType[0]}.*"),re.compile(f".*{iType[1].replace(']','')}.*")]}}))
+
+                        charInv = sorted(charInv, key = lambda i: i['Name']) 
+
+                        typeEquipmentList = []
+                        for i in range (0,int(v)):
+                            charInvString = f"Please choose from the choices below for {iType[0]} {i+1}:\n"
+                            alphaIndex = 0
+                            charInv = list(filter(lambda c: ('Yklwa' not in c['Name'] and 
+                                                            'Light Repeating Crossbow' not in c['Name'] and 
+                                                            'Double-Bladed Scimitar' not in c['Name'] and 
+                                                            'Oversized Longbow' not in c['Name']), charInv))
+                            for c in charInv:
+                                charInvString += f"{alphaEmojis[alphaIndex]}: {c['Name']}\n"
+                                alphaIndex += 1
+
+                            charEmbed.set_field_at(startEquipmentLength, 
+                                                    name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", 
+                                                    value=charInvString, inline=False)
+                            await charEmbedmsg.clear_reactions()
+                            await charEmbedmsg.add_reaction('❌')
+                            await charEmbedmsg.edit(embed=charEmbed)
+
+                            try:
+                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
+                            except asyncio.TimeoutError:
+                                await charEmbedmsg.delete()
+                                await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                                self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                                return False
+                            else:
+                                if tReaction.emoji == '❌':
+                                    await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                                    await charEmbedmsg.clear_reactions()
+                                    self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                                    return False
+                            
+                            typeEquipmentList.append(charInv[alphaEmojis.index(tReaction.emoji)]['Name'])
+                        typeCount = collections.Counter(typeEquipmentList)
+                        typeString = ""
+                        for tk, tv in typeCount.items():
+                            typeString += f"{tk} x{tv}\n"
+                            if tk in charDict['Inventory']:
+                                charDict['Inventory'][tk]["Amount"] += tv
+                            else:
+                                charDict['Inventory'][tk] = {"Amount" : tv}
+
+                        charEmbed.set_field_at(startEquipmentLength, 
+                                                name=f"Starting Equipment: {startEquipmentLength+1} of {len(cRecord[0]['Class']['Starting Equipment'])}", 
+                                                value=seiString.replace(f"{k} x{v}\n", typeString), inline=False)
+
+                    elif 'Pack' not in k:
+                        
+                        if k in charDict['Inventory']:
+                            charDict['Inventory'][k]["Amount"] += v
+                        else:
+                            charDict['Inventory'][k] = {"Amount" : v}
+                            {"Amount" : 1}
+                startEquipmentLength += 1
+            await charEmbedmsg.clear_reactions()
+            charEmbed.clear_fields()
+        return True
+    async def background_item_select_kernel(self, ctx, msg, charDict, background, charEmbed, charEmbedmsg):  
+        def backgroundTopItemCheck(r, u):
+            sameMessage = False
+            if charEmbedmsg.id == r.message.id:
+                sameMessage = True
+            return ((r.emoji in alphaEmojis[:alphaIndexTop]) or (str(r.emoji) == '❌')) and u == author and sameMessage
+
+        def backgroundItemCheck(r, u):
+            sameMessage = False
+            if charEmbedmsg.id == r.message.id:
+                sameMessage = True
+            return ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author and sameMessage
+
+        backgroundRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'backgrounds',background)
+
+        if charEmbedmsg == "Fail":
+            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+            return False
+        if not backgroundRecord:
+            msg += f':warning: **{background}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n'
+        else:
+            charDict['Background'] = backgroundRecord['Name']
+
+            # Background items: goes through each background and give extra items for inventory.
+            
+            for equipment in backgroundRecord['Equipment']:
+                beTopChoiceList = []
+                beTopChoiceKeys = []
+                alphaIndexTop = 0
+                beTopChoiceString = ""
+                for equipment_key, equipment_value in equipment.items():
+                    if type(equipment_value) == dict:
+                        beTopChoiceKeys.append(equipment_key)
+                        beTopChoiceList.append(equipment_value)
+                        beTopChoiceString += f"{alphaEmojis[alphaIndexTop]}: {equipment_key}\n"
+                        alphaIndexTop += 1
+                    else:
+                        if equipment_key not in charDict['Inventory']:
+                            charDict['Inventory'][equipment_key] = {"Amount" : int(equipment_value)}
+                        else:
+                            charDict['Inventory'][equipment_key]["Amount"] += int(equipment_value)
+
+                if len(beTopChoiceList) > 0:
+                    # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
+                    if len(beTopChoiceList) > 1:
+                        charEmbed.add_field(name=f"Your {backgroundRecord['Name']} background lets you choose one type.", value=beTopChoiceString, inline=False)
+                        if not charEmbedmsg:
+                            charEmbedmsg = await channel.send(embed=charEmbed)
+                        else:
+                            await charEmbedmsg.edit(embed=charEmbed)
+
+                        await charEmbedmsg.add_reaction('❌')
+                        try:
+                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=backgroundTopItemCheck , timeout=60)
+                        except asyncio.TimeoutError:
+                            await charEmbedmsg.delete()
+                            await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                            return False
+                        else:
+                            await charEmbedmsg.clear_reactions()
+                            if tReaction.emoji == '❌':
+                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                                await charEmbedmsg.clear_reactions()
+                                self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                                return False
+
+                        beTopValues = beTopChoiceList[alphaEmojis.index(tReaction.emoji)]
+                        beTopKey = beTopChoiceKeys[alphaEmojis.index(tReaction.emoji)]
+                    elif len(beTopChoiceList) == 1:
+                        beTopValues = beTopChoiceList[0]
+                        beTopKey = beTopChoiceKeys[0]
+
+                    beChoiceString = ""
+                    alphaIndex = 0
+                    beList = []
+
+                    if 'Pack' in beTopKey:
+                      for c in beTopValues:
+                          if c not in charDict['Inventory']:
+                              charDict['Inventory'][c] = {"Amount" : 1}
+                          else:
+                              charDict['Inventory'][c]["Amount"] += 1
+                    else:
+                        for c in beTopValues:
+                            beChoiceString += f"{alphaEmojis[alphaIndex]}: {c}\n"
+                            beList.append(c)
+                            alphaIndex += 1
+
+                        charEmbed.add_field(name=f"Your {backgroundRecord['Name']} background lets you choose one {beTopKey}.", value=beChoiceString, inline=False)
+                        if not charEmbedmsg:
+                            charEmbedmsg = await channel.send(embed=charEmbed)
+                        else:
+                            await charEmbedmsg.edit(embed=charEmbed)
+
+                        await charEmbedmsg.add_reaction('❌')
+                        try:
+                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=backgroundItemCheck , timeout=60)
+                        except asyncio.TimeoutError:
+                            await charEmbedmsg.delete()
+                            await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                            return False
+                        else:
+                            await charEmbedmsg.clear_reactions()
+                            if tReaction.emoji == '❌':
+                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                                await charEmbedmsg.clear_reactions()
+                                self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                                return False
+                            beKey = beList[alphaEmojis.index(tReaction.emoji)]
+                            if beKey not in charDict['Inventory']:
+                                charDict['Inventory'][beKey] = 1
+                            else:
+                                charDict['Inventory'][beKey] += 1
+
+                    charEmbed.clear_fields()
+            
+            charDict['GP'] = int(backgroundRecord['GP']) + totalGP
+            return True
+                
+    async def asi_select_kernel(self, ctx, msg, charDict, character_class, classRecord, raceRecord, charEmbed, charEmbedmsg):
+        featLevels = []
+        featChoices = []
+        featsChosen = []
+        if "Feat" in rRecord:
+            featLevels.append('Extra Feat')
+
+        for c in cRecord:
+            if int(c['Level']) > 3:
+                featLevels.append(4)
+            if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 5:
+                featLevels.append(6)
+            if int(c['Level']) > 7:
+                featLevels.append(8)
+            if 'Rogue' in c['Class']['Name'] and int(c['Level']) > 9:
+                featLevels.append(10)
+            if int(c['Level']) > 11:
+                featLevels.append(12)
+            if 'Fighter' in c['Class']['Name'] and int(c['Level']) > 13:
+                featLevels.append(14)
+            if int(c['Level']) > 15:
+                featLevels.append(16)
+            if int(c['Level']) > 18:
+                featLevels.append(19)
+        featsChosen, statsFeats, charEmbedmsg = await characterCog.chooseFeat(ctx, raceRecord['Name'], charDict['Class'], cRecord, featLevels, charEmbed, charEmbedmsg, charDict, "")
+
+        if not featsChosen and not statsFeats and not charEmbedmsg:
+            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+            return msg, None, None
+
+        if featsChosen:
+            charDict['Feats'] = featsChosen 
+        else: 
+            charDict['Feats'] = "" 
+        
+
+        #HP
+        hpRecords = []
+        for class_data in classRecord:
+            # Wizards get 2 free spells per wizard level
+            if class_data['Class']['Name'] == "Wizard":
+                charDict['Free Spells'] = [6,0,0,0,0,0,0,0,0]
+                fsIndex = 0
+                for i in range (2, int(class_data['Level']) + 1 ):
+                    if i % 2 != 0:
+                        fsIndex += 1
+                    charDict['Free Spells'][min(fsIndex, 8)] += 2
+
+            hpRecords.append({'Level':class_data['Level'], 
+                                'Subclass': class_data['Subclass'], 
+                                'Name': class_data['Class']['Name'], 
+                                'Hit Die Max': class_data['Class']['Hit Die Max'], 
+                                'Hit Die Average':class_data['Class']['Hit Die Average']})
+
+        # Multiclass Requirements
+        if '/' in character_class and len(classRecord) > 1:
+            for class_data in classRecord:
+                reqFufillList = []
+                statReq = class_data['Class']['Multiclass'].split(' ')
+                if class_data['Class']['Multiclass'] != 'None':
+                    if '/' not in class_data['Class']['Multiclass'] and '+' not in class_data['Class']['Multiclass']:
+                        if int(charDict[statReq[0]]) < int(statReq[1]):
+                            msg += f":warning: In order to multiclass to or from **{class_data['Class']['Name']}** you need at least **{class_data['Class']['Multiclass']}**. Your character only has **{statReq[0]} {charDict[statReq[0]]}**!\n"
+
+                    elif '/' in class_data['Class']['Multiclass']:
+                        statReq[0] = statReq[0].split('/')
+                        reqFufill = False
+                        for s in statReq[0]:
+                            if int(charDict[s]) >= int(statReq[1]):
+                              reqFufill = True
+                            else:
+                              reqFufillList.append(f"{s} {charDict[s]}")
+                        if not reqFufill:
+                            msg += f":warning: In order to multiclass to or from **{class_data['Class']['Name']}** you need at least **{class_data['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!\n"
+
+                    elif '+' in class_data['Class']['Multiclass']:
+                        statReq[0] = statReq[0].split('+')
+                        reqFufill = True
+                        for s in statReq[0]:
+                            if int(charDict[s]) < int(statReq[1]):
+                              reqFufill = False
+                              reqFufillList.append(f"{s} {charDict[s]}")
+                        if not reqFufill:
+                            msg += f":warning: In order to multiclass to or from **{class_data['Class']['Name']}** you need at least **{class_data['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!\n"
+    
+        if msg:
+            if charEmbedmsg and charEmbedmsg != "Fail":
+                await charEmbedmsg.delete()
+            elif charEmbedmsg == "Fail":
+                msg = ":warning: You have either cancelled the command or a value was not found."
+            await ctx.channel.send(f'There were error(s) when creating your character:\n{msg}')
+
+            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+        return msg, hpRecords, featsChosen
+
+    def point_buy_check(self, ctx, statsStr, statDex, statsCon, statsInt, statsWis, statsCha)
+        statsArray = [int(statsStr), int(statDex), int(statsCon), 
+                      int(statsInt), int(statsWis), int(statsCha)]
+        
+        totalPoints = 0
+        for s in statsArray:
+            if (13-s) < 0:
+                totalPoints += ((s - 13) * 2) + 5
+            else:
+                totalPoints += (s - 8)
+                
+        if any([s < 8 for s in statsArray]):
+            msg += f":warning: You have at least one stat below the minimum of 8.\n"
+        if totalPoints != 27:
+            msg += f":warning: Your stats do not add up to 27 using point buy ({totalPoints}/27). Remember that you must list your stats before applying racial modifiers! Please check your point allocation using this calculator: <https://chicken-dinner.com/5e/5e-point-buy.html>\n"
+        return msg
+        
+    async def creation_confirm_kernel(self, ctx, error_msg, charDict, tierNum, charEmbed, charEmbedmsg)
+       
+        charEmbed.clear_fields()    
+        charEmbed.title = f"{charDict['Name']} (Lv {charDict['Level']}): {charDict['CP']}/{cp_bound_array[tierNum-1][1]} CP"
+        charEmbed.description = f"**Race**: {charDict['Race']}\n**Class**: {charDict['Class']}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} " + (campaignTransferSuccess * ("\n**Transfered from:** " + campaignKey))
+
+        
+        for key, amount in bankTP.items():
+            if  amount > 0:
+                charDict[key] = amount
+                charEmbed.add_field(name=f':warning: Unused {key}:', value=amount, inline=True)
+        
+        if charDict['Magic Items']:
+            charEmbed.add_field(name='Magic Items', value=", ".join(charDict['Magic Items'].keys()), inline=False)
+        if charDict['Consumables']:
+            charEmbed.add_field(name='Consumables', value=", ".join([item["Name"] for item in charDict['Consumables']]), inline=False)
+        charEmbed.add_field(name='Feats', value=charDict['Feats'], inline=True)
+        charEmbed.add_field(name='Stats', value=f"**STR**: {charDict['STR']} **DEX**: {charDict['DEX']} **CON**: {charDict['CON']} **INT**: {charDict['INT']} **WIS**: {charDict['WIS']} **CHA**: {charDict['CHA']}", inline=False)
+
+        if 'Wizard' in charDict['Class']:
+            charEmbed.add_field(name='Spellbook (Wizard)', value=f"At 1st level, you have a spellbook containing six 1st-level Wizard spells of your choice (+2 free spells for each wizard level). Please use the `{commandPrefix}shop copy` command." , inline=False)
+
+            fsString = ""
+            fsIndex = 0
+            for el in charDict['Free Spells']:
+                if el > 0:
+                    fsString += f"Level {fsIndex+1}: {el} free spells\n"
+                fsIndex += 1
+
+            if fsString:
+                charEmbed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
+
+        
+        charDictInvString = ""
+        if charDict['Inventory']:
+            for k,v in charDict['Inventory'].items():
+                charDictInvString += f"• {k} x{v['Amount']}\n"
+            charEmbed.add_field(name='Starting Equipment', value=charDictInvString, inline=False)
+
+
+        def charCreateCheck(r, u):
+            sameMessage = False
+            if charEmbedmsg.id == r.message.id:
+                sameMessage = True
+            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
+
+        user_msg = f"**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish {ctx.invoked_with.lower()}ing your character.\n❌ to cancel."
+        if not charEmbedmsg:
+            charEmbedmsg = await channel.send(embed=charEmbed, content=user_msg)
+        else:
+            await charEmbedmsg.edit(embed=charEmbed, content=user_msg)
+
+        await charEmbedmsg.add_reaction('✅')
+        await charEmbedmsg.add_reaction('❌')
+        try:
+            tReaction, tUser = await self.bot.wait_for("reaction_add", check=charCreateCheck , timeout=60)
+        except asyncio.TimeoutError:
+            await charEmbedmsg.delete()
+            await channel.send(error_msg)
+            self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+            return False
+        else:
+            await charEmbedmsg.clear_reactions()
+            if tReaction.emoji == '❌':
+                await charEmbedmsg.edit(embed=None, content=error_msg)
+                await charEmbedmsg.clear_reactions()
+                self.bot.get_command(ctx.invoked_with.lower()).reset_cooldown(ctx)
+                return False
+        return True
 def setup(bot):
     bot.add_cog(Character(bot))

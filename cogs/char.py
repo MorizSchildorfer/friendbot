@@ -241,7 +241,7 @@ class Character(commands.Cog):
                 msg = ":warning: You're missing a stat (STR, DEX, CON, INT, WIS, or CHA) for the character you want to create.\n"
             elif error.param.name == 'url':
                 msg = ":warning: You're missing a URL to add an image to your character's information window.\n"
-            elif error.param.name == 'm':
+            elif error.param.name == 'magic_item':
                 msg = ":warning: You're missing a magic item to attune to, or unattune from, your character.\n"
 
             msg += "**Note: if this error seems incorrect, something else may be incorrect.**\n\n"
@@ -1102,6 +1102,15 @@ class Character(commands.Cog):
                         charRecords['Inventory'][f"{selected_item}"] = 1 
                     else:
                         charRecords['Inventory'][f"{selected_item}"] += 1 
+                else:
+                    if bRecord['Name'] not in charRecords['Inventory']:
+                        charRecords['Inventory'][f"{selected_item}"] = {"Amount" : 1, "Awarded" : 1}
+                    else:
+                        charRecords['Inventory'][f"{selected_item}"]["Amount"] += 1 
+                        if "Awarded" in charRecords['Inventory'][f"{selected_item}"]:
+                            charRecords['Inventory'][f"{selected_item}"]["Awarded"] += 1 
+                        else:
+                            charRecords['Inventory'][f"{selected_item}"]["Awarded"] = 1 
                 try:
                     playersCollection = db.players
                     playersCollection.update_one({'_id': charRecords['_id']}, {"$set": {bRecord["Type"]:charRecords[bRecord["Type"]]}, "$inc": {"Event Token": -1}})
@@ -1395,37 +1404,49 @@ class Character(commands.Cog):
 
     
             # Show Consumables in inventory.
-            consumable_strings = []
-            for consumable in charDict['Consumables']:
-                consumable_data_string = consumable["Name"]
-                if "Charges" in consumable:
-                    consumable_data_string += f" (Charges: {consumable['Charges']}"
+            consumesCount = {}
+            for item in charDict['Consumables']]:
+                consumable_text = item["Name"]
+                if "Charges" in item:
+                    consumable_text += f'[{item["Charges"]} Charges]'
+                if consumable_text in consumesCount:
+                    consumesCount[consumable_text] += 1
             
             consumesString = ""
-            consumesCount = collections.Counter()
             for k, v in consumesCount.items():
                 if v == 1:
                     consumesString += f"• {k}\n"
                 else:
                     consumesString += f"• {k} x{v}\n"
 
-
+            if not consumesString:
+                consumesString = "None"
+                
             contents.append(("Consumables", consumesString, False))
             
             # Show Magic items in inventory.
 
             miString = ""
-            miArray = collections.Counter(charDict['Magic Items'].keys())
+            miArray = 
 
-            for m,v in miArray.items():
-                if "Predecessor" in charDict and m in charDict["Predecessor"]:
-                    upgrade_names = charDict['Predecessor'][m]["Names"]
-                    stage = charDict['Predecessor'][m]["Stage"]
-                    m = m + f" ({upgrade_names[stage]})"
-                if v == 1:
-                    miString += f"• {m}\n"
-                else:
-                    miString += f"• {m} x{v}\n"
+            for name, item_data in miArray.items():
+                modifiers = []
+                if "Modifiers" in item_data:
+                    modifiers = item_data["Modifiers"]
+                if "Predecessor" in item_data:
+                    upgrade_names = item_data["Names"]
+                    stage = item_data["Stage"]
+                if modifiers:
+                    name = name + f" ({', '.join(modifiers)})"
+                    
+                miString += f"• {name}"
+                if "Count" in v and v["Count"]>1:
+                    miString += f" x{v['Count']}"
+                miString += "\n"
+                
+            if not miString:
+                miString = "None"
+                
             contents.append((f"Magic Items", miString, False))
 
             charDictAuthor = guild.get_member(int(charDict['User ID']))
@@ -1459,7 +1480,7 @@ class Character(commands.Cog):
 
                     if isinstance(i['Name'], str):
                         for entry in namingDict[i['Name']]:
-                            amt = charDict['Inventory'][entry]
+                            amt = charDict['Inventory'][entry]["Amount"]
                             if amt == 1:
                                 amt = ""
                             else:
@@ -1472,7 +1493,7 @@ class Character(commands.Cog):
                     else:
                         for k,v in charDict['Inventory'].items():
                             if k in i['Name']:
-                                amt = v
+                                amt = v["Amount"]
                                 if amt == 1:
                                     amt = ""
                                 else:
@@ -1735,7 +1756,7 @@ class Character(commands.Cog):
             mPageStops = [0]
             
             miString = ""
-            miArray = collections.Counter(charDict['Magic Items'].keys())
+            miArray = charDict['Magic Items']
             notValidMagicItems = ""
             
             if mits:
@@ -1750,7 +1771,6 @@ class Character(commands.Cog):
                     for jk, jv in miArray.items():
                         if i.strip() != "" and i.lower().replace(" ", "").strip() in jk.lower().replace(" ", ""):
                             brought_mits[jk] = jv
-                            
                             itemFound = True
                             break
 
@@ -1766,24 +1786,28 @@ class Character(commands.Cog):
                 rit_db_entries = []
                 miArray = brought_mits
             
-            for m,v in miArray.items():
+            for name, item_data in miArray.items():
                     
                 bolding = ""
-                if "Attuned" in v and v["Attuned"]:
+                if "Attuned" in item_data and item_data["Attuned"]:
                     bolding = "**"
                     
                 # mi was a non-con and not attuned and not requested
-                if not mits and not bolding and "Count" in v:
+                if not mits and not bolding and "Count" in item_data:
                     continue
-                    
-                if "Predecessor" in v:
-                    upgrade_names = v["Names"]
-                    stage = v["Stage"]
-                    m = m + f" ({upgrade_names[stage]})"
+                modifiers = []
+                if "Modifiers" in item_data:
+                    modifiers = item_data["Modifiers"]
+                if "Predecessor" in item_data:
+                    upgrade_names = item_data["Names"]
+                    stage = item_data["Stage"]
+                    modifiers.insert(0, upgrade_names[stage])
+                if modifiers:
+                    name = name + f" ({', '.join(modifiers)})"
                 
-                miString += f"• {bolding}{m}{bolding}"
-                if "Count" in v and v["Count"]>1:
-                    miString += f" x{v['Count']}"
+                miString += f"• {bolding}{name}{bolding}"
+                if "Count" in item_data and item_data["Count"]>1:
+                    miString += f" x{item_data['Count']}"
                 miString += "\n"
 
                 if len(miString) > (768 * mPages):
@@ -1905,10 +1929,7 @@ class Character(commands.Cog):
                 if fsString:
                     charEmbed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
 
-            if 'Max Stats' not in charDict:
-                maxStatDict = charDict['Max Stats'] = {'STR': 20 ,'DEX': 20,'CON': 20, 'INT': 20, 'WIS': 20,'CHA': 20}
-            else:
-                maxStatDict = charDict['Max Stats']
+            maxStatDict = charDict['Max Stats']
 
             for sk in charDict['Max Stats'].keys():
                 if charDict[sk] > charDict['Max Stats'][sk]:
@@ -1916,42 +1937,29 @@ class Character(commands.Cog):
             
             
             totalHPAdd = 0
-
+            attuned_items_dic = {key : item_data for key, item_data in charRecords['Magic Items'].items() 
+                                if "Attunement" in item_data and item_data["Attunement"]}
+            
             # Check for stat increases in attuned magic items.
-            if 'Attuned' in charDict:
-                if 'HP' in s:
-                    totalHPAdd += s['HP']
+            if attuned_items_dic:
                     
-                charEmbed.add_field(name='Attuned', value='• ' + charDict['Attuned'].replace(', ', '\n• '), inline=False)
+                charEmbed.add_field(name='Attuned', value='\n• '.join(attuned_items_dic.keys()), inline=False)
                 statBonusDict = { 'STR': 0 ,'DEX': 0,'CON': 0, 'INT': 0, 'WIS': 0,'CHA': 0}
-                for a in charDict['Attuned'].split(', '):
-                    
-                    
+                for key, attuned_item in attuned_items_dic.items():
+                        if 'HP' in attuned_item:
+                            totalHPAdd += attuned_item['HP']
+                        statBonus = attuned_item['Stat Bonuses']
                         if '+' not in statBonus:
                             statSplit = statBonus.split(' ')
                             modStat = str(charDict[statSplit[0]]).replace(')', '').split(' (')[0]
-                            if '[' in modStat and ']' in modStat:
-                                oldStat = modStat[modStat.find("[")+1:modStat.find("]")] 
-                                if '+' not in modStat:
-                                    modStat = modStat.split(' [')[0]
-                                    if int(oldStat) > int(statSplit[1]):
-                                        charDict[statSplit[0]] = f"{modStat} ({oldStat})"
-                                else:
-                                    modStat = modStat.split(' [')[0]
-                                    if (int(modStat) + int(statBonusDict[statSplit[0]])) > int(statSplit[1]):
-                                        charDict[statSplit[0]] = f"{modStat} (+{statBonusDict[statSplit[0]]})" 
-                                    else:
-                                        charDict[statSplit[0]] = f"{modStat} ({statSplit[1]})"
-
-                            elif int(statSplit[1]) > int(modStat):
+                            if int(statSplit[1]) > int(modStat):
                                 maxStatNum = statSplit[1]
                                 if '(' in str(charDict[statSplit[0]]):
                                     maxStatNum = max(int(str((charDict[statSplit[0]])).replace(')', '').split(' (')[1]), int(statSplit[1]) )
                                 charDict[statSplit[0]] = f"{modStat} ({maxStatNum})"
 
                         elif '+' in statBonus:
-                            statBonusSplit = statBonus.split(';')
-                            statSplit = statBonusSplit[0].split(' +')
+                            statSplit = statBonus.split(' +')
                             if 'MAX' in statSplit[0]:
                                 maxStat = statSplit[0][:-3]
                                 statSplit[0] = statSplit[0].replace(maxStat, "")
@@ -1962,11 +1970,11 @@ class Character(commands.Cog):
                             modStat = modStat.split(' (')[0]
                             statBonusDict[statSplit[0]] += int(statSplit[1])
                             statName = charDict[statSplit[0]]
-                            maxStatBonus = []
                             maxCalc = int(modStat) + int(statBonusDict[statSplit[0]]) > maxStatDict[statSplit[0]]
 
                             if maxCalc:
                                 statBonusDict[statSplit[0]] = maxStatDict[statSplit[0]] - int(modStat)
+                                
                             if statBonusDict[statSplit[0]] > 0: 
                                 charDict[statSplit[0]] = f"{modStat} (+{statBonusDict[statSplit[0]]})" 
                             else:
@@ -2013,10 +2021,10 @@ class Character(commands.Cog):
         guild = ctx.guild
         charEmbed = discord.Embed()
 
-        infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
+        character_record, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
 
-        if infoRecords:
-            charID = infoRecords['_id']
+        if character_record:
+            charID = character_record['_id']
             data = {
                 'Image': url
             }
@@ -2051,9 +2059,9 @@ class Character(commands.Cog):
         guild = ctx.guild
         charEmbed = discord.Embed()
 
-        infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
-        if infoRecords:
-            charID = infoRecords['_id']
+        character_record, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
+        if character_record:
+            charID = character_record['_id']
             
             try:
                 db.players.update_one({'_id': charID}, {"$set": {'Reflavor.'+rtype: new_flavor}})
@@ -2061,7 +2069,7 @@ class Character(commands.Cog):
                 print ('MONGO ERROR: ' + str(e))
                 charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try reflavoring your character again.")
             else:
-                await ctx.channel.send(content=f'I have updated the {rtype} for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
+                await ctx.channel.send(content=f'I have updated the {rtype} for ***{character_record["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
     
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
@@ -2101,10 +2109,10 @@ class Character(commands.Cog):
         guild = ctx.guild
         charEmbed = discord.Embed()
 
-        infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
+        character_record, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
 
-        if infoRecords:
-            charID = infoRecords['_id']
+        if character_record:
+            charID = character_record['_id']
             data = {
                 'Alignment': new_align
             }
@@ -2116,7 +2124,7 @@ class Character(commands.Cog):
                 print ('MONGO ERROR: ' + str(e))
                 charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
-                await ctx.channel.send(content=f'I have updated the alignment for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
+                await ctx.channel.send(content=f'I have updated the alignment for ***{character_record["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
     
     
     @commands.cooldown(1, 5, type=commands.BucketType.member)
@@ -2133,10 +2141,10 @@ class Character(commands.Cog):
             
         charEmbed = discord.Embed()
 
-        infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
+        character_record, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
 
-        if infoRecords:
-            charID = infoRecords['_id']
+        if character_record:
+            charID = character_record['_id']
             data = {
                 'Nickname': new_name
             }
@@ -2172,23 +2180,23 @@ class Character(commands.Cog):
         guild = ctx.guild
         levelUpEmbed = discord.Embed ()
         characterCog = self.bot.get_cog('Character')
-        infoRecords, levelUpEmbedmsg = await checkForChar(ctx, char, levelUpEmbed)
+        character_record, levelUpEmbedmsg = await checkForChar(ctx, char, levelUpEmbed)
         charClassChoice = ""
-        if infoRecords:
-            charID = infoRecords['_id']
+        if character_record:
+            charID = character_record['_id']
             charDict = {}
-            charName = infoRecords['Name']
-            charClass = infoRecords['Class']
-            cpSplit= infoRecords['CP']
-            charLevel = infoRecords['Level']
-            charStats = {'STR':infoRecords['STR'], 
-                        'DEX':infoRecords['DEX'], 
-                        'CON':infoRecords['CON'], 
-                        'INT':infoRecords['INT'], 
-                        'WIS':infoRecords['WIS'], 
-                        'CHA':infoRecords['CHA']}
-            charHP = infoRecords['HP']
-            charFeats = infoRecords['Feats']
+            charName = character_record['Name']
+            charClass = character_record['Class']
+            cpSplit= character_record['CP']
+            charLevel = character_record['Level']
+            charStats = {'STR':character_record['STR'], 
+                        'DEX':character_record['DEX'], 
+                        'CON':character_record['CON'], 
+                        'INT':character_record['INT'], 
+                        'WIS':character_record['WIS'], 
+                        'CHA':character_record['CHA']}
+            charHP = character_record['HP']
+            charFeats = character_record['Feats']
             freeSpells = [0] * 9
             
             tierNum=5
@@ -2202,16 +2210,16 @@ class Character(commands.Cog):
             elif charLevel < 20:
                 tierNum = 4
                 
-            if 'Free Spells' in infoRecords:
-                freeSpells = infoRecords['Free Spells']
+            if 'Free Spells' in character_record:
+                freeSpells = character_record['Free Spells']
 
-            if 'Death' in infoRecords.keys():
+            if 'Death' in character_record.keys():
                 await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{charRecords["Name"]}"```')
                 self.bot.get_command('levelup').reset_cooldown(ctx)
                 return
 
             if charLevel > 19:
-                await channel.send(f"***{infoRecords['Name']}*** is level 20 and cannot level up anymore.")
+                await channel.send(f"***{character_record['Name']}*** is level 20 and cannot level up anymore.")
                 self.bot.get_command('levelup').reset_cooldown(ctx)
                 return
                 
@@ -2269,7 +2277,7 @@ class Character(commands.Cog):
                 lvl = charLevel
                 newLevel = charLevel + 1
                 levelUpEmbed.title = f"{charName}: Level Up! {lvl} → {newLevel}"
-                levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}"
+                levelUpEmbed.description = f"{character_record['Race']}: {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}"
                 chooseClassString = ""
                 alphaIndex = 0
                 classes = []
@@ -2286,14 +2294,14 @@ class Character(commands.Cog):
                     statReq = cRecord['Multiclass'].split(' ')
                     if cRecord['Multiclass'] != 'None':
                         if '/' not in cRecord['Multiclass'] and '+' not in cRecord['Multiclass']:
-                            if int(infoRecords[statReq[0]]) < int(statReq[1]):
+                            if int(character_record[statReq[0]]) < int(statReq[1]):
                                 failMulticlassList.append(cRecord['Name'])
                                 continue
                         elif '/' in cRecord['Multiclass']:
                             statReq[0] = statReq[0].split('/')
                             reqFufill = False
                             for s in statReq[0]:
-                                if int(infoRecords[s]) >= int(statReq[1]):
+                                if int(character_record[s]) >= int(statReq[1]):
                                     reqFufill = True
                             if not reqFufill:
                                 failMulticlassList.append(cRecord['Name'])
@@ -2303,7 +2311,7 @@ class Character(commands.Cog):
                             statReq[0] = statReq[0].split('+')
                             reqFufill = True
                             for s in statReq[0]:
-                                if int(infoRecords[s]) < int(statReq[1]):
+                                if int(character_record[s]) < int(statReq[1]):
                                     reqFufill = False
                                     break
                             if not reqFufill:
@@ -2392,7 +2400,7 @@ class Character(commands.Cog):
                             if "Wizard" in charClassChoice:
                                 freeSpells[0] += 6
 
-                            levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
+                            levelUpEmbed.description = f"{character_record['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
                             levelUpEmbed.clear_fields()
                     elif tReaction.emoji == '🚫':
                         if '/' not in charClass:
@@ -2443,7 +2451,7 @@ class Character(commands.Cog):
                                     break
 
                             charClass = charClass.replace(f"{lvlClass} {subclasses[alphaEmojis.index(tReaction.emoji)]['Level'] - 1}", f"{lvlClass} {subclasses[alphaEmojis.index(tReaction.emoji)]['Level']}")
-                            levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
+                            levelUpEmbed.description = f"{character_record['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
                 # Choosing a subclass
                 subclassCheckClass = subclasses[[s['Name'] for s in subclasses].index(lvlClass)]
 
@@ -2476,7 +2484,7 @@ class Character(commands.Cog):
                 charFeatsGained = ""
                 charFeatsGainedStr = ""
                 if featLevels != list():
-                    featsChosen, statsFeats, charEmbedmsg = await characterCog.chooseFeat(ctx, infoRecords['Race'], charClass, subclasses, featLevels, levelUpEmbed, levelUpEmbedmsg, infoRecords, charFeats)
+                    featsChosen, statsFeats, charEmbedmsg = await characterCog.chooseFeat(ctx, character_record['Race'], charClass, subclasses, featLevels, levelUpEmbed, levelUpEmbedmsg, character_record, charFeats)
                     if not featsChosen and not statsFeats and not charEmbedmsg:
                         return
 
@@ -2501,46 +2509,35 @@ class Character(commands.Cog):
                 }
                 if statsFeats and "Ritual Book" in statsFeats:
                     data["Ritual Book"] = statsFeats["Ritual Book"] 
-                if 'Free Spells' in infoRecords:
+                if 'Free Spells' in character_record:
                     if freeSpells != ([0] * 9):
                         data['Free Spells'] = freeSpells
 
                 if charFeatsGained != "":
-                    if infoRecords['Feats'] == 'None':
+                    if character_record['Feats'] == 'None':
                         data['Feats'] = charFeatsGained
-                        infoRecords['Feats'] = charFeatsGained
-                    elif infoRecords['Feats'] != None:
+                        character_record['Feats'] = charFeatsGained
+                    else:
                         data['Feats'] = charFeats + ", " + charFeatsGained
-                        infoRecords['Feats'] = charFeats + ", " + charFeatsGained
+                        character_record['Feats'] = charFeats + ", " + charFeatsGained
 
-                statsCollection = db.stats
-                statsRecord  = statsCollection.find_one({'Life': 1})
+                stats_increment = {"Class" : {}}
                 
                 if charFeatsGained != "":
+                    stats_increment["Feats"]
                     feat_split = charFeatsGained.split(", ")
                     for feat_key in feat_split:
-                        if not feat_key in statsRecord['Feats']:
-                            statsRecord['Feats'][feat_key] = 1
-                        else:
-                            statsRecord['Feats'][feat_key] += 1
+                        stats_increment["Feats"][feat_key] = 1
 
                             
                 subclassCheckClass['Name'] = subclassCheckClass['Name'].split(' (')[0]
                 if subclassCheckClass['Subclass'] != "" :
-                    if subclassCheckClass['Subclass']  in statsRecord['Class'][subclassCheckClass['Name']]:
-                        statsRecord['Class'][subclassCheckClass['Name']][subclassCheckClass['Subclass']] += 1
-                    else:
-                        statsRecord['Class'][subclassCheckClass['Name']][subclassCheckClass['Subclass']] = 1
+                    stats_increment['Class'] = {subclassCheckClass['Name'] : {subclassCheckClass['Subclass'] : 1}}}
                 else:
-                    if subclassCheckClass['Name'] in statsRecord['Class']:
-                        statsRecord['Class'][subclassCheckClass['Name']]['Count'] += 1
-                    else:
-                        statsRecord['Class'][subclassCheckClass['Name']] = {'Count': 1}
+                    stats_increment['Class'] = {subclassCheckClass['Name'] : {"Count" : 1}}}
 
-                if 'Max Stats' not in infoRecords:
-                    infoRecords['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
                 
-                data['Max Stats'] = infoRecords['Max Stats']
+                data['Max Stats'] = character_record['Max Stats']
 
                 #Special stat bonuses (Barbarian cap / giant soul sorc)
                 specialCollection = db.special
@@ -2566,14 +2563,14 @@ class Character(commands.Cog):
                     if charStats[sk] > data['Max Stats'][sk]:
                         data[sk] = charStats[sk] = data['Max Stats'][sk]
                         if charFeatsGained != "":
-                            maxStatStr += f"\n{infoRecords['Name']}'s {sk} will not increase because their maximum is {data['Max Stats'][sk]}."
-                infoRecords["Class"] = data["Class"]
-                infoRecords['CON'] = charStats['CON']
-                charHP = await characterCog.calcHP(ctx, subclasses, infoRecords, int(newCharLevel))
+                            maxStatStr += f"\n{character_record['Name']}'s {sk} will not increase because their maximum is {data['Max Stats'][sk]}."
+                character_record["Class"] = data["Class"]
+                character_record['CON'] = charStats['CON']
+                charHP = await characterCog.calcHP(ctx, subclasses, character_record, int(newCharLevel))
                 data['HP'] = charHP
                 tierNum += int(newCharLevel in [5, 11, 17, 20])
                 levelUpEmbed.title = f'{charName} has leveled up to {newCharLevel}!\nCurrent CP: {totalCP}/{cp_bound_array[tierNum-1][1]} CP'
-                levelUpEmbed.description = f"{infoRecords['Race']} {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}" + f"\n{charFeatsGainedStr}{maxStatStr}\n{specialStatStr}"
+                levelUpEmbed.description = f"{character_record['Race']} {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}" + f"\n{charFeatsGainedStr}{maxStatStr}\n{specialStatStr}"
                 if charClassChoice != "":
                     levelUpEmbed.description += f"{charName} has multiclassed into **{charClassChoice}!**"
                 levelUpEmbed.set_footer(text= levelUpEmbed.Empty)
@@ -2610,7 +2607,9 @@ class Character(commands.Cog):
                 try:
                     playersCollection = db.players
                     playersCollection.update_one({'_id': charID}, {"$set": data})
-                    statsCollection.update_one({'Life':1}, {"$set": statsRecord}, upsert=True)
+                    
+                    statsCollection = db.stats
+                    statsCollection.update_one({'Life':1}, {"$inc": stats_increment}, upsert=True)
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
@@ -2671,7 +2670,7 @@ class Character(commands.Cog):
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
     @commands.command(aliases=['att'])
-    async def attune(self,ctx, char, m):
+    async def attune(self,ctx, char, magic_item):
         channel = ctx.channel
         author = ctx.author
         guild = ctx.guild
@@ -2702,41 +2701,41 @@ class Character(commands.Cog):
                         attuneLength = 5
                     elif class_level >= 10:
                         attuneLength = 4
-            if "Attuned" not in charRecords:
-                attuned = []
-            else:
-                attuned = charRecords['Attuned'].split(', ')
-
-
-            charID = charRecords['_id']
-            charRecordMagicItems = charRecords['Magic Items'].split(', ')
+                        
+            attuned = list([key for key, item_data in charRecords['Magic Items'].items() 
+                                if "Attunement" in item_data and item_data["Attunement"])
+            
             if len(attuned) >= attuneLength:
                 await channel.send(f"The maximum number of magic items you can attune to is {attuneLength}! You cannot attune to any more items!")
                 return
+
+
+            charRecordMagicItems = list(charRecords['Magic Items'].keys())
 
             def apiEmbedCheck(r, u):
                 sameMessage = False
                 if charEmbedmsg.id == r.message.id:
                     sameMessage = True
-                return sameMessage and ((r.emoji in alphaEmojis[:min(len(mList), 9)]) or (str(r.emoji) == '❌')) and u == author
+                return sameMessage and ((r.emoji in alphaEmojis[:min(len(magic_item_list), 9)]) or (str(r.emoji) == '❌')) and u == author
 
-            mList = []
-            mString = ""
+            magic_item_list = []
+            magic_item_string = ""
             numI = 0
 
             # Check if query is in character's Magic Item List. Limit is 8 to show if there are multiple matches.
-            for k in charRecordMagicItems:
-                if m.lower() in k.lower():
-                    if k not in [a.split(' [')[0] for a in attuned]:
-                        mList.append(k)
-                        mString += f"{alphaEmojis[numI]} {k} \n"
+            for key in charRecordMagicItems:
+                if magic_item.lower() in key.lower():
+                    if key not in attuned:
+                        magic_item_list.append(key)
+                        magic_item_string += f"{alphaEmojis[numI]} {key} \n"
                         numI += 1
                 if numI > 8:
                     break
 
             # IF multiple matches, check which one the player meant.
-            if (len(mList) > 1):
-                charEmbed.add_field(name=f"There seems to be multiple results for **`{m}`**, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.", value=mString, inline=False)
+            if (len(magic_item_list) > 1):
+                charEmbed.add_field(name=f"There seems to be multiple results for **`{magic_item}`**, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.", 
+                value=magic_item_string, inline=False)
                 if not charEmbedmsg:
                     charEmbedmsg = await channel.send(embed=charEmbed)
                 else:
@@ -2759,75 +2758,52 @@ class Character(commands.Cog):
                         return None,charEmbed, charEmbedmsg
                 charEmbed.clear_fields()
                 await charEmbedmsg.clear_reactions()
-                m = mList[alphaEmojis.index(tReaction.emoji)]
+                magic_item = magic_item_list[alphaEmojis.index(tReaction.emoji)]
 
-            elif len(mList) == 1:
-                m = mList[0]
+            elif len(magic_item_list) == 1:
+                magic_item = magic_item_list[0]
             else:
-                await channel.send(f"`{m}` isn't in {charRecords['Name']}'s inventory. Please try the command again.")
+                await channel.send(f"`{magic_item}` isn't in {charRecords['Name']}'s inventory or already attuned. Please try the command again.")
                 return
 
-            # Check if magic item's actually exist, and grab properties. (See if they're attuneable)
-            mRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'mit', m)
-            if not mRecord:
-                mRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'rit', m)
-                if not mRecord:
-                    await channel.send(f"`{m}`belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Magic or Reward Item Table, what tier it is, and your spelling.\n")
-                    return
-                elif mRecord['Name'].lower() not in [x.lower() for x in charRecordMagicItems]:
-                    await channel.send(f"You don't have the **{mRecord['Name']}** item in your inventory to attune to.")
-                    return
-            elif mRecord['Name'].lower() not in [x.lower() for x in charRecordMagicItems]:
-                    await channel.send(f"You don't have the **{mRecord['Name']}** item in your inventory to attune to.")
-                    return
-
+            magic_item_record = charRecords['Magic Items'][magic_item]
             # Check if they are already attuned to the item.
-            if mRecord['Name'] == 'Hammer of Thunderbolts':
-                if 'Max Stats' not in charRecords:
-                    charRecords['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
+            if magic_item == 'Hammer of Thunderbolts':
                 # statSplit = MAX STAT +X
-                statSplit = mRecord['Stat Bonuses'].split(' +')
+                statSplit = magic_item_record['Stat Bonuses'].split(' +')
                 maxSplit = statSplit[0].split(' ')
 
                 #Increase stats from Hammer and add to max stats. 
-                if "MAX" in statSplit[0]:
-                    charRecords['Max Stats'][maxSplit[1]] += int(statSplit[1]) 
+                charRecords['Max Stats'][maxSplit[1]] += int(statSplit[1]) 
 
-                if 'Belt of' not in charRecords['Magic Items'] and 'Frost Giant Strength' not in charRecords['Magic Items'] and 'Gauntlets of Ogre Power' not in charRecords['Magic Items']:
+                if 'Belt of' not in charRecords['Magic Items'] and 'Gauntlets of Ogre Power' not in charRecords['Magic Items']:
                     await channel.send(f"`Hammer of Thunderbolts` requires you to have a `Belt of Giant Strength (any variety)` and `Gauntlets of Ogre Power` in your inventory in order to attune to it.")
                     return 
 
-            if mRecord['Name'] in [a.split('[')[0].strip() for a in attuned]:
-                await channel.send(f"You are already attuned to **{mRecord['Name']}**!")
-                return
-            elif 'Attunement' in mRecord:
-                if "Predecessor" in mRecord and 'Stat Bonuses' in mRecord["Predecessor"]:
-                    attuned.append(f"{mRecord['Name']} [{mRecord['Predecessor']['Stat Bonuses'][charRecords['Predecessor'][mRecord['Name']]['Stage']]}]")
-                elif 'Stat Bonuses' in mRecord:
-                    attuned.append(f"{mRecord['Name']} [{mRecord['Stat Bonuses']}]")
-                else:
-                    attuned.append(mRecord['Name'])
+            if 'Attunement' in magic_item_record:
+                magic_item_record['Attunement'] = True
             else:
-                await channel.send(f"`{m}` does not require attunement so there is no need to try to attune this item.")
+                await channel.send(f"`{magic_item}` does not require attunement so there is no need to try to attune this item.")
                 return
                         
             
-            charRecords['Attuned'] = ', '.join(attuned)
             data = charRecords
 
             try:
+                
+                charID = charRecords['_id']
                 playersCollection = db.players
                 playersCollection.update_one({'_id': charID}, {"$set": data})
             except Exception as e:
                 print ('MONGO ERROR: ' + str(e))
                 charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
-                await channel.send(f"You successfully attuned to **{mRecord['Name']}**!")
+                await channel.send(f"You successfully attuned to **{magic_item_record['Name']}**!")
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
     @commands.command(aliases=['uatt', 'unatt'])
-    async def unattune(self,ctx, char, m):
+    async def unattune(self,ctx, char, magic_item):
         channel = ctx.channel
         author = ctx.author
         guild = ctx.guild
@@ -2838,36 +2814,35 @@ class Character(commands.Cog):
             if 'Death' in charRecords:
                 await channel.send(f"You cannot unattune from items with a dead character. Use the following command to decide their fate:\n```yaml\n$death \"{charRecords['Name']}\"```")
                 return
-
-            if "Attuned" not in charRecords:
-                await channel.send(f"You have no attuned items to unattune from.")
-                return
-            else:
-                attuned = charRecords['Attuned'].split(', ')
-
-            charID = charRecords['_id']
-
+            
+            attuned = list([key for key, item_data in charRecords['Magic Items'].items() 
+                                if "Attunement" in item_data and item_data["Attunement"])
+            
+            charRecordMagicItems = list(charRecords['Magic Items'].keys())
+            
             def apiEmbedCheck(r, u):
                 sameMessage = False
                 if charEmbedmsg.id == r.message.id:
                     sameMessage = True
                 return sameMessage and ((r.emoji in alphaEmojis[:min(len(mList), 9)]) or (str(r.emoji) == '❌')) and u == author
 
-            mList = []
-            mString = ""
+            magic_item_list = []
+            magic_item_string = ""
             numI = 0
 
-            # Filter through attuned items, some attuned items have [STAT +X]; filter out those too and get raw.
-            for k in charRecords['Attuned'].split(', '):
-                if m.lower() in k.lower().split(' [')[0]:
-                    mList.append(k.lower().split(' [')[0])
-                    mString += f"{alphaEmojis[numI]} {k} \n"
+            # Check if query is in character's Magic Item List. Limit is 8 to show if there are multiple matches.
+            for key in attuned:
+                if magic_item.lower() in key.lower():
+                    magic_item_list.append(key)
+                    magic_item_string += f"{alphaEmojis[numI]} {key} \n"
                     numI += 1
+                    
                 if numI > 8:
                     break
 
-            if (len(mList) > 1):
-                charEmbed.add_field(name=f"There seems to be multiple results for `{m}`, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.", value=mString, inline=False)
+            if (len(magic_item_list) > 1):
+                charEmbed.add_field(name=f"There seems to be multiple results for `{magic_item}`, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.", 
+                value=magic_item_string, inline=False)
                 if not charEmbedmsg:
                     charEmbedmsg = await channel.send(embed=charEmbed)
                 else:
@@ -2890,51 +2865,35 @@ class Character(commands.Cog):
                         return None,charEmbed, charEmbedmsg
                 charEmbed.clear_fields()
                 await charEmbedmsg.clear_reactions()
-                m = mList[alphaEmojis.index(tReaction.emoji)]
+                magic_item = magic_item_list[alphaEmojis.index(tReaction.emoji)]
 
-            elif len(mList) == 1:
-                m = mList[0]
+            elif len(magic_item_list) == 1:
+                magic_item = magic_item_list[0]
             else:
-                await channel.send(f'`{m}` doesn\'t exist on the Magic Item Table! Check to see if it is a valid item and check your spelling.')
+                await channel.send(f'`{magic_item}` is not attuned.')
                 return
 
-            mRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'mit', m)
-            if not mRecord:
-                mRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'rit', m)
-                if not mRecord:
-                    await channel.send(f"`{m}` belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Magic or Reward Item Table, what tier it is, and your spelling.")
-                    return
+            
+            magic_item_record = charRecords['Magic Items'][magic_item]
+            
+            if magic_item_record['Name'] == 'Hammer of Thunderbolts':
+                statSplit = magic_item_record['Stat Bonuses'].split(' +')
+                maxSplit = statSplit[0].split(' ')
+                if "MAX" in statSplit[0]:
+                    charRecords['Max Stats'][maxSplit[1]] -= int(statSplit[1]) 
+            
 
-            if mRecord['Name'] not in [a.split(' [')[0] for a in attuned]:
-                await channel.send(f"**{mRecord['Name']}** cannot be unattuned from because it is currently not attuned to you.")
-                return
+            try:
+                magic_item_record["Attunement"] = False
+                charID = charRecords['_id']
+                playersCollection = db.players
+                playersCollection.update_one({'_id': charID}, {"$set": charRecords})
+                
+            except Exception as e:
+                print ('MONGO ERROR: ' + str(e))
+                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
-                if mRecord['Name'] == 'Hammer of Thunderbolts':
-                    statSplit = mRecord['Stat Bonuses'].split(' +')
-                    maxSplit = statSplit[0].split(' ')
-                    if "MAX" in statSplit[0]:
-                        charRecords['Max Stats'][maxSplit[1]] -= int(statSplit[1]) 
-                
-                try:
-                    index = list([a.split("[")[0].strip() for a in attuned]).index(mRecord["Name"])
-                    attuned.pop(index)
-                except Exception as e:
-                    pass
-                
-                charRecords['Attuned'] = ', '.join(attuned)
-
-                try:
-                    playersCollection = db.players
-                    if attuned != list():
-                        playersCollection.update_one({'_id': charID}, {"$set": charRecords})
-                    else:
-                        playersCollection.update_one({'_id': charID}, {"$unset": {"Attuned":1}})
-
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
-                else:
-                    await channel.send(f"You successfully unattuned from **{mRecord['Name']}**!")
+                await channel.send(f"You successfully unattuned from **{magic_item_record['Name']}**!")
                     
 
     
@@ -2966,6 +2925,7 @@ class Character(commands.Cog):
                             totalHP += s['HP'] * floor(lvl/2)
                         else:
                             totalHP += s['HP'] * lvl
+                            
             elif s['Type'] == "Class":
                 for multi in charDict['Class'].split("/"):
                     multi = multi.strip()
@@ -3719,7 +3679,7 @@ class Character(commands.Cog):
                     if "Pack" in seik:
                         seiString = f"{seik}:\n"
                         for pk, pv in seiv.items():
-                            charDict['Inventory'][pk] = pv
+                            charDict['Inventory'][pk]= {"Amount" : pv}
                             seiString += f"+ {pk} x{pv}\n"
 
                 charEmbed.set_field_at(startEquipmentLength, 
@@ -3907,9 +3867,9 @@ class Character(commands.Cog):
                                 return False
                             beKey = beList[alphaEmojis.index(tReaction.emoji)]
                             if beKey not in charDict['Inventory']:
-                                charDict['Inventory'][beKey] = 1
+                                charDict['Inventory'][beKey] = {"Amount" : 1}
                             else:
-                                charDict['Inventory'][beKey] += 1
+                                charDict['Inventory'][beKey]["Amount"] += 1
 
                     charEmbed.clear_fields()
             

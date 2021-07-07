@@ -500,127 +500,8 @@ class Log(commands.Cog):
         for u in userDBentries:
             userDBEntriesDic[u["User ID"]] = u
 
-        
-        for character in characterDBentries:
-            player = players[str(character["User ID"])]
-            # this indicates that the character had died
-            if player["Status"] == "Dead":
-                deathChars.append(player)
-            
-            duration = player["CP"] * 3600
-            guildDouble = False
-            playerDouble = False
-            dmDouble = False
-
-            if role != "":
-                guild_valid =("Guild" in player and 
-                                player["Guild"] in guilds and 
-                                guilds[player["Guild"]]["Status"] and
-                            player["CP"]>= 3 and player['Guild Rank'] > 1)
-                guildDouble = (guild_valid and 
-                                guilds[player["Guild"]]["Rewards"] and 
-                                player["2xR"])
-                
-
-                player["Double"] = str(character["User ID"]) in userDBEntriesDic.keys() and "Double" in userDBEntriesDic[str(character["User ID"])] and userDBEntriesDic[str(character["User ID"])]["Double"] >0
-                playerDouble = player["Double"]
-                dmDouble = False
-                
-                
-                treasureArray  = calculateTreasure(player["Level"], character["CP"] , tierNum, duration, (player in deathChars), num, guildDouble, playerDouble, dmDouble)
-                
-                if(guild_valid and 
-                        guilds[player["Guild"]]["Items"] and 
-                        player["2xI"]):
-                    
-                    for i in player["Double Items"]:
-                        if i[0] == "Magic Items":
-                            player["Magic Items"].append(i[1])
-                        else:
-                            player[i[0]]["Add"].append(i[1])
-                    player["Double Items"] = []
-                
-                
-                # create a list of all items the character has
-                consumableList = character["Consumables"].split(", ")
-                consumablesString = ""
-                
-                
-                #remove the removed items from the list of original items and then combine the remaining and the new items                
-                for i in player["Consumables"]["Remove"]:
-                    consumableList.remove(i)
-                consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
-                    
-                
-                # magic items cannot be removed so we only care about addtions                
-                magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
-                
-                
-                # increase the relevant inventory entries and create them if necessary
-                for i in player["Inventory"]["Add"]:
-                    if i in character["Inventory"]:
-                        character["Inventory"][i] += 1
-                    else:
-                        character["Inventory"][i] = 1
-                
-                # decrement the relevant items and delete the entry when necessary
-                for i in player["Inventory"]["Remove"]:
-                    character["Inventory"][i] -= 1
-                    if int(character["Inventory"][i]) <= 0:
-                        del character["Inventory"][i]
-                
-                # set up all db values that need to be incremented
-                increment = {"CP":  treasureArray[0], 
-                            "GP":  treasureArray[2],
-                            "Games": 1,
-                            "Event Token" : 0}
-                # for every TP tier value that was gained create the increment field
-                for k,v in treasureArray[1].items():
-                    increment[k] = v
-                player_set = {"Consumables": consumablesString, 
-                                "Magic Items": magicItemString, 
-                                "Inventory" : character["Inventory"], 
-                                "Drive" : []}
-                for g in guilds.values():
-                    if g["Drive"] and player["CP"]>= 3:
-                        player_set["Drive"]=g["Name"]
-                
-                charRewards = {'_id': player["Character ID"],  
-                                    "fields": {"$unset": {f"GID": 1} ,"$inc": increment, 
-                                    "$set": player_set}}
-                if(player["Status"] == "Dead"):
-                    del charRewards["fields"]["$inc"]["Games"]
-                    deathDic = {"inc": increment.copy(), "set": charRewards["fields"]["$set"]}
-                    charRewards["fields"]["$inc"] = {"Games": 1}
-                    charRewards["fields"]["$set"] = {"Death": deathDic}
-                playerUpdates.append(charRewards)
-                
-        dmRewardsList = []
-        dm["Double"] = False
-        #DM REWARD MATH STARTS HERE
-        if("Character ID" in dm):
-        
-            player = dm
-            
-            duration = player["CP"] * 3600
-            # the db entry of every character
-            character = playersCollection.find_one({"_id": dm["Character ID"]})
-            charLevel = int(dm['Level'])
-            # calculate the tier of the DM character
-            dmTierNum= 5
-            dmRole = "Ascended"
-            if charLevel < 5:
-                dmRole = 'Junior'
-                dmTierNum = 1
-            elif charLevel < 11:
-                dmRole = 'Journey'
-                dmTierNum = 2
-            elif charLevel < 17:
-                dmRole = 'Elite'
-                dmTierNum = 3
-            elif charLevel < 20:
-                dmRole = 'True'
-                dmTierNum = 4
+        def character_db_calculations_kernel(character, player, charRewards, dmDouble, user_id):
+            charLevel = int(player['Level'])
             
             guild_valid =("Guild" in player and 
                                 player["Guild"] in guilds and 
@@ -632,13 +513,14 @@ class Log(commands.Cog):
                 
             
              
-            player["Double"] = dm["ID"] in userDBEntriesDic.keys() and "Double" in userDBEntriesDic[dm["ID"]] and userDBEntriesDic[dm["ID"]]["Double"] >0
+            player["Double"] = user_id in userDBEntriesDic.keys() and 
+                                "Double" in userDBEntriesDic[dm["ID"]] and 
+                                userDBEntriesDic[user_id]["Double"] >0
             playerDouble = player["Double"]
             
-            dmDouble = player["DM Double"]
             
             
-            treasureArray  = calculateTreasure(charLevel, character["CP"], dmTierNum, duration, (player in deathChars), num, guildDouble, playerDouble, dmDouble)
+            treasureArray  = calculateTreasure(charLevel, character["CP"], duration, guildDouble, playerDouble, dmDouble)
                 
                 
             if(guild_valid and 
@@ -653,37 +535,47 @@ class Log(commands.Cog):
                 
             
             # create a list of all items the character has
-            consumableList = character["Consumables"].split(", ")
+            consumableList = character["Consumables"]
             
             #remove the removed items from the list of original items and then combine the remaining and the new items                
             for i in player["Consumables"]["Remove"]:
                 consumableList.remove(i)
-            consumablesString = ", ".join(player["Consumables"]["Add"]+consumableList)
+            for i in player["Consumables"]["Add"]:
+                consumableList.remove(i)
                 
             # if the string is empty, turn it into none
             
             # magic items cannot be removed so we only care about addtions
             # if we have no items and no additions, string is None
-            magicItemString = character["Magic Items"]+(", "+ ", ".join(player["Magic Items"]))*(len(player["Magic Items"])>0)
+            for i in player["Magic Items"]:
+                character["Magic Items"][i]
                 
                 
             
             # increase the relevant inventory entries and create them if necessary
             for i in player["Inventory"]["Add"]:
                 if i in character["Inventory"]:
-                    character["Inventory"][i]["Menge"] += 1
+                    character["Inventory"][i]["Amount"] += 1
+                    character["Inventory"][i]["Rewarded"] += 1
                 else:
-                    character["Inventory"][i] = {"Menge" : 1, "Gekauft?": False}
+                    character["Inventory"][i] = {"Amount" : 1, "Rewarded": 1}
                  
                 
             # decrement the relevant items and delete the entry when necessary
             for i in player["Inventory"]["Remove"]:
-                character["Inventory"][i] -= 1
-                if int(character["Inventory"][i]) <= 0:
+                character["Inventory"][i]["Amount"] -= 1
+                    
+                if int(character["Inventory"][i]["Amount"]) <= 0:
                     del character["Inventory"][i]
+                # reduce the awarded count only if it matches the total, dont bother if there are none anyway
+                elif "Awarded" in character["Inventory"][i] and character["Inventory"][i]["Awarded"] > character["Inventory"][i]["Amount"]:
+                    character["Inventory"][i]["Awarded"] = character["Inventory"][i]["Amount"]
             
             # set up all db values that need to be incremented
-            increment = {"CP":  treasureArray[0], "GP":  treasureArray[2],"Games": 1, "Event Token": 0}
+            increment = {"CP":  treasureArray[0], 
+                        "GP":  treasureArray[2],
+                        "Games": 1, 
+                        "Event Token": 0}
             # for every TP tier value that was gained create the increment field
             for k,v in treasureArray[1].items():
                 increment[k] = v
@@ -703,7 +595,39 @@ class Log(commands.Cog):
                             "$inc": increment, 
                             "$set": player_set}}
                              
+            if(player["Status"] == "Dead"):
+                del charRewards["fields"]["$inc"]["Games"]
+                deathDic = {"inc": increment.copy(), "set": charRewards["fields"]["$set"]}
+                charRewards["fields"]["$inc"] = {"Games": 1}
+                charRewards["fields"]["$set"] = {"Death": deathDic}
             playerUpdates.append(charRewards)
+        
+        
+        for character in characterDBentries:
+            player = players[str(character["User ID"])]
+            # this indicates that the character had died
+            if player["Status"] == "Dead":
+                deathChars.append(player)
+            
+            duration = player["CP"] * 3600
+            dmDouble = False
+            user_id = str(player["User ID"])
+                
+                
+                
+                
+        dm["Double"] = False
+        #DM REWARD MATH STARTS HERE
+        if("Character ID" in dm):
+        
+            player = dm
+            
+            duration = player["CP"] * 3600
+            # the db entry of every character
+            character = playersCollection.find_one({"_id": player["Character ID"]})
+            
+            dmDouble = player["DM Double"]
+            user_id = player["ID"]
 
         
         noodles = dm["Noodles"]

@@ -13,7 +13,7 @@ from discord.ext import commands
 from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta
-from bfunc import numberEmojis, calculateTreasure, timeConversion, gameCategory, commandPrefix, checkForGuild, roleArray, timezoneVar, currentTimers, db, callAPI, traceBack, settingsRecord, alphaEmojis, questBuffsDict, questBuffsArray, noodleRoleArray, roleArray, checkForChar, tier_reward_dictionary, cp_bound_array, settingsRecord
+from bfunc import calculateTreasure, timeConversion, gameCategory, commandPrefix, checkForGuild, roleArray, timezoneVar, currentTimers, db, callAPI, traceBack, settingsRecord, alphaEmojis, noodleRoleArray, roleArray, checkForChar, tier_reward_dictionary, cp_bound_array, settingsRecord
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
@@ -81,20 +81,21 @@ class Campaign(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             await traceBack(ctx,error)
     @campaign.command()
-    async def info(self, ctx, channel):
+    async def info(self, ctx, channel, full=""):
         campaignChannel = ctx.message.channel_mentions
-
-        if campaignChannel == list():
-            await ctx.channel.send(f"You must provide a campaign channel.")
-            return 
-        channel = campaignChannel[0]
+        channel = ctx.channel
+        if not (campaignChannel == list()):
+            channel = campaignChannel[0] 
         
         campaignRecords = db.campaigns.find_one({"Channel ID": str(channel.id)})
         if not campaignRecords:
             await channel.send(f"No campaign could be found for this channel.")
             return 
         playerRecords = list(db.users.find({"Campaigns."+campaignRecords["Name"]: {"$exists": True}}))
-        playerRecords.sort(key=lambda x:not  x["Campaigns"][campaignRecords["Name"]]["Active"])
+        if full:
+            playerRecords.sort(key=lambda x:not  x["Campaigns"][campaignRecords["Name"]]["Active"])
+        else:
+            playerRecords = filter(lambda x:not  x["Campaigns"][campaignRecords["Name"]]["Active"], playerRecords)
         infoEmbed = discord.Embed()
         infoEmbedmsg = None
         master = None
@@ -112,7 +113,8 @@ class Campaign(commands.Cog):
                     member_name = member.display_name
                 info_string += f"• Time: {timeConversion(player['Campaigns'][campaignRecords['Name']]['Time'])}\n"
                 info_string += f"• Sessions: {player['Campaigns'][campaignRecords['Name']]['Sessions']}\n"
-                info_string += f"• Active Member: {player['Campaigns'][campaignRecords['Name']]['Active']}"
+                if full:
+                    info_string += f"• {'In-'* not player['Campaigns'][campaignRecords['Name']]['Active']}Active"
                 infoEmbed.add_field(name=f"**{member_name}**:", value = info_string, inline = False)
         infoEmbed.description = description_string
         
@@ -587,7 +589,6 @@ class Campaign(commands.Cog):
         The other way around does not work, however since checking for it being true instead of checking for
         the invoke source (ctx.invoked_with == "resume") would allow manual calls to this command
     """
-    @timer.command()
     async def signup(self,ctx, char="", author="", role="", resume=False, campaignRecords = None):
         #check if the command was called using one of the permitted other commands
         if ctx.invoked_with == 'prep' or ctx.invoked_with == "resume":
@@ -613,7 +614,6 @@ class Campaign(commands.Cog):
     This command handles all the intial setup for a running timer
     this includes setting up the tracking variables of user playing times,
     """
-    @timer.command()
     async def start(self, ctx, userList="", game="", role="", guildsList = "", campaignRecords = None):
         # access the list of all current timers, this list is reset on reloads and resets
         # this is used to enable the list command and as a management tool for seeing if the timers are working
@@ -678,7 +678,6 @@ class Campaign(commands.Cog):
     user -> the user being added, required since this command is invoked by add as well where the author is not the user necessarily
     resume -> used to indicate if this was invoked by the resume process where the messages are being retraced
     """
-    @timer.command()
     async def addme(self,ctx, *, role="", msg=None, start="", user="", dmChar=None, resume=False, campaignRecords = None):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             # user found is used to check if the user can be found in one of the current entries in start
@@ -816,7 +815,6 @@ class Campaign(commands.Cog):
                 await ctx.invoke(self.timer.get_command('addme'), role=role, start=start, msg=msg, user=addUser, resume=resume, dmChar=dmChar, campaignRecords = campaignRecords) 
             return start
 
-    @timer.command()
     async def removeme(self,ctx, msg=None, start="", role="",user="", resume=False):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             
@@ -911,7 +909,6 @@ class Campaign(commands.Cog):
     stamp -> the start time of the game
     author -> the Member object of the DM of the game
     """
-    @timer.command()
     async def stamp(self,ctx, stamp=0, role="", game="", author="", start="", dmChar={}, embed="", embedMsg=""):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             user = author.display_name
@@ -962,7 +959,6 @@ Command Checklist
 
             return embedMsg
 
-    @timer.command(aliases=['end'])
     async def stop(self,ctx,*,start="", role="", game="", datestart="", dmChar="", guildsList="", campaignRecords = None):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             end = time.time() + 3600 * 0
@@ -1277,10 +1273,12 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
             # get the record of the campaign for the current channel
             campaignRecord = list(campaignCollection.find({"Channel ID": str(channel.id)}))[0]
             data = []
-            for charDict in userRecordsList:
-                if f'{campaignRecord["Name"]} inc' in charDict:
-                    charRewards = charDict[f'{campaignRecord["Name"]} inc']
-                    data.append({'_id': charDict['_id'], "fields": {"$inc": charRewards, "$unset": {f'{campaignRecord["Name"]} inc': 1} }})
+            for userDict in userRecordsList:
+                if 'inc' in userDict["Campaigns"][campaignRecord["Name"]]:
+                    charRewards = userDict["Campaigns"][campaignRecord["Name"]]
+                    data.append({'_id': userDict['_id'], 
+                                    "fields": {"$inc": charRewards, 
+                                    "$unset": {f'Campaigns.{campaignRecord["Name"]}.inc': 1} }})
 
             playersData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), data))
             
@@ -1485,6 +1483,44 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
         await asyncio.sleep(10) 
         await resultMessage.delete()
 
+    @commands.cooldown(1, 5, type=commands.BucketType.member)
+    @campaign.command()
+    @commands.has_any_role('A d m i n')
+    async def rename(self,ctx, newName, channelName):
+        channel = ctx.channel
+        
+        campaignChannel = ctx.message.channel_mentions 
+        if campaignChannel == list():  # checks to see if a channel was mentioned
+            await ctx.channel.send(f"You are missing the campaign channel.")
+            return 
+        campaignChannel = campaignChannel[0]
+
+        try:
+            campaignRecords = db.campaigns.find_one({"Channel ID": str(campaignChannel.id)}) #finds the campaign that has the same Channel ID as the channel mention.
+            if not guildRecords:
+                await ctx.channel.send(f"No campaign was found.")
+                return 
+            
+            #collects the important variables
+            oldName = campaignRecords['Name']
+            
+            #update campaign log
+            campaignCollection = db.campaigns
+            campaignCollection.update_one({"Name": campaignRecords['Name']}, 
+                                            {"$set": {'Name':newName}}) # updates the campaign with the new name
+                  
+            #update users
+            db.users.update({f"Campaigns.{oldName}": entryStr},
+                                {"$rename": {f"Campaigns.{oldName}": f"Campaigns.{newName}"}})
+                                
+        except Exception as e:
+            print ('MONGO ERROR: ' + str(e))
+            
+            await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please renaming the campaign again.")
+        else:
+            print('Success')
+            await ctx.channel.send(f"You have successfully renamed the campaign {oldName} to {newName}!")
+            
     
 def setup(bot):
     bot.add_cog(Campaign(bot))

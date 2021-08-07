@@ -161,6 +161,7 @@ class Stats(commands.Cog):
                         # Total Number of Games per DM
                         statsString += f"Total: {totalGames}\n"
                     
+                statsString += f"Unique DMs: {len(statRecords['DM'].items())}\n"
 
 
               
@@ -237,9 +238,13 @@ class Stats(commands.Cog):
             srClass = collections.OrderedDict(sorted(statRecordsLife['Class'].items()))
             for k, v in srClass.items():
                 charString += f"**{k}**: {v['Count']}\n"
+                counter = 0
                 for vk, vv in collections.OrderedDict(sorted(v.items())).items():
                     if vk != 'Count':
                         charString += f"• {vk}: {vv}\n"
+                        counter += vv
+                
+                charString += f"• No Sublcass: {v['Count'] - counter}\n"
                 charString += f"━━━━━\n"
             if not charString:
                 charString = "No stats yet."

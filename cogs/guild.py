@@ -2,7 +2,7 @@ import discord
 import asyncio
 from discord.utils import get        
 from discord.ext import commands
-from bfunc import  numberEmojis, numberEmojisMobile, commandPrefix, checkForChar, checkForGuild, noodleRoleArray, db, traceBack, alphaEmojis, settingsRecord
+from bfunc import commandPrefix, checkForChar, checkForGuild, noodleRoleArray, db, traceBack, alphaEmojis, settingsRecord
 from datetime import datetime, timezone,timedelta
 
 async def pin_control(self, ctx, goal):
@@ -811,7 +811,6 @@ class Guild(commands.Cog):
                     guildEmbedmsg = await channel.send(embed=guildEmbed)
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
-    @is_log_channel()
     @guild.command()
     @commands.has_any_role('A d m i n')
     async def rename(self,ctx, newName, channelName=""):
@@ -848,13 +847,14 @@ class Guild(commands.Cog):
             
             #update stats
             db.stats.update_many({}, {"$rename": {'Guilds.'+oldName: 'Guilds.'+newName}})
+        
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
             
             await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please renaming the guild again.")
         else:
             print('Success')
-            await ctx.channel.send(f"You have successfully renamed {oldName} to {newName}!")
+            await ctx.channel.send(f"You have successfully renamed the guild {oldName} to {newName}!")
             
     
     @guild.command()

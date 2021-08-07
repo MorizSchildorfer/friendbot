@@ -236,7 +236,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
     # get the collections of characters
     playersCollection = db.players
     
-    noodles = dm["Noodles"]
+    noodles = userDBEntriesDic[str(dm["ID"])]
     # Noodles Math
     
     # calculate the hour duration and calculate how many 3h segements were played
@@ -265,7 +265,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
                 # for every brough consumable for the character
                 for r in  v["Magic Items"]+ v["Consumables"]["Add"]+ v["Inventory"]["Add"]:
                     # add the awarded items to the list of rewards
-                    vRewardList.append("+"+r)
+                    vRewardList.append("+"+r["Name"])
                 # if the character was not dead at the end of the game
                 if v not in deathChars:
                     temp += f"{v['Mention']} | {v['Character Name']} {', '.join(vRewardList).strip()}\n"
@@ -537,18 +537,40 @@ class Log(commands.Cog):
             # create a list of all items the character has
             consumableList = character["Consumables"]
             
+            remove_entries = []
             #remove the removed items from the list of original items and then combine the remaining and the new items                
-            for i in player["Consumables"]["Remove"]:
+            for reward_item in player["Consumables"]["Remove"]:
+                # start with offset because the loop below begins with an increment
+                remove_index = -1
+                for consumable in consumableList:
+                    # increment first to avoid issues with continues
+                    remove_index += 1        
+                    if consumable["Name"] != reward_item["Name"]:
+                        continue
+                    if "Charges" in consumable:
+                        if consumable["Charges"] == reward_item["Charges"]:
+                            if reward_item["End Charges"] == 0:
+                                remove_entries.append(remove_index)
+                            else:
+                                consumable["Charges"] = reward_item["End Charges"]
+                        else:
+                            continue
+                    else:
+                        remove_entries.append(remove_index)
+                    break
+            for i in remove_entries:
                 consumableList.remove(i)
-            for i in player["Consumables"]["Add"]:
-                consumableList.remove(i)
+            for reward_item in player["Consumables"]["Add"]:
+                consumableList.append(reward_item)
                 
-            # if the string is empty, turn it into none
-            
             # magic items cannot be removed so we only care about addtions
             # if we have no items and no additions, string is None
-            for i in player["Magic Items"]:
-                character["Magic Items"][i]
+            for reward_item in player["Magic Items"]:
+                if character["Magic Items"][reward_item["Name"]]:
+                    character["Magic Items"][reward_item["Name"]]["Count"]+= 1
+                else:
+                    character["Magic Items"][reward_item["Name"]] = reward_item
+                    character["Magic Items"][reward_item["Name"]]["Count"] = 1
                 
                 
             
@@ -580,8 +602,8 @@ class Log(commands.Cog):
             for k,v in treasureArray[1].items():
                 increment[k] = v
             
-            player_set = {"Consumables": consumablesString, 
-                            "Magic Items": magicItemString, 
+            player_set = {"Consumables": character["Consumables"], 
+                            "Magic Items": character["Magic Items"], 
                             "Inventory" : character["Inventory"], 
                             "Drive" : []}
 
@@ -612,7 +634,7 @@ class Log(commands.Cog):
             duration = player["CP"] * 3600
             dmDouble = False
             user_id = str(player["User ID"])
-                
+            character_db_calculations_kernel(character, player, charRewards, dmDouble, user_id)
                 
                 
                 
@@ -628,13 +650,15 @@ class Log(commands.Cog):
             
             dmDouble = player["DM Double"]
             user_id = player["ID"]
-
+            character_db_calculations_kernel(character, player, charRewards, dmDouble, user_id)
+            
         
-        noodles = dm["Noodles"]
         # Noodles Math
         hoursPlayed = maximumCP
         # that is the base line of sparkles and noodles gained
         noodlesGained = sparklesGained = int(hoursPlayed) // 3
+        
+        userDBEntriesDic[str(dm["ID"])]["Noodles"] += noodlesGained
         
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))
         players[dm["ID"]] = dm
@@ -762,8 +786,8 @@ class Log(commands.Cog):
         guild = ctx.guild
         dmUser = ctx.guild.get_member(int(dm["ID"]))
         if dmUser:
-            dmEntry = usersCollection.find_one({"User ID" : str(dm["ID"])})
-            noodles = dmEntry["Noodles"]
+            dmEntry = userDBEntriesDic[str(dm["ID"])]
+            noodles = dmEntry["Noodles"] + noodlesGained
             noodleString = ""
             dmRoleNames = [r.name for r in dmUser.roles]
             # for each noodle roll cut-off check if the user would now qualify for the roll and if they do not have it and remove the old roll

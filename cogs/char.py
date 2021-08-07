@@ -11,7 +11,7 @@ from math import floor
 from datetime import datetime, timezone, timedelta 
 from discord.ext import commands
 from urllib.parse import urlparse 
-from bfunc import numberEmojis, alphaEmojis, commandPrefix, left,right,back, db, callAPI, checkForChar, timeConversion, traceBack, tier_reward_dictionary, cp_bound_array, calculateTreasure, settingsRecord
+from bfunc import alphaEmojis, commandPrefix, left,right,back, db, callAPI, checkForChar, timeConversion, traceBack, tier_reward_dictionary, cp_bound_array, calculateTreasure, settingsRecord
 
 
 def get_embed_length(embed):
@@ -502,7 +502,7 @@ class Character(commands.Cog):
                         totalTime = 0
                         
                     if userRecords["Campaigns"][campaignKey]["Time"] < 3600*4 or totalTime > userRecords["Campaigns"][campaignKey]["Time"]:
-                        msg += f":warning: You do not have enough hours to transfer from {campaignChannels[0].mention}!\n"
+                        msg += f":warning: You do not have enough hours to transfer from {error_name}!\n"
                     else:
                         cp = ((totalTime) // 1800) / 2
                         cpTransfered = cp
@@ -1872,7 +1872,13 @@ class Character(commands.Cog):
                 description +=  f"• Extra Training: {charDict['Proficiency']}\n"
             if 'NoodleTraining' in charDict:
                 description +=  f"• Noodle Training: {charDict['NoodleTraining']}\n"
-            description += f":moneybag: {charDict['GP']} GP\n"
+            
+            gp_string = str(int(charDict['GP']))
+            copper_part = (int(charDict['GP']*100)%100)
+            if copper_part >0:
+                gp_string += f".{copper_part}"
+                
+            description += f":moneybag: {gp_string} GP\n"
             charLevel = charDict['Level']
             if charLevel < 5:
                 role = 1
@@ -1946,9 +1952,16 @@ class Character(commands.Cog):
                 charEmbed.add_field(name='Attuned', value='\n• '.join(attuned_items_dic.keys()), inline=False)
                 statBonusDict = { 'STR': 0 ,'DEX': 0,'CON': 0, 'INT': 0, 'WIS': 0,'CHA': 0}
                 for key, attuned_item in attuned_items_dic.items():
-                        if 'HP' in attuned_item:
-                            totalHPAdd += attuned_item['HP']
+                    if 'HP' in attuned_item:
+                        totalHPAdd += attuned_item['HP']
+                    statBonus = ""
+                    if 'Stat Bonuses' in magic_item_record:
                         statBonus = attuned_item['Stat Bonuses']
+                    elif ("Predecessor" in magic_item_record and 
+                            'Stat Bonuses' in magic_item_record["Predecessor"]):
+                        statBonus = attuned_item['Predecessor']["Stat Bonus"][attuned_item['Predecessor']["Stage"]]
+                        
+                    if statBonus    
                         if '+' not in statBonus:
                             statSplit = statBonus.split(' ')
                             modStat = str(charDict[statSplit[0]]).replace(')', '').split(' (')[0]

@@ -11,7 +11,7 @@ from math import floor
 
 
 def ordinal(n): 
-    "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
+    return "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
 
 class Shop(commands.Cog):
     def __init__ (self, bot):

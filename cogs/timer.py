@@ -68,39 +68,48 @@ class Timer(commands.Cog):
     def startsWithCheck(self, message, target):
         return any([message.content.startswith(f"{commandPrefix}{x} {target}") for x in ["t", "timer"]])
         
-    async def menu_selection(search_term, options):
+    async def menu_selection(ctx, search_term, options, author, title="", embed_msg=None):
+        channel = ctx.channel
+        if not options:
+            return None, None
+        selection = options[0]
         if len(options) > 1:
-            infoString = ""
-            options = sorted(list(options), key = lambda text, value : text)
+            embed = discord.Embed()
+            selection_string = ""
+            options = sorted(list(options), key = lambda data_pair : data_pair)
             for i in range(0, min(len(options), 9)):
-                infoString += f"{alphaEmojis[i]}: {options[i][0]}\n"
+                selection_string += f"{alphaEmojis[i]}: {options[i][0]}\n"
             
-            def response_check(r, u):
+            def response_check(response, response_author):
                 sameMessage = False
-                if charEmbedmsg.id == r.message.id:
+                if embed_msg.id == response.message.id:
                     sameMessage = True
-                return ((r.emoji in alphaEmojis[:min(len(charRecords), 9)]) or (str(r.emoji) == '❌')) and u == author and sameMessage
+                return ((response.emoji in alphaEmojis[:min(len(options), 9)]) or (str(response.emoji) == '❌')) and response_author == author and sameMessage
 
-            charEmbed.add_field(name=f"There seems to be multiple results for \"`{search_term}`\"! Please choose the intended option. If you do not see the option here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
-            charEmbedmsg = await channel.send(embed=charEmbed)
-            await charEmbedmsg.add_reaction('❌')
+            embed.add_field(name=f"There seems to be multiple results for \"`{search_term}`\"! Please choose the intended option. If you do not see the option here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
+            if embed_msg:
+                embed_msg.edit(embed=embed)
+            else:
+                embed_msg = await channel.send(embed=embed)
+            await embed_msg.add_reaction('❌')
 
             try:
                 tReaction, tUser = await bot.wait_for("reaction_add", check=infoCharEmbedcheck, timeout=60)
             except asyncio.TimeoutError:
-                await charEmbedmsg.delete()
-                await channel.send('Character information timed out! Try using the command again.')
+                await embed_msg.delete()
+                await channel.send('Selection timed out! Try using the command again.')
                 ctx.command.reset_cooldown(ctx)
                 return None, None
             else:
                 if tReaction.emoji == '❌':
-                    await charEmbedmsg.edit(embed=None, content=f"Character information cancelled. Try again using the same command!")
-                    await charEmbedmsg.clear_reactions()
+                    await embed_msg.edit(embed=None, content=f"Selection cancelled. Try again using the same command!")
+                    await embed_msg.clear_reactions()
                     ctx.command.reset_cooldown(ctx)
                     return None, None
-            charEmbed.clear_fields()
-            await charEmbedmsg.clear_reactions()
-            return charRecords[alphaEmojis.index(tReaction.emoji[0])], charEmbedmsg
+            embed.clear_fields()
+            await embed_msg.clear_reactions()
+            selection = options[alphaEmojis.index(tReaction.emoji[0])][1]
+        return selection, embed_msg
         
     
     """

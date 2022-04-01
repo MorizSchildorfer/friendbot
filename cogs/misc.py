@@ -332,7 +332,7 @@ class Misc(commands.Cog):
             emoji_list = ['<:boost:585637770970660876>', "🎉", "🎊", "🥳", "🍾", "🥂", "🍻", "<:bless:382029999500165120>"]
             for e in emoji_list:
                 await msg.add_reaction(e)
-        elif any(word in msg.content.lower() for word in ['thank', 'thanks', 'thank you', 'thx', 'gracias', 'danke', 'arigato', 'xie xie', 'merci']) and 'bot friend' in msg.content.lower():
+        elif any(word in msg.content.lower() for word in ['thank', 'thanks', 'thank you', 'thx', 'gracias', 'danke', 'arigato', 'xie xie', 'merci']) and 'mschild' in msg.content.lower():
             await msg.add_reaction('❤️')
             await msg.channel.send("You're welcome friend!")
         elif msg.channel.id == tChannel and msg.author.id != self.bot.user.id:

@@ -174,6 +174,7 @@ class Character(commands.Cog):
     async def create(self,ctx, name, level: int, race, cclass, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", campaignName = "", timeTransfer = None):
         name = name.strip()
         
+        channel = ctx.channel
         # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
         if not name:
             await channel.send(content=":warning: The name of your character cannot be blank! Please try again.\n")
@@ -220,7 +221,6 @@ class Character(commands.Cog):
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author
         guild = ctx.guild
-        channel = ctx.channel
         charEmbed = discord.Embed ()
         charEmbed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar)
         charEmbed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")

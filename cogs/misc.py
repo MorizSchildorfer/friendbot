@@ -53,7 +53,7 @@ class Misc(commands.Cog):
         #generate the string
         filtered.sort(key = sortChannel)
         text += "**"+str(len(filtered))+"**!\n\n"
-        text += (" | ").join(map(lambda c: c.mention, filtered))
+        text += (" | ").join(map(lambda c: c.name.replace("-", " ").title(), filtered))
         if(not message):
             message = await ch.send(content=text)
             return
@@ -128,12 +128,11 @@ class Misc(commands.Cog):
 
     #A function that grabs all messages in the quest board and compiles a list of availablities
     async def generateMessageText(self, channel_id):
-        tChannel = channel_id
-        channel= self.bot.get_channel(tChannel)
+        channel= self.bot.get_channel(channel_id)
         #get all game channel ids
-        game_channel_category =self.bot.get_channel(settingsRecord[str(channel.guild.id)]["Game Rooms"])
+        game_channel_category = self.bot.get_channel(settingsRecord[str(channel.guild.id)]["Game Rooms"])
         game_channel_ids = set(map(lambda c: c.id, game_channel_category.text_channels))
-        build_message = "**It is Double DM Rewards Weekend (DDMRW)!** Get out there and host some one-shots!\n"*settingsRecord['ddmrw']#+ "The current status of the game channels is:\n"
+        build_message = "**It is Double DM Rewards Weekend (DDMRW)!**\nGet out there and host some one-shots!\n"*settingsRecord['ddmrw']#+ "The current status of the game channels is:\n"
         #create a dictonary to store the room/user pairs
         tierMap = {"Tier 0" : "T0", "Tier 1" : "T1", "Tier 2" : "T2", "Tier 3" : "T3", "Tier 4" : "T4", "Tier 5" : "T5"}
         emoteMap = settingsRecord[str(channel.guild.id)]["Emotes"]
@@ -178,7 +177,19 @@ class Misc(commands.Cog):
                 if(len(channel_dm_dic[c.mention][1])> 0):
                     tierAddendum = "\n       "+"\n       ".join(channel_dm_dic[c.mention][1])
                 build_message+=""+channel_dm_dic[c.mention][0]+tierAddendum+"\n"
-        return build_message
+        build_message = build_message
+        post_embed = discord.Embed()
+        post_embed.description = build_message
+        if len(build_message) > 4000:
+            # get everything to the limit
+            section_text = build_message[:4000]
+            # ensure that we do not separate mid sentence by splitting at the separator
+            section_text = section_text.rsplit("❌", 1)[0]
+            # then update the text to everything past what we took for the section text
+            text = build_message[len(section_text)+len("❌"):]
+            post_embed.description = section_text
+            post_embed.add_field(name="** **", value= "❌"+text, inline=False)
+        return post_embed
     
         
     @commands.Cog.listener()
@@ -188,9 +199,7 @@ class Misc(commands.Cog):
             await self.find_message(payload.channel_id)
             #Since we dont know whose post was deleted we need to cover all the posts to find availablities
             #Also protects against people misposting
-            postEmbed = discord.Embed()
-            new_text = await self.generateMessageText(payload.channel_id)
-            postEmbed.description = new_text
+            postEmbed = await self.generateMessageText(payload.channel_id)
             #if we created the last message during current runtime we can just edit
             if(self.current_message and self.past_message_check != 1):
                 await self.current_message.edit(embed=postEmbed)
@@ -206,9 +215,7 @@ class Misc(commands.Cog):
         if(str(payload.channel_id) in settingsRecord["QB List"].keys() and (not self.current_message or payload.message_id != self.current_message.id)):
             await self.find_message(payload.channel_id)
             
-            postEmbed = discord.Embed()
-            new_text = await self.generateMessageText(payload.channel_id)
-            postEmbed.description = new_text
+            postEmbed = await self.generateMessageText(payload.channel_id)
             if(self.current_message and self.past_message_check != 1):
                 #in case a message is posted without a game channel which is then edited in we need to this extra check
                 msgAfter = False
@@ -253,10 +260,7 @@ class Misc(commands.Cog):
             game_channel_ids = list(map(lambda c: c.id, game_channel_category.text_channels))
             for mention in cMentionArray:
                 if mention.id in game_channel_ids:
-                    postEmbed = discord.Embed()
-                    new_text = await self.generateMessageText(channel.id)
-                    postEmbed.description = new_text
-                    
+                    postEmbed = await self.generateMessageText(msg.channel.id)
                     if(self.past_message_check == 2):
                         await self.current_message.delete()
                         self.current_message = await msg.channel.send(embed=postEmbed)

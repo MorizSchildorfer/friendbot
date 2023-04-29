@@ -173,10 +173,13 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             else:
                 allRewardStrings[groupString] = [player]
 
-
+    
+    paused_time = 0
+    if "Paused Time" in sessionInfo:
+        paused_time = sessionInfo["Paused Time"]
     datestart = datetime.fromtimestamp(start).astimezone(pytz.timezone(timezoneVar)).strftime("%b-%d-%y %I:%M %p")
     dateend = datetime.fromtimestamp(end).astimezone(pytz.timezone(timezoneVar)).strftime("%b-%d-%y %I:%M %p")
-    totalDuration = timeConversion(end - start)
+    totalDuration = timeConversion(end - start - paused_time)
     sessionLogEmbed.title = f"Timer: {game} [END] - {totalDuration}"
     dm_double_string = ""
     dmRewardsList = []
@@ -254,9 +257,8 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
     noodles = dmEntry["Noodles"]
     # Noodles Math
     
-    duration = end - start
-    if duration < 3*3600:
-        duration = 0
+        
+    duration = end - start - paused_time
     noodlesGained = int((duration + dmEntry["DM Time"])//(3*3600))
     
     # calculate the hour duration and calculate how many 3h segements were played
@@ -821,10 +823,10 @@ class Log(commands.Cog):
         if "Noodles" not in dmEntry:
             dmEntry["Noodles"] = 0
         noodles = dmEntry["Noodles"]
-        duration = totalDuration = end - start
-        duration = end - start
-        # if duration < 3*3600:
-            # duration = 0
+        paused_time = 0
+        if "Paused Time" in sessionInfo:
+            paused_time = sessionInfo["Paused Time"]
+        duration = totalDuration = end - start - paused_time
         noodlesGained = int((duration + dmEntry["DM Time"])//(3*3600))
         new_dm_time = (duration + dmEntry["DM Time"])%(3*3600)
         noodles += noodlesGained

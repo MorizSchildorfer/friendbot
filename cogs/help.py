@@ -210,6 +210,8 @@ class Help(commands.Cog):
         helpEmbedTimerTwo.add_field(name=f'▫️ Character Death (DM)', value=f'{commandPrefix}timer death @player', inline=False)
 
         helpEmbedTimerTwo.add_field(name=f'▫️ Stopping the Timer (DM)', value=f'{commandPrefix}timer stop', inline=False)
+        helpEmbedTimerTwo.add_field(name=f'▫️ Pausing the Timer (DM)', value=f'{commandPrefix}timer pause reason', inline=False)
+        
 
 
     # POST-QUEST TIMER COMMANDS MENU ($help timer3)

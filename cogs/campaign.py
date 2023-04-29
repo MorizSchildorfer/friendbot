@@ -14,7 +14,7 @@ from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta
 from bfunc import gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, roleArray, cp_bound_array, settingsRecord
-from cogs.util import callAPI, paginate, timeConversion, noodleRoleArray
+from cogs.util import callAPI, paginate, timeConversion, noodleRoleArray, disambiguate
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
@@ -645,7 +645,7 @@ class Campaign(commands.Cog):
             #the command that starts the timer, it does so by allowing the code to move past the loop
             elif self.startsWithCheck(msg, "start"):
                 if await self.permissionCheck(msg, author):
-                    if len(signedPlayers["Players"].keys()) == 0:
+                    if len(signedPlayers["Players"].keys()) == -1:
                         await channel.send(f'There are no players signed up! Players, use the following command to sign up to the quest with your character before the DM starts the timer:\n```yaml\n{commandPrefix}campaign timer signup```') 
                     else:
                         timerStarted = True
@@ -722,6 +722,12 @@ class Campaign(commands.Cog):
             # format the time for a localized version defined in bfunc
             datestart = datetime.now(pytz.timezone(timezoneVar)).strftime("%b-%d-%y %I:%M %p")
             userList["datestart"] = datestart
+            
+            userList["Paused"] = False
+            userList["Paused Time"] = 0
+            userList["Last Pause"] = startTime
+            userList["Pause Type"] = 0
+            
             for p_key, p_entry in userList["Players"].items():
                 p_entry["State"] = "Full"
                 p_entry["Latest Join"] = startTime
@@ -768,10 +774,6 @@ class Campaign(commands.Cog):
     async def addme(self,ctx, *, role="", msg=None, start="", user="", dmChar=None, resume=False, campaignRecords = None):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             # user found is used to check if the user can be found in one of the current entries in start
-            userFound = False
-            # the key string where the user was found
-            timeKey = ""
-            # the user to add
             addUser = user
             channel = ctx.channel
                 
@@ -781,25 +783,10 @@ class Campaign(commands.Cog):
                 if addEmbedmsg.id == r.message.id:
                     sameMessage = True
                 return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and (u == dmChar["Member"])
+            startTime = time.time()
             
+            userFound = addUser.id in start["Players"]
             
-            # if this command was invoked by during the resume process we need to take the time of the message
-            # otherwise we take the current time
-            if not resume:
-                startTime = time.time()
-            else:
-                startTime = msg.created_at.replace(tzinfo=timezone.utc).timestamp()
-            
-            userInfo = None
-            # we go over every key value pair in the start dictionary
-            # u is a string of format "{Tier} (Friend Partial or Full) Rewards: {duration}" and v is a list player entries [member, char DB entry, consumables, char id]
-            for u, v in start["Players"].items():
-                # loop over all entries in the player list and check if the addedUser is one of them
-                if v["Member"] == addUser:
-                    userFound = True
-                    # the key of where the user was found
-                    userInfo = v
-                    break
             # if we didnt find the user we now need to the them to the system
             if not userFound:
                 # first we invoke the signup command
@@ -845,6 +832,7 @@ class Campaign(commands.Cog):
                 else:
                     await ctx.channel.send(embed=None, content=f"***{addUser.display_name}*** could not be added to the timer.")
                     return start
+            userInfo = start["Players"][addUser.id]
             userInfo["Latest Join"] = startTime
             userInfo["State"] = "Partial"
             return start
@@ -902,6 +890,60 @@ class Campaign(commands.Cog):
                 await ctx.invoke(self.timer.get_command('addme'), role=role, start=start, msg=msg, user=addUser, resume=resume, dmChar=dmChar, campaignRecords = campaignRecords) 
             return start
 
+
+    async def pause(self,ctx, userInfo="", msg=""):
+        channel = ctx.channel
+        if userInfo["Paused"]:
+            await channel.send(f'Sorry, the timer is already paused.')
+            return
+        msg_split = msg.content.split(' ', 3)
+        if len(msg_split)<4:
+            reason = None
+        else:
+            reason =  msg_split[3].strip()
+        if not reason:
+            await channel.send(f'Sorry, you need to provide a reason to pause the timer.')
+            return
+        
+        pause_embed = discord.Embed()
+        pause_embed.title = "Which kind of issue are you having?"
+        pause_embed.description = """🇦: Personal [30 Minutes]
+        🇧: Tech [1 Hour]"""
+        pause_msg = await channel.send(embed=pause_embed)
+        choice = await disambiguate(2, pause_msg, msg.author, cancel=False)
+        if choice is None or choice == -1:
+            #stop if no response was given within the timeframe
+            await pause_msg.edit(embed=None, content="Command cancelled. Try using the command again.")
+            return
+        options = ["Personal", "Tech"]
+        await pause_msg.edit(embed=None, content=f"Timer Paused. {options[choice]} Reason:\n```{reason}```Use `$campaign timer unpause` to continue the timer")
+        
+        pause_time = time.time()
+        userInfo["Paused"] = True
+        userInfo["Last Pause"] = pause_time
+        userInfo["Pause Type"] = choice
+        for user_dic in userInfo["Players"].values():
+            if user_dic["State"] not in ["Dead", "Removed"]:
+                user_dic["Duration"] += pause_time - user_dic["Latest Join"] 
+                user_dic["Latest Join"] = pause_time                 
+        return
+        
+    async def unpause(self,ctx, userInfo="", silent=False):
+        channel = ctx.channel
+        if not userInfo["Paused"]:
+            await channel.send(f'Sorry, the timer is already running.')
+            return
+        unpause_time = time.time()
+        userInfo["Paused"] = False
+        userInfo["Paused Time"] += unpause_time - userInfo["Last Pause"]
+        for user_dic in userInfo["Players"].values():
+            if user_dic["State"] not in ["Dead", "Removed"]:
+                user_dic["Latest Join"] = unpause_time     
+        userInfo["DM"]["Latest Join"] = unpause_time
+        if not silent:
+            await channel.send(f'The timer is now runnning.')        
+        return
+
     @timer.command()
     async def removeme(self,ctx, msg=None, start="", role="",user="", resume=False):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
@@ -930,9 +972,9 @@ class Campaign(commands.Cog):
             # if the player has been there the whole time
             else:
                 user_dic["State"] = "Removed"
-                user_dic["Duration"] += endTime - user_dic["Latest Join"] 
-                if not resume:
-                    await ctx.channel.send(content=f"***{user}***, you have been removed from the timer.")
+                if not start["Paused"]:
+                    user_dic["Duration"] += endTime - user_dic["Latest Join"] 
+                await ctx.channel.send(content=f"***{user}***, you have been removed from the timer.")
 
         return start
 
@@ -999,8 +1041,12 @@ class Campaign(commands.Cog):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
             # calculate the total duration of the game so far
             end = time.time()
-            duration = end - stamp
+            pause_duration = (end - start["Last Pause"])*start["Paused"]
+            duration = end - start["Start"] - start["Paused Time"] - pause_duration
             durationString = timeConversion(duration)
+            if start["Paused"]:
+                pause_shift = 1800 * (start["Pause Type"]+1) + 90
+                durationString = f"{durationString} || **PAUSE [{timeConversion(pause_shift-pause_duration)} Remaining]**"
             # reset the fields in the embed object
             embed.clear_fields()
 
@@ -1011,7 +1057,7 @@ class Campaign(commands.Cog):
                 elif v["State"] == "Removed":
                     pass
                 else:
-                    embed.add_field(name= f"**{v['Member'].display_name}**", value=f"{v['Member'].mention} {timeConversion(v['Duration'] + end - v['Latest Join'] )}", inline=False)
+                    embed.add_field(name= f"**{v['Member'].display_name}**", value=f"{v['Member'].mention} {timeConversion(v['Duration'] + (end - v['Latest Join'])*(not start['Paused'] ))}", inline=False)
                 
             
             # update the title of the embed message with the current time
@@ -1028,7 +1074,8 @@ Command Checklist
 2. DM removes a player or they leave early:
    • DM removes: {commandPrefix}campaign timer remove @player
    • Player leaves: {commandPrefix}campaign timer removeme
-3. DM stops the campaign session: {commandPrefix}campaign timer stop```"""
+3. DM stops the campaign session: {commandPrefix}campaign timer stop
+4. DM pauses the campaign session: {commandPrefix}campaign timer pause reason```"""
             # check if the current message is the last message in the chat
             # this checks the 1 message after the current message, which if there is none will return an empty list therefore msgAfter remains False
             async for message in ctx.channel.history(after=embedMsg, limit=1):
@@ -1047,12 +1094,16 @@ Command Checklist
     @timer.command(aliases=['end'])
     async def stop(self,ctx,*,start="", role="", game="", datestart="", dmChar="", guildsList="", campaignRecords = None):
         if ctx.invoked_with == 'prep' or ctx.invoked_with == 'resume':
+            
+            if start["Paused"]:
+                await self.unpause(ctx, userInfo=start, silent=True)
+            
             end = time.time() + 3600 * 0
             allRewardStrings = {}
             guild = ctx.guild
             startTime = start["Start"]
-            total_duration = end - startTime
-            
+            total_duration = end - startTime - start["Paused Time"]
+            print(total_duration)
             
             stopEmbed = discord.Embed()
             
@@ -1100,10 +1151,8 @@ Command Checklist
             if 'DM Time' not in dmChar['DB Entry']:
                 dmChar['DB Entry']['DM Time'] = 0
             noodles = dmChar['DB Entry']['Noodles']
-            duration = end - startTime
-            # if duration < 3*3600:
-                # duration = 0
-            noodlesGained = int((duration + dmChar['DB Entry']["DM Time"])//(3*3600))
+            
+            noodlesGained = int((total_duration + dmChar['DB Entry']["DM Time"])//(3*3600))
             noodlesTotal = noodles + noodlesGained
             stopEmbed.add_field(name="DM", value=f"{dmChar['Member'].mention}\n{noodlesTotal}:star: (+{noodlesGained}:star:)", inline=False)
 
@@ -1192,6 +1241,8 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
         await self.duringTimer(ctx, datestart, startTime, userList, role, game, author, stampEmbed, stampEmbedMsg, dmChar,campaignRecords)
         del currentTimers[ctx.channel.mention]
         self.timer.get_command('resume').reset_cooldown(ctx)
+    
+    
     #extracted the checks to here to generalize the changes
     async def permissionCheck(self, msg, author):
         # check if the person who sent the message is either the DM, a Mod or a Admin
@@ -1230,7 +1281,7 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
 
         #in no rewards games characters cannot die or get rewards
         
-        timerCommands = ['stop', 'end', 'add', 'remove', 'stamp']
+        timerCommands = ['stop', 'end', 'add', 'remove', 'stamp', 'pause', 'unpause']
 
       
         timerCombined = []
@@ -1243,7 +1294,18 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
         while not timerStopped:
             try:
                 msg = await self.bot.wait_for('message', timeout=60.0, check=lambda m: (any(x in m.content for x in timerCombined)) and m.channel == channel)
-                #transfer ownership of the timer
+                
+                #unpause the timer
+                if (self.startsWithCheck(msg, "unpause")):
+                    if await self.permissionCheck(msg, author):
+                        await self.unpause(ctx, userInfo=startTimes)
+                        stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, role=role, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                #pause the timer
+                elif (self.startsWithCheck(msg, "pause")):
+                    if await self.permissionCheck(msg, author):
+                        await self.pause(ctx, userInfo=startTimes, msg=msg)
+                        stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, role=role, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                
                 # this is the command used to stop the timer
                 # it invokes the stop command with the required information, explanations for the parameters can be found in the documentation
                 # the 'end' alias could be removed for minimal efficiancy increases
@@ -1266,7 +1328,7 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
                 # the character is extracted from the message in the signup command 
                 # special behavior:
                     stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, role=role, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                                # @player is a protection from people copying the command
+                # @player is a protection from people copying the command
                 elif self.startsWithCheck(msg, "add") and '@player' not in msg.content:
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
@@ -1288,6 +1350,10 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
                 stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, role=role, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
             else:
                 pass
+            if startTimes["Paused"] and time.time()-60 - startTimes["Last Pause"] > 1800 * (startTimes["Pause Type"]+1):
+                await channel.send(f"Pause limit exceeded. Timer has been stopped") 
+                await ctx.invoke(self.timer.get_command('stop'), start=startTimes, role=role, game=game, datestart=datestart, dmChar=dmChar, campaignRecords = campaignRecords)
+                timerStopped = True
             
     @campaign.command()
     async def log(self, ctx, num : int, *, editString=""):
@@ -1400,7 +1466,6 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
                     if charDict["User ID"] == dmID:
                         if 'DM Time' not in charDict:
                             charDict['DM Time'] = 0
-                        #if charRewards[f'Campaigns.{campaignRecord["Name"]}.Time'] > 3*3600:
                         charRewards["DM Time"] = (charRewards[f'Campaigns.{campaignRecord["Name"]}.Time'] + charDict["DM Time"])%(3*3600) - charDict["DM Time"]
                         charRewards["Noodles"] = int((charRewards[f'Campaigns.{campaignRecord["Name"]}.Time'] + charDict["DM Time"])//(3*3600))
                     data.append({'_id': charDict['_id'], "fields": {"$inc": charRewards, "$unset": {f'{campaignRecord["Name"]} inc': 1} }})

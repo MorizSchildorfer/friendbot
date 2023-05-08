@@ -1263,8 +1263,8 @@ class Admin(commands.Cog, name="Admin"):
     @commands.has_any_role("Mod Friend", "Bot Friend", "A d m i n")
     async def roomData(self, ctx):
         data = list(map(lambda x: x["Channel"],list(db.logdata.find(
-               {})
-            )))
+               {"Status": "Approved"}
+            ))))
         counted = collections.Counter(data)
         counter_list = sorted(list(counted.keys()))
         
@@ -1345,9 +1345,6 @@ async def setup(bot):
 
 # $react add/remove channelID messageID :emoji:
     # Forces Bot Friend to add or remove a Unicode emoji as a reaction to the specified message within a channel.
-
-# $uwu
-    # Translates the previous message into uwu-speak.
 
 # $killbot
     # Forcefully shuts down Bot Friend.

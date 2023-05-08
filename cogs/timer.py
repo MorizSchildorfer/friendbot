@@ -444,7 +444,7 @@ class Timer(commands.Cog):
                     charName = charList[1]
                 # this is the exact same set up as for signup, since a person is adding themselves only one parameter is expected
                 elif ('timer addme ' in char.content or 't addme ' in char.content) and (char.content != f'{commandPrefix}timer addme ' or char.content != f'{commandPrefix}t addme '):
-                    charList = shlex.split(char.content.split(f' ')[2].strip())
+                    charList = shlex.split(char.content.split(f't addme ')[1].strip())
                     charName = charList[0]
                 else:
                     await ctx.channel.send("I wasn't able to add this character. Please check your format.")

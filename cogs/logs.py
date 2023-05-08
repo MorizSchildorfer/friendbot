@@ -261,10 +261,8 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
     duration = end - start - paused_time
     noodlesGained = int((duration + dmEntry["DM Time"])//(3*3600))
     
-    # calculate the hour duration and calculate how many 3h segements were played
-    hoursPlayed = maximumCP
     # that is the base line of sparkles and noodles gained
-    sparklesGained = int(hoursPlayed) // 3
+    sparklesGained = int(maximumCP) // 3
     # add the noodles to the record or start a record if needed
         
     #new noodle total
@@ -779,10 +777,8 @@ class Log(commands.Cog):
                                         "$inc": {"Stored": duration,
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
-
-        hoursPlayed = maximumCP
         # that is the base line of sparkles and noodles gained
-        sparklesGained = int(hoursPlayed) // 3
+        sparklesGained = int(maximumCP) // 3
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))
         players[dm["ID"]] = dm
         guildsData = []

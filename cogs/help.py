@@ -148,7 +148,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.add_field(name=f'▫️ Death Options', value=f'{commandPrefix}death "character name"', inline=False)
         
-        helpEmbedChar.add_field(name=f'▫️ Adding Campaign Time', value=f'{commandPrefix}applyTime "character name" #channel XhYm', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Adding Campaign Time', value=f'{commandPrefix}applyTime "character name" XhYm', inline=False)
         
         helpEmbedChar.add_field(name=f'▫️ Pause Game Rewards', value=f'{commandPrefix}pause "character name"', inline=False)
 
@@ -332,9 +332,9 @@ class Help(commands.Cog):
 
         helpEmbedCampaign.add_field(name=f'▫️ Checking the Timestamp (Player)', value=f'{commandPrefix}campaign timer stamp', inline=False)
 
-        helpEmbedCampaign.add_field(name=f'▫️ Creating a Character with a Campaign Transfer', value=f'{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]" #campaign-channel XhYm', inline=False)
+        helpEmbedCampaign.add_field(name=f'▫️ Creating a Character with a Campaign Transfer', value=f'{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]" XhYm', inline=False)
 
-        helpEmbedCampaign.add_field(name=f'▫️ Creating a Multiclass Character with a Campaign Transfer', value=f'{commandPrefix}create "character name" starting level "race" "class1 final level / class2 final level / [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]" #campaign-channel XhYm', inline=False)
+        helpEmbedCampaign.add_field(name=f'▫️ Creating a Multiclass Character with a Campaign Transfer', value=f'{commandPrefix}create "character name" starting level "race" "class1 final level / class2 final level / [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]" XhYm', inline=False)
 
 
     # DM CAMPAIGN COMMANDS

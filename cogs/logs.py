@@ -638,6 +638,7 @@ class Log(commands.Cog):
                                                     "Event Token" : event_inc}}})
         dmRewardsList = []
         dm["Double"] = False
+        dm_time_bank = 0
         #DM REWARD MATH STARTS HERE
         if("Character ID" in dm):
         
@@ -777,6 +778,8 @@ class Log(commands.Cog):
                                         "$inc": {"Stored": duration,
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
+        else:
+            dm_time_bank = dm["CP"] * 3600 * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"]))
         # that is the base line of sparkles and noodles gained
         sparklesGained = int(maximumCP) // 3
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))
@@ -878,7 +881,7 @@ class Log(commands.Cog):
             statsCollection.update_one({'Life': 1}, {"$inc": statsIncrement, "$addToSet": statsAddToSet}, upsert=True)
             # update the DM' stats
             
-            usersCollection.update_one({'User ID': str(dm["ID"])}, {"$set": {'User ID':str(dm["ID"]),'DM Time': new_dm_time}, "$inc": {'Games': 1, 'Noodles': noodlesGained, 'Double': -1*dm["Double"]}}, upsert=True)
+            usersCollection.update_one({'User ID': str(dm["ID"])}, {"$set": {'User ID':str(dm["ID"]),'DM Time': new_dm_time}, "$inc": {'Games': 1, 'Noodles': noodlesGained, 'Double': -1*dm["Double"], 'Time Bank': dm_time_bank}}, upsert=True)
             playersCollection.bulk_write(timerData)
             
             usersData = list([UpdateOne({'User ID': key}, {'$inc': {'Games': 1, 'Double': -1*item["Double"] }}, upsert=True) for key, item in {character["User ID"] : players[character["User ID"] ] for character in characterDBentries}.items()])

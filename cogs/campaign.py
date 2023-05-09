@@ -36,7 +36,7 @@ class Campaign(commands.Cog):
         if "Campaigns" in userRecords:
             for u, v in userRecords['Campaigns'].items():
                 hidden = ("Hidden" in v and v["Hidden"])
-                campaignString += f"• {(not v['Active'])*'~~'}{'*'*hidden}{u}{'*'*hidden}{(not v['Active'])*'~~'}: {v['Sessions']} sessions, Available: {timeConversion(v['TimeAvailable'],hmformat=True)}/{timeConversion(v['Time'],hmformat=True)}\n"
+                campaignString += f"• {(not v['Active'])*'~~'}{'*'*hidden}{u}{'*'*hidden}{(not v['Active'])*'~~'}: {v['Sessions']} sessions, {timeConversion(v['Time'],hmformat=True)}\n"
 
         contents.append((f"Campaigns", campaignString, False))
         await paginate(ctx, self.bot, "" , contents, separator="\n", author = ctx.author)
@@ -160,7 +160,6 @@ class Campaign(commands.Cog):
                 if member:
                     member_name = member.display_name
                 info_string += f"• Total Time: {timeConversion(player['Campaigns'][campaignRecords['Name']]['Time'])}\n"
-                info_string += f"• Time Available: {timeConversion(player['Campaigns'][campaignRecords['Name']]['TimeAvailable'])}\n" 
                 info_string += f"• Sessions: {player['Campaigns'][campaignRecords['Name']]['Sessions']}\n"
                 if full:
                     active_string = 'Active'
@@ -174,8 +173,7 @@ class Campaign(commands.Cog):
         member_name = "Left the Server"
         if member:
             member_name = member.display_name
-        master_text += f"• Total Time: {timeConversion(master['Campaigns'][campaignRecords['Name']]['Time'])}\n"
-        master_text += f"• Time Available: {timeConversion(master['Campaigns'][campaignRecords['Name']]['TimeAvailable'])}\n"        
+        master_text += f"• Total Time: {timeConversion(master['Campaigns'][campaignRecords['Name']]['Time'])}\n"  
         master_text += f"• Sessions: {master['Campaigns'][campaignRecords['Name']]['Sessions']}\n"
         infoEmbed.insert_field_at(0, name=f"**{member_name}** (Campaign Master):", value = master_text, inline = False)
         await ctx.channel.send(embed=infoEmbed)
@@ -221,7 +219,7 @@ class Campaign(commands.Cog):
         if userRecords: 
             if 'Campaigns' not in userRecords:
                 userRecords['Campaigns'] = {}
-            userRecords['Campaigns'][campaignRole[0].name] = {"Time" : 0, "Sessions" : 0, "Active" : True, "TimeAvailable": 0}
+            userRecords['Campaigns'][campaignRole[0].name] = {"Time" : 0, "Sessions" : 0, "Active" : True}
             campaignDict = {'Name': campaignName, 
                             'Campaign Master ID': str(author.id), 
                             'Role ID': str(campaignRole[0].id), 
@@ -302,7 +300,6 @@ class Campaign(commands.Cog):
             if campaignRecords['Name'] not in userRecords['Campaigns']:
                 userRecords['Campaigns'][campaignRecords['Name']] = {"Time" : 0, "Sessions" : 0}
         userRecords['Campaigns'][campaignRecords['Name']]["Active"] = True
-        userRecords['Campaigns'][campaignRecords['Name']]["TimeAvailable"] = 0
 
         await user[0].add_roles(guild.get_role(int(campaignRecords['Role ID'])), reason=f"{author.name} add campaign member to {campaignRecords['Name']}")
         if not any([role in roles for role in ["Junior Friend", "Journeyfriend", "Elite Friend", "True Friend", "Ascended Friend"]]):
@@ -1143,7 +1140,7 @@ Command Checklist
                     temp += f"{v['Member'].mention}\n"
                     v["inc"] = {"Campaigns."+campaignRecord["Name"]+".Time" :tempTime,
                     "Campaigns."+campaignRecord["Name"]+".Sessions" :1,
-                    "Campaigns."+campaignRecord["Name"]+".TimeAvailable" :tempTime}
+                    "Time Bank" :tempTime}
                     playerData.append(v)
                 stopEmbed.add_field(name=key, value=temp, inline=False)
             if 'Noodles' not in dmChar['DB Entry']:
@@ -1162,7 +1159,7 @@ Command Checklist
                 usersCollection.update_one({'User ID': str(dmChar["Member"].id)},
                                             {"$set": {campaignRecord["Name"]+" inc" : 
                                                 {f"Campaigns.{campaignRecord['Name']}.Time": total_duration,
-                                                 f"Campaigns.{campaignRecord['Name']}.TimeAvailable": total_duration,
+                                                 f"Time Bank": total_duration,
                                                  f"Campaigns.{campaignRecord['Name']}.Sessions": 1}}}, upsert=True)
                 # update the player entries in bulk
                 usersData = list(map(lambda item: UpdateOne({'_id': item["DB Entry"]['_id']}, {'$set': {campaignRecord["Name"]+" inc" : item["inc"]}}, upsert=True), playerData))

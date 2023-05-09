@@ -51,7 +51,6 @@ class Character(commands.Cog):
     async def cog_command_error(self, ctx, error):
         msg = None
         
-        
         if isinstance(error, commands.BadArgument):
             # convert string to int failed
             msg = "Your stats and level need to be numbers. "
@@ -171,7 +170,7 @@ class Character(commands.Cog):
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command()
-    async def create(self,ctx, name, level: int, race, cclass, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", campaignName = "", timeTransfer = None):
+    async def create(self,ctx, name, level: int, race, cclass, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", timeTransfer = None):
         name = name.strip()
         
         channel = ctx.channel
@@ -305,65 +304,41 @@ class Character(commands.Cog):
             maxCP = 10
         cp = 0
         cpTransfered = 0
-        campaignTransferSuccess = False
-        campaignKey = ""
-        if campaignName:
-            campaignChannels = ctx.message.channel_mentions
+        time_transfer_success = False
+        if timeTransfer:
             
             userRecords = db.users.find_one({"User ID" : str(author.id)})
-            campaignFind = False
             if not userRecords:
                 msg += f":warning: I could not find you in the database!\n"
-            elif "Campaigns" not in userRecords.keys():
+            elif "Time Bank" not in userRecords.keys():
                 pass
             else:
-                
-                if len(campaignChannels) > 1 or campaignChannels == list():
-                    for key in userRecords["Campaigns"].keys():
-                        if campaignName.lower() in key.lower(): 
-                            campaignFind = True
-                            campaignKey = key
-                            break
-                    error_name = campaignName
-                else:
-                    for key in userRecords["Campaigns"].keys():
-                        if key.lower().replace(",", "") == (campaignChannels[0].name.replace('-', ' ')):
-                            campaignFind = True
-                            campaignKey = key
-                            break
-                    
-                    error_name = campaignChannels[0].mention
-                if not campaignFind:
-                    msg += f":warning: I could not find {error_name} in your records!\n"
-                elif not timeTransfer:
-                    msg += f":warning: I could not find a time amount in your command!\n"
-                else:
-                    def convert_to_seconds(s):
-                        return int(s[:-1]) * seconds_per_unit[s[-1]]
+                def convert_to_seconds(s):
+                    return int(s[:-1]) * seconds_per_unit[s[-1]]
 
-                    seconds_per_unit = { "m": 60, "h": 3600 }
-                    lowerTimeString = timeTransfer.lower()
-                    l = list((re.findall('.*?[hm]', lowerTimeString)))
+                seconds_per_unit = { "m": 60, "h": 3600 }
+                lowerTimeString = timeTransfer.lower()
+                l = list((re.findall('.*?[hm]', lowerTimeString)))
+                totalTime = 0
+                try:
+                    for timeItem in l:
+                        totalTime += convert_to_seconds(timeItem)
+                except Exception as e:
+                    msg += f":warning: I could not find a number in your time amount!\n"
                     totalTime = 0
-                    try:
-                        for timeItem in l:
-                            totalTime += convert_to_seconds(timeItem)
-                    except Exception as e:
-                        msg += f":warning: I could not find a number in your time amount!\n"
-                        totalTime = 0
-                        
-                    if totalTime > userRecords["Campaigns"][campaignKey]["TimeAvailable"]:
-                        msg += f":warning: You do not have enough hours to transfer from {error_name}!\n"
-                    else:
-                        cp = ((totalTime) // 1800) / 2
-                        cpTransfered = cp
-                        while(cp >= maxCP and lvl <20):
-                            cp -= maxCP
-                            lvl += 1
-                            if lvl > 4:
-                                maxCP = 10
-                        campaignTransferSuccess = True
-                        charDict["Level"] = lvl
+                    
+                if totalTime > userRecords["Time Bank"]:
+                    msg += f":warning: You do not have enough hours to transfer!\n"
+                else:
+                    cp = ((totalTime) // 1800) / 2
+                    cpTransfered = cp
+                    while(cp >= maxCP and lvl <20):
+                        cp -= maxCP
+                        lvl += 1
+                        if lvl > 4:
+                            maxCP = 10
+                    time_transfer_success = True
+                    charDict["Level"] = lvl
                             
         charDict['CP'] = cp
         
@@ -1074,7 +1049,7 @@ class Character(commands.Cog):
             tierNum = 4
         charEmbed.clear_fields()    
         charEmbed.title = f"{charDict['Name']} (Lv {charDict['Level']}): {charDict['CP']}/{cp_bound_array[tierNum-1][1]} CP"
-        charEmbed.description = f"**Race**: {charDict['Race']}\n**Class**: {charDict['Class']}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} " + (campaignTransferSuccess * ("\n**Transfered from:** " + campaignKey))
+        charEmbed.description = f"**Race**: {charDict['Race']}\n**Class**: {charDict['Class']}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} " + (time_transfer_success * ("\n**Transfered**"))
 
         
         for x in range(1,6):
@@ -1174,9 +1149,8 @@ class Character(commands.Cog):
                     statsRecord['Feats'][feat_key] += 1
         try:
             playersCollection.insert_one(charDict)
-            if campaignTransferSuccess:
-                target = f"Campaigns.{campaignKey}.TimeAvailable"
-                db.users.update_one({"User ID": str(author.id)}, {"$inc" : {target: -cpTransfered *3600}})
+            if time_transfer_success:
+                db.users.update_one({"User ID": str(author.id)}, {"$inc" : {"Time Bank": -cpTransfered *3600}})
                 await self.levelCheck(ctx, charDict["Level"], charDict["Name"])
             statsCollection.update_one({'Life':1}, {"$set": statsRecord}, upsert=True)
             
@@ -2374,7 +2348,7 @@ class Character(commands.Cog):
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
     @commands.command()
-    async def applyTime(self, ctx, charName, campaignName, timeTransfer: str):
+    async def applyTime(self, ctx, charName, timeTransfer: str):
         msg = ctx.message
         error_msg = ""
         charEmbed = discord.Embed()
@@ -2386,63 +2360,29 @@ class Character(commands.Cog):
                 error_msg += f":warning: Your character is still awaiting rewards!\n"
             if "Death" in charDict:
                 error_msg += f":warning: Your character is still dead!\n"
-
-            if charDict["Level"] < 5:
-                tierNum = 1
-            elif charDict["Level"] < 11:
-                tierNum = 2
-            elif charDict["Level"] < 17:
-                tierNum = 3
-            elif charDict["Level"] < 20:
-                tierNum = 4
-            else:
-                tierNum = 5
-            
-            campaignKey = ""
-            campaignChannels = ctx.message.channel_mentions
-            
+                        
             userRecords = db.users.find_one({"User ID" : str(author.id)})
-            campaignFind = False
             if not userRecords:
                 error_msg += f":warning: I could not find you in the database!\n"
-            elif "Campaigns" not in userRecords.keys():
-                error_msg += f":warning: You have no campaigns in your records!\n"
+            elif "Time Bank" not in userRecords:
+                error_msg += f":warning: You have no banked time in your records!\n"
             else:
-                
-                if len(campaignChannels) > 1 or campaignChannels == list():
-                    for key in userRecords["Campaigns"].keys():
-                        if campaignName.lower() in key.lower(): 
-                            campaignFind = True
-                            campaignKey = key
-                            break
-                    error_name = campaignName
-                else:
-                    for key in userRecords["Campaigns"].keys():
-                        if key.lower().replace(",", "") == (campaignChannels[0].name.replace('-', ' ')):
-                            campaignFind = True
-                            campaignKey = key
-                            break
-                    
-                    error_name = campaignChannels[0].mention
-                if not campaignFind:
-                    error_msg += f":warning: I could not find {error_name} in your records!\n"
-                else:
-                    def convert_to_seconds(s):
-                        return int(s[:-1]) * seconds_per_unit[s[-1]]
+                def convert_to_seconds(s):
+                    return int(s[:-1]) * seconds_per_unit[s[-1]]
 
-                    seconds_per_unit = { "m": 60, "h": 3600 }
-                    lowerTimeString = timeTransfer.lower()
-                    l = list((re.findall('.*?[hm]', lowerTimeString)))
+                seconds_per_unit = { "m": 60, "h": 3600 }
+                lowerTimeString = timeTransfer.lower()
+                l = list((re.findall('.*?[hm]', lowerTimeString)))
+                totalTime = 0
+                try:
+                    for timeItem in l:
+                        totalTime += convert_to_seconds(timeItem)
+                except Exception as e:
+                    error_msg += f":warning: I could not find a number in your time amount!\n"
                     totalTime = 0
-                    try:
-                        for timeItem in l:
-                            totalTime += convert_to_seconds(timeItem)
-                    except Exception as e:
-                        error_msg += f":warning: I could not find a number in your time amount!\n"
-                        totalTime = 0
-                        
-                    if totalTime > userRecords["Campaigns"][campaignKey]["TimeAvailable"]:
-                        error_msg += f":warning: You do not have enough hours to transfer from {error_name}!\n"
+                    
+                if totalTime > userRecords["Time Bank"]:
+                    error_msg += f":warning: You do not have enough hours to transfer!\n"
             
             self.bot.get_command('applyTime').reset_cooldown(ctx)
             if error_msg:
@@ -2460,8 +2400,8 @@ class Character(commands.Cog):
         
         try:
             db.players.update_one({"_id": charDict["_id"]}, {"$inc": inc_dic})
-            db.users.update_one({"User ID": f"{author.id}"}, {"$inc": {f"Campaigns.{campaignKey}.TimeAvailable": -totalTime}})
-            await ctx.channel.send(content=f"**{charDict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP** from **{campaignKey}**")
+            db.users.update_one({"User ID": f"{author.id}"}, {"$inc": {f"Time Bank": -totalTime}})
+            await ctx.channel.send(content=f"**{charDict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**")
     
         except Exception as e:
             traceback.print_exc()
@@ -3039,8 +2979,9 @@ class Character(commands.Cog):
 
         if 'Games' in userRecords:
             totalGamesPlayed += userRecords['Games']
+        if 'Time Bank' in userRecords:
+            contents.append((f"Time Bank", f"You have **{timeConversion(userRecords['Time Bank'],hmformat=True)}** available", False))
         if 'Double' in userRecords and userRecords["Double"]>0:
-            
             contents.append((f"Double Reward", f"Your next **{userRecords['Double']}** games will have double rewards.", False))
 
         if "Guilds" in userRecords:
@@ -3053,7 +2994,7 @@ class Character(commands.Cog):
             campaignString = ""
             for u, v in userRecords['Campaigns'].items():
                 if not ("Hidden" in v and v["Hidden"]):
-                    campaignString += f"• {(not v['Active'])*'~~'}{u}{(not v['Active'])*'~~'}: {v['Sessions']} sessions, Available: {timeConversion(v['TimeAvailable'],hmformat=True)}/{timeConversion(v['Time'],hmformat=True)}\n"
+                    campaignString += f"• {(not v['Active'])*'~~'}{u}{(not v['Active'])*'~~'}: {v['Sessions']} sessions, {timeConversion(v['Time'],hmformat=True)}\n"
             contents.append((f"Campaigns", campaignString, False))
 
         noodles_text = "Noodles: 0:star: (Try hosting sessions to receive Noodles!)"

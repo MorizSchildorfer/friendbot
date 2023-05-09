@@ -1231,18 +1231,6 @@ class Admin(commands.Cog, name="Admin"):
             await ctx.channel.send(f'Failed to load extension {cog}.')
             traceback.print_exc()
 
-    #@commands.cooldown(1, 5, type=commands.BucketType.member)
-    #@is_log_channel()
-    #@commands.has_any_role('A d m i n')
-    #@commands.command(aliases=['wop'])
-    async def updatedatabase(self, ctx): #moves the Reflavor value in every character that has one to a new Reflavor dictionary under New Race
-
-        for line in db.players.find({ "Reflavor": { "$exists": 'true' } }):
-            if type(line["Reflavor"]) == str:
-                db.players.update_one({"Reflavor": line["Reflavor"]}, [{"$set": {"Reflavor": {"Race": line["Reflavor"]}}}])
-            
-        await ctx.channel.send(content="You have changed the data type for Reflavor. DO NOT USE THIS COMMAND EVER AGAIN.")
-
     @commands.command()
     @commands.has_any_role("Mod Friend", "Bot Friend", "A d m i n")
     async def status(self, ctx):

@@ -148,7 +148,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.add_field(name=f'▫️ Death Options', value=f'{commandPrefix}death "character name"', inline=False)
         
-        helpEmbedChar.add_field(name=f'▫️ Adding Campaign Time', value=f'{commandPrefix}applyTime "character name" XhYm', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Adding Stored Time', value=f'{commandPrefix}applyTime "character name" XhYm', inline=False)
         
         helpEmbedChar.add_field(name=f'▫️ Pause Game Rewards', value=f'{commandPrefix}pause "character name"', inline=False)
 

@@ -163,11 +163,11 @@ class Misc(commands.Cog):
                     time_text = ""
                     hammer_times = re.findall("<t:(\\d+)(?::.)?>", content)
                     if hammer_times:
-                        time_text = f" [- <t:{hammer_times[0]}>]({elem.jump_url})"
+                        time_text = f" - <t:{hammer_times[0]}> [⮥]({elem.jump_url})"
                     else:
                         timing = re.findall("When.*?:.*? (.*?)\n", content)
                         if timing:
-                            time_text = (f" [- {timing[0]}]({elem.jump_url})")
+                            time_text = (f" - [{timing[0]}⮥]({elem.jump_url})")
                     if tier_list or time_text:
                         channel_dm_dic[mention.mention][1].append("/".join(sorted(tier_list))+ time_text)
         #build the message using the pairs built above

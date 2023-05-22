@@ -443,7 +443,10 @@ class Timer(commands.Cog):
                     # in this case the character name is the second parameter
                     charName = charList[1]
                 # this is the exact same set up as for signup, since a person is adding themselves only one parameter is expected
-                elif ('timer addme ' in char.content or 't addme ' in char.content) and (char.content != f'{commandPrefix}timer addme ' or char.content != f'{commandPrefix}t addme '):
+                elif ('timer addme ' in char.content) and (char.content != f'{commandPrefix}timer addme '):
+                    charList = shlex.split(char.content.split(f'timer addme ')[1].strip())
+                    charName = charList[0]
+                elif ('t addme ' in char.content) and (char.content != f'{commandPrefix}t addme '):
                     charList = shlex.split(char.content.split(f't addme ')[1].strip())
                     charName = charList[0]
                 else:

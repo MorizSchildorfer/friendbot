@@ -3752,7 +3752,7 @@ class Character(commands.Cog):
                 freeSpells = infoRecords['Free Spells']
 
             if 'Death' in infoRecords.keys():
-                await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{charRecords["Name"]}"```')
+                await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{infoRecords["Name"]}"```')
                 self.bot.get_command('levelup').reset_cooldown(ctx)
                 return
 

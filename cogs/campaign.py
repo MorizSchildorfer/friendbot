@@ -519,13 +519,10 @@ class Campaign(commands.Cog):
         # otherwise give an appropriate title and inform about the limited commands list (signup, add player, remove player)
         prepEmbed.title = f"{game} (Campaign)"
         prepEmbed.description = f"""__**Command Checklist**__
-**1. Players sign up:**
-• {commandPrefix}campaign timer signup
-**2. DM adds or removes players (optional):**
-• **Add**: {commandPrefix}campaign timer add @player
+**1. Players sign up:**• {commandPrefix}campaign timer signup
+**2. DM adds or removes players (optional):**• **Add**: {commandPrefix}campaign timer add @player
 • **Remove**: {commandPrefix}campaign timer remove @player
-**3. DM cancels or starts the campaign session:**
-• **Cancel**: {commandPrefix}campaign timer cancel
+**3. DM cancels or starts the campaign session:**• **Cancel**: {commandPrefix}campaign timer cancel
 • **Start**: {commandPrefix}campaign timer start"""
 
          #set up the special field for the DM character

@@ -177,15 +177,11 @@ class Timer(commands.Cog):
         role = roleArray[choice]
 
         command_checklist_string = f"""__**Command Checklist**__
-**1. Players and DM sign up:**
-• {commandPrefix}timer signup \"character name\" \"consumable1, consumable2, [...]\"
-**2. DM adds guild(s) (optional):**
-• {commandPrefix}timer guild #guild1, #guild2
-**3. DM adds or removes players (optional):**
-• **Add**: {commandPrefix}timer add @player
+**1. Players and DM sign up:**• {commandPrefix}timer signup \"character name\" \"consumable1, consumable2, [...]\"
+**2. DM adds guild(s) (optional):**• {commandPrefix}timer guild #guild1, #guild2
+**3. DM adds or removes players (optional):**• **Add**: {commandPrefix}timer add @player
 • **Remove**: {commandPrefix}timer remove @player
-**4. DM cancels or starts the one-shot:**
-• **Cancel**: {commandPrefix}timer cancel
+**4. DM cancels or starts the one-shot:**• **Cancel**: {commandPrefix}timer cancel
 • **Start**: {commandPrefix}timer start"""
 
         #clear the embed message

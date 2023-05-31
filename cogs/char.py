@@ -3488,9 +3488,12 @@ class Character(commands.Cog):
 
             try:
                 r = requests.head(url)
-                if r.status_code != requests.codes.ok:
-                    await ctx.channel.send(content=f'It looks like the URL is either invalid or contains a broken image. Please follow this format:\n```yaml\n{commandPrefix}image "character name" URL```\n') 
-                    return
+                # print(r)
+                # print(r.headers)
+                # print(r.status_code)
+                # if r.status_code != requests.codes.ok:
+                    # await ctx.channel.send(content=f'It looks like the URL is either invalid or contains a broken image. Please follow this format:\n```yaml\n{commandPrefix}image "character name" URL```\n') 
+                    # return
             except:
                 await ctx.channel.send(content=f'It looks like the URL is either invalid or contains a broken image. Please follow this format:\n```yaml\n{commandPrefix}image "character name" URL```\n') 
 

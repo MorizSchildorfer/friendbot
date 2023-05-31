@@ -1047,7 +1047,7 @@ class Campaign(commands.Cog):
             # fore every entry in the timer dictionary we need to perform calculations
             for key, v in start["Players"].items():
                 if v["State"] == "Full":
-                    embed.add_field(name= f"**{v['Member'].display_name}**", value=f"{v['Member'].mention} {durationString}", inline=False)
+                    embed.add_field(name= f"**{v['Member'].display_name}**", value=f"{v['Member'].mention} {timeConversion(duration)}", inline=False)
                 elif v["State"] == "Removed":
                     pass
                 else:

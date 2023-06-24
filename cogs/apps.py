@@ -54,13 +54,12 @@ class Apps(commands.Cog):
         guild = ctx.guild
         botMsg = await channel.fetch_message(message_id) 
         botEmbed = botMsg.embeds[0]
-        appDict = botEmbed.to_dict()
-        member_name = appDict['title'].split('-', 1)[1].strip()
-        appMember = guild.get_member_named(member_name)
+        member_id = botMsg.raw_mentions[0]
+        appMember = guild.get_member(member_id)
         botEmbed.set_footer(text=f"Application Message ID: {botMsg.id}\nMod: {ctx.message.author}")
         response = response.lower()
         if appMember is None:
-            channel.send(content=f"Something went wrong. The application could not find the discord name {member_name} for application {message_id}. Please delete this message once this is resolved.")
+            await channel.send(content=f"Something went wrong. The application could not find the discord name {member_name} for application {message_id}. Please delete this message once this is resolved.")
             return
 
         if 'approve' in response or 'sub18' in response:

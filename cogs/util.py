@@ -392,6 +392,7 @@ async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False,
     query = query.replace('(', '\\(')
     query = query.replace(')', '\\)')
     query = query.replace('.', '\\.')
+    query = query.replace('+', '\\+')
     query_data =  {"$regex": query,
                     "$options": "i"
                   }

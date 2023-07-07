@@ -609,6 +609,7 @@ class Log(commands.Cog):
                 increment = {"CP":  treasureArray[0], 
                             "GP":  treasureArray[2],
                             "Games": 1,
+                            "Playtime": player["CP"],
                             "Event Token" : event_inc}
                 # for every TP tier value that was gained create the increment field
                 for k,v in treasureArray[1].items():
@@ -634,6 +635,7 @@ class Log(commands.Cog):
                 playerUpdates.append({'_id': player["Character ID"],
                                         'fields': {"$unset": {f"GID": 1} ,
                                         "$inc": {"Stored": duration,
+                                                    "Playtime": player["CP"],
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
         dmRewardsList = []

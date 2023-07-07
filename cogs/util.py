@@ -461,9 +461,9 @@ async def checkForGuild(ctx, name, guildEmbed="" ):
             for i in range(0, min(len(guildRecords), 20)):
                 infoString += f"{alphaEmojis[i]}: {guildRecords[i]['Name']}\n"
             
-            guildEmbed.add_field(name=f"There seems to be multiple results for \"`{name}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
+            guildEmbed.add_field(name=f"There seems to be multiple results for \"`{name}`\"! Please choose the correct guild. If you do not see your guild here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
             guildEmbedmsg = await channel.send(embed=guildEmbed)
-            choice = await disambiguate(min(len(records), 20), guildEmbedmsg, author)
+            choice = await disambiguate(min(len(guildRecords), 20), guildEmbedmsg, author)
             
             if choice is None or choice == -1:
                 await guildEmbedmsg.edit(embed=None, content=f"Command cancelled. Try again using the same command!")

@@ -103,6 +103,7 @@ class Help(commands.Cog):
         helpEmbedGen.add_field(name=f'▫️ Viewing Server Stats', value=f'{commandPrefix}stats', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Viewing Highest-CP Characters', value=f'{commandPrefix}top x', inline=False)
+        helpEmbedGen.add_field(name=f'▫️ Viewing Highest-Playtime Characters', value=f'{commandPrefix}playtime x', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Viewing Fanatic Competition Stats', value=f'{commandPrefix}fanatic', inline=False)
 

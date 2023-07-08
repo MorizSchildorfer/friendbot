@@ -349,15 +349,13 @@ class Stats(commands.Cog):
                 
         await ctx.channel.send(embed=statsEmbed)
         
-    @commands.command()
-    @commands.cooldown(1, 5, type=commands.BucketType.member)
-    @stats_special()
-    async def top(self,ctx, limit = 10):
+    
+    async def rank_shell(self, ctx, name, query, limit):
         if limit < 1:
             await ctx.channel.send(f"{limit} is not a valid count")
+            return
         player_collection = db.players
-        top_results = player_collection.find( { "$query": {"Test" : {"$exists" : False}}, 
-                                                "$orderby": { "Level": -1, "CP" : -1 }} )
+        top_results = player_collection.find(query)
         guild=ctx.guild
         channel = ctx.channel
         contents = []
@@ -367,14 +365,28 @@ class Stats(commands.Cog):
             owner = guild.get_member(int(result["User ID"]))
             if not owner:
                 continue
-            char_string = f"{result['CP']}      (<@!{result['User ID']}>)"
+            char_string = f"{result[name]}      (<@!{result['User ID']}>)"
             contents.append((f'{number-limit}.) {result["Name"]}', char_string, False))
             
             limit -= 1
             if limit <= 0:
                 break
-        await paginate(ctx, self.bot, f"Top {number-1} Characters (CP)", contents, statsEmbedmsg)
+        await paginate(ctx, self.bot, f"Top {number-1} Characters ({name})", contents, statsEmbedmsg)
 
+    @commands.command()
+    @commands.cooldown(1, 5, type=commands.BucketType.member)
+    @stats_special()
+    async def playtime(self,ctx, limit = 10):
+        q = { "$query": {"Playtime": {"$exists": True}, "Test" : {"$exists" : False}}, 
+               "$orderby": { "Playtime": -1}}
+        await self.rank_shell(ctx, "Playtime", q, limit)
+    @commands.command()
+    @commands.cooldown(1, 5, type=commands.BucketType.member)
+    @stats_special()
+    async def top(self,ctx, limit = 10):
+        q = { "$query": {"Test" : {"$exists" : False}}, 
+              "$orderby": { "Level": -1, "CP" : -1 }}
+        await self.rank_shell(ctx, "CP", q, limit)
 
 async def setup(bot):
     await bot.add_cog(Stats(bot))

@@ -2,7 +2,7 @@ import discord
 import random
 import asyncio
 import re
-from cogs.view import AlphaView
+from cogs.view import AlphaView, ConfirmView
 from discord.utils import get
 from discord.ext import commands
 from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, tier_reward_dictionary
@@ -43,6 +43,12 @@ def uwuize(text):
     return uwuMessage
             
 
+async def confirm(msg, author):
+    view = ConfirmView(author)
+    msg = await msg.edit(view = view)
+    await view.wait()
+    await msg.edit(view = None)
+    return view.state
 
 async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
     view = AlphaView(options, author, emojies, cancel)

@@ -13,7 +13,7 @@ from discord.utils import get
 from datetime import datetime, timezone,timedelta
 from discord.ext import commands
 from bfunc import numberEmojis, gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, cp_bound_array, settingsRecord
-from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodleRoleArray, uwuize
+from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodleRoleArray, uwuize, confirm
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
@@ -1831,8 +1831,15 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 elif (self.startsWithCheck(msg, "stop") or self.startsWithCheck(msg, "end")):
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
-                        await self.stop(ctx, userInfo=userInfo)
-                        timerStopped = True
+                        confirm_embed = discord.Embed()
+                        confirm_embed.title = "**Please confirm that you have you signed up a character for DM Rewards if desired, and that you have given out all the reward items you want to hand out**"
+                        stampEmbedmsg = await stampEmbedmsg.edit(embed=confirm_embed)
+                        decision = await confirm(stampEmbedmsg, ctx.author)
+                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                        if decision == 1: 
+                            await self.stop(ctx, userInfo=userInfo)
+                            timerStopped = True
+                       
                 # this behaves just like add below, but skips the ambiguity check of addme since only the author of the message could be added
                 elif (self.startsWithCheck(msg, "addme ")):
                     userInfo = await self.addme(ctx, userInfo=userInfo, msg=msg, user=msg.author)

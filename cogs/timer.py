@@ -1833,10 +1833,10 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                     if await self.permissionCheck(msg, author):
                         confirm_embed = discord.Embed()
                         confirm_embed.title = "**Please confirm that you have you signed up a character for DM Rewards if desired, and that you have given out all the reward items you want to hand out**"
-                        stampEmbedmsg = await stampEmbedmsg.edit(embed=confirm_embed)
-                        decision = await confirm(stampEmbedmsg, ctx.author)
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                        if decision == 1: 
+                        stop_confirm_message = await channel.send(embed=confirm_embed)
+                        decision = await confirm(stop_confirm_message, ctx.author)
+                        await stop_confirm_message.delete()
+                        if decision == 1:
                             await self.stop(ctx, userInfo=userInfo)
                             timerStopped = True
                        

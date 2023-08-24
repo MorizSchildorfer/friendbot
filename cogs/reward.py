@@ -6,7 +6,7 @@ from bfunc import db, roleArray, commandPrefix, tier_reward_dictionary, alphaEmo
 from cogs.util import checkForChar, calculateTreasure, timeConversion
 from random import *
 
-async def randomReward(self,ctx, tier, rewardType, block=[], player_type=None, amount=None, start=None):
+async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=None):
         channel = ctx.channel
         author = ctx.author
         rewardCollection = db.rit

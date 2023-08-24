@@ -351,7 +351,7 @@ class Timer(commands.Cog):
             #the command that starts the timer, it does so by allowing the code to move past the loop
             elif (msg.content == f"{commandPrefix}timer start" or msg.content == f"{commandPrefix}t start"):
                 if await self.permissionCheck(msg, author):
-                    if len(signedPlayers["Players"]) == 0:
+                    if len(signedPlayers["Players"]) == 1:
                         await channel.send(f'There are no players signed up! Players, use the following command to sign up to the quest with your character before the DM starts the timer:\n```yaml\n{commandPrefix}timer signup```') 
                     else:
                         signedPlayers["Started"] = True
@@ -880,16 +880,14 @@ class Timer(commands.Cog):
                 rewardMinorLimit += max((totalDurationTimeMultiplier -1), 0)
                 
                 mnc_limit = dmMnc
-                player_type = "Players"
-                if dmMnc:
-                    if rewardUser == dmChar["Member"]:
+                if rewardUser == dmChar["Member"]:
+                    item_rewards = dm_item_rewards
+                    if dmMnc:
                         for dm_item in dm_item_rewards:
                             if (dm_item['Minor/Major'] == 'Minor' and dm_item["Type"] == "Magic Items"):
                                 mnc_limit = False
                                 break
                     
-                    player_type = "DM"
-                    item_rewards = dm_item_rewards
                 if half_reward_time_count < 2:
                     dmMajorLimit = lowerLimit(dmMajorLimit)
                     dmMinorLimit = lowerLimit(dmMinorLimit)
@@ -1764,12 +1762,10 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         elif charLevel < 20:
             tierNum = 4
 
-        player_type = "Players"
         item_rewards = []
         if rewardUser == dmChar["Member"]:
             if dmChar["Noodle"] in ["Newdle", "Junior Noodle", "Good Noodle", "Elite Noodle"]:
                 tierNum = max(tierNum - 1, 1)
-            player_type = "DM"
             item_rewards = dmChar["Inventory"]["Add"] + dmChar["Consumables"]["Add"] + dmChar["Magic Items"]
         else:
             for player in userInfo["Players"].values():
@@ -1777,7 +1773,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         
         blocking = list(map(blocking_type, item_rewards))
         rewardCollection = db.rit
-        randomItem = await randomReward(self, ctx, tier=tierNum, rewardType=rewardType, block=blocking, player_type=player_type, amount=1)
+        randomItem = await randomReward(self, ctx, tier=tierNum, rewardType=rewardType, block=blocking, amount=1)
         if randomItem == None:
             await channel.send(f'Try again!\n')
             return None

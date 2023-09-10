@@ -330,7 +330,7 @@ class Character(commands.Cog):
                 if totalTime > userRecords["Time Bank"]:
                     msg += f":warning: You do not have enough hours to transfer!\n"
                 else:
-                    cp = ((totalTime) // 1800) / 2
+                    cp = ((totalTime) // 900) / 4
                     cpTransfered = cp
                     while(cp >= maxCP and lvl <20):
                         cp -= maxCP
@@ -2390,6 +2390,7 @@ class Character(commands.Cog):
                 return
             else:
                 treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"], totalTime)
+                totalTime = treasureArray[0] * 3600
                 inc_dic = {"GP": treasureArray[2], "CP": treasureArray[0]}
                 inc_dic.update(treasureArray[1])
                     
@@ -2979,6 +2980,9 @@ class Character(commands.Cog):
 
         if 'Games' in userRecords:
             totalGamesPlayed += userRecords['Games']
+        games_hosted = 0
+        if 'Games Hosted' in userRecords:
+            games_hosted += userRecords['Games Hosted']
         if 'Time Bank' in userRecords:
             contents.append((f"Time Bank", f"You have **{timeConversion(userRecords['Time Bank'],hmformat=True)}** available", False))
         if 'Double' in userRecords and userRecords["Double"]>0:
@@ -3003,7 +3007,7 @@ class Character(commands.Cog):
             if "DM Time" in userRecords and userRecords["DM Time"] > 0:
                 dm_time = f" ({int(userRecords['DM Time']/10800*100)}%)"
             noodles_text = f"Noodles: {userRecords['Noodles']}:star:"
-        description = f"Total One-shots Played/Hosted: {totalGamesPlayed}\n{noodles_text}{dm_time}\n"
+        description = f"Total One-shots Played|Hosted: {totalGamesPlayed-games_hosted}|{games_hosted}\n{noodles_text}{dm_time}\n"
     
         description += f"Total Characters: {len(charRecords)}\nTier 1 Characters: {len(charDictTiers[0])}\nTier 2 Characters: {len(charDictTiers[1])}\nTier 3 Characters: {len(charDictTiers[2])}\nTier 4 Characters: {len(charDictTiers[3])}\nTier 5 Characters: {len(charDictTiers[4])}"
 

@@ -1454,11 +1454,11 @@ Command Checklist
             playerDBEntry["Character CP"] = player["Character"]["CP"]
             playerDBEntry["Mention"] = player["Member"].mention
 
-            playerDBEntry["CP"] = (duration// 1800) / 2
+            playerDBEntry["CP"] = (duration// 900) / 4
             # add the player to the list of completed entries
             dbEntry["Players"][f"{player['Member'].id}"] = playerDBEntry
             playerList.append(player)
-        hoursPlayed = (totalDurationTime // 1800) / 2
+        hoursPlayed = (totalDurationTime // 900) / 4
         
         if hoursPlayed < 0.5:
             await ctx.channel.send(content=f"The session was less than 30 minutes and therefore was not counted.")

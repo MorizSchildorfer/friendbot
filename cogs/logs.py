@@ -648,7 +648,6 @@ class Log(commands.Cog):
             
             duration = player["CP"] * 3600
             
-            
             # the db entry of every character
             character = playersCollection.find_one({"_id": dm["Character ID"]})
             player["Double"] = False
@@ -781,7 +780,10 @@ class Log(commands.Cog):
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
         else:
-            dm_time_bank = dm["CP"] * 3600 * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"]))
+            paused_time = 0
+            if "Paused Time" in sessionInfo:
+                paused_time = sessionInfo["Paused Time"]
+            dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"]))
         # that is the base line of sparkles and noodles gained
         sparklesGained = int(maximumCP) // 3
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))
@@ -883,7 +885,7 @@ class Log(commands.Cog):
             statsCollection.update_one({'Life': 1}, {"$inc": statsIncrement, "$addToSet": statsAddToSet}, upsert=True)
             # update the DM' stats
             
-            usersCollection.update_one({'User ID': str(dm["ID"])}, {"$set": {'User ID':str(dm["ID"]),'DM Time': new_dm_time}, "$inc": {'Games': 1, 'Noodles': noodlesGained, 'Double': -1*dm["Double"], 'Time Bank': dm_time_bank}}, upsert=True)
+            usersCollection.update_one({'User ID': str(dm["ID"])}, {"$set": {'User ID':str(dm["ID"]),'DM Time': new_dm_time}, "$inc": {'Games': 1, 'Games Hosted': 1, 'Noodles': noodlesGained, 'Double': -1*dm["Double"], 'Time Bank': dm_time_bank}}, upsert=True)
             playersCollection.bulk_write(timerData)
             
             usersData = list([UpdateOne({'User ID': key}, {'$inc': {'Games': 1, 'Double': -1*item["Double"] }}, upsert=True) for key, item in {character["User ID"] : players[character["User ID"] ] for character in characterDBentries}.items()])

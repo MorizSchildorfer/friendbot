@@ -196,26 +196,21 @@ class Reward(commands.Cog):
             else:
                 tierName = tier.capitalize()
 
-            cp = ((totalTime) // 1800) / 2
             tier = tier.lower()
-            tierNum = 0
-            if tier == 'junior':
-              tierNum = 0
-            elif tier == "journey":
-              tierNum = 1
+            level = 1
+            if tier == "journey":
+              level = 5
             elif tier == "elite":
-              tierNum = 2
+              level = 11
             elif tier == "true":
-              tierNum = 3
+              level = 17
             elif tier == "ascended":
-              tierNum = 4
+              level = 20
             
-            gp = cp* tier_reward_dictionary[tierNum][0]
-            tp = cp* tier_reward_dictionary[tierNum][1]
-
-            treasureArray = [cp, tp, gp]
+            treasureArray = calculateTreasure(level, 0, totalTime)
             durationString = timeConversion(totalTime)
-            treasureString = f"{treasureArray[0]} CP, {treasureArray[1]} TP, and {treasureArray[2]} GP"
+            tpString = ", ".join([f"{value} {key}" for key, value in treasureArray[1].items()])
+            treasureString = f"{treasureArray[0]} CP, {tpString}, and {treasureArray[2]} GP"
             
             charEmbed.description = f"A {durationString} game would give a **{tierName}** Friend:\n{treasureString}"
             charEmbed.clear_fields()
@@ -225,19 +220,6 @@ class Reward(commands.Cog):
                 await channel.send(embed=charEmbed)
             return
         else:  # Calculates rewards and output if a character was given.
-                        
-
-            if charDict["Level"] < 5:
-                tierNum = 0
-            elif charDict["Level"] < 11:
-                tierNum = 1
-            elif charDict["Level"] < 17:
-                tierNum = 2
-            elif charDict["Level"] < 20:
-                tierNum = 3
-            else:
-                tierNum = 4
-            
             # Uses calculateTreasure to determine the rewards from the quest based on the character
             treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"] , totalTime)
             durationString = timeConversion(totalTime)
@@ -258,7 +240,7 @@ class Reward(commands.Cog):
                     maxCP = 10
             
             # A list comprehension that joins together the TP values with their names into one string.
-            tpString = ", ".join([f"{value} {key}" for key, value in treasureArray[1].items()])+", "
+            tpString = ", ".join([f"{value} {key}" for key, value in treasureArray[1].items()])
             
             totalGold = charDict["GP"] + treasureArray[2]
             

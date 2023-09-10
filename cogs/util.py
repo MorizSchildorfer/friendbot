@@ -482,7 +482,7 @@ async def checkForGuild(ctx, name, guildEmbed="" ):
 
 def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=False, dmDouble=False, bonusDouble=False, gold_modifier = 100):
     # calculate the CP gained during the game
-    cp = ((seconds) // 1800) / 2
+    cp = ((seconds) // 900) / 4
     cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble
        
         
@@ -533,8 +533,9 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
             tp[tierTP] = consideredCP * tier_reward_dictionary[tier-1][1]
             gp += consideredCP * tier_reward_dictionary[tier-1][0]
         tier += 1
-    gp = math.ceil(gold_modifier * gp/100)
-    return [gainedCP, tp, int(gp)]
+    if gold_modifier!=100:
+        gp = min(gp, math.ceil(gold_modifier * gp/100))
+    return [gainedCP, tp, gp]
 
 class Util(commands.Cog):
     def __init__ (self, bot):

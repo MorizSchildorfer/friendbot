@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from discord.ext import commands
 from urllib.parse import urlparse 
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm
                 
 class Character(commands.Cog):
     def __init__ (self, bot):
@@ -2355,58 +2355,66 @@ class Character(commands.Cog):
         charEmbedmsg = None
         author = ctx.author
         charDict, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, author, customError=True)
-        if charDict:
-            if "GID" in charDict:
-                error_msg += f":warning: Your character is still awaiting rewards!\n"
-            if "Death" in charDict:
-                error_msg += f":warning: Your character is still dead!\n"
-                        
-            userRecords = db.users.find_one({"User ID" : str(author.id)})
-            if not userRecords:
-                error_msg += f":warning: I could not find you in the database!\n"
-            elif "Time Bank" not in userRecords:
-                error_msg += f":warning: You have no banked time in your records!\n"
-            else:
-                def convert_to_seconds(s):
-                    return int(s[:-1]) * seconds_per_unit[s[-1]]
-
-                seconds_per_unit = { "m": 60, "h": 3600 }
-                lowerTimeString = timeTransfer.lower()
-                l = list((re.findall('.*?[hm]', lowerTimeString)))
-                totalTime = 0
-                try:
-                    for timeItem in l:
-                        totalTime += convert_to_seconds(timeItem)
-                except Exception as e:
-                    error_msg += f":warning: I could not find a number in your time amount!\n"
-                    totalTime = 0
-                    
-                if totalTime > userRecords["Time Bank"]:
-                    error_msg += f":warning: You do not have enough hours to transfer!\n"
-            
-            self.bot.get_command('applyTime').reset_cooldown(ctx)
-            if error_msg:
-                await ctx.channel.send(content=error_msg)
-                return
-            else:
-                treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"], totalTime)
-                totalTime = treasureArray[0] * 3600
-                inc_dic = {"GP": treasureArray[2], "CP": treasureArray[0]}
-                inc_dic.update(treasureArray[1])
-                    
-        else:
+        if not charDict:
             await ctx.channel.send(content=f"I could not find {charName} in the DB.")        
             self.bot.get_command('applyTime').reset_cooldown(ctx)
             return
+        if "GID" in charDict:
+            error_msg += f":warning: Your character is still awaiting rewards!\n"
+        if "Death" in charDict:
+            error_msg += f":warning: Your character is still dead!\n"
+                    
+        userRecords = db.users.find_one({"User ID" : str(author.id)})
+        if not userRecords:
+            error_msg += f":warning: I could not find you in the database!\n"
+        elif "Time Bank" not in userRecords:
+            error_msg += f":warning: You have no banked time in your records!\n"
+        else:
+            def convert_to_seconds(s):
+                return int(s[:-1]) * seconds_per_unit[s[-1]]
+
+            seconds_per_unit = { "m": 60, "h": 3600 }
+            lowerTimeString = timeTransfer.lower()
+            l = list((re.findall('.*?[hm]', lowerTimeString)))
+            totalTime = 0
+            try:
+                for timeItem in l:
+                    totalTime += convert_to_seconds(timeItem)
+            except Exception as e:
+                error_msg += f":warning: I could not find a number in your time amount!\n"
+                totalTime = 0
+                
+            if totalTime > userRecords["Time Bank"]:
+                error_msg += f":warning: You do not have enough hours to transfer!\n"
         
+        if error_msg:
+            await ctx.channel.send(content=error_msg)
+            self.bot.get_command('applyTime').reset_cooldown(ctx)
+            return
+        treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"], totalTime)
+        totalTime = treasureArray[0] * 3600
+        inc_dic = {"GP": treasureArray[2], "CP": treasureArray[0]}
+        inc_dic.update(treasureArray[1])
+        confirm_embed = discord.Embed()
+        confirm_embed.title = f"Please confirm the **{timeConversion(totalTime, True)}** minute deduction."
+        confirm_embed.description = f"\n**{charDict['Name']}** will receive **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**"
+        confirm_message = await ctx.channel.send(embed=confirm_embed)
+        decision = await confirm(confirm_message, ctx.author)
+        if decision != 1:
+            await confirm_message.edit(content=f"*Time transfer cancelled*", embed=None)
+            self.bot.get_command('applyTime').reset_cooldown(ctx)
+            return
         try:
             db.players.update_one({"_id": charDict["_id"]}, {"$inc": inc_dic})
             db.users.update_one({"User ID": f"{author.id}"}, {"$inc": {f"Time Bank": -totalTime}})
-            await ctx.channel.send(content=f"**{charDict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**")
+            await confirm_message.edit(content=f"**{charDict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**", embed=None)
     
         except Exception as e:
             traceback.print_exc()
-
+            
+        self.bot.get_command('applyTime').reset_cooldown(ctx)
+        return
+        
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command()
     async def trickortreat(self, ctx, char):

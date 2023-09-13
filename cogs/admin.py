@@ -1060,7 +1060,24 @@ class Admin(commands.Cog, name="Admin"):
         usersCollection = db.users
         userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$set" : {"Noodles" : noodles}, "$inc" : {"Games" : 0}}, upsert= True)
         await channel.send(f"Noodles set for <@!{rewardList[0]}>")
-        
+    
+    @commands.has_any_role("Bot Friend", "A d m i n")
+    @commands.command()
+    async def addDoubles(self,ctx, user, count: int):
+        msg = ctx.message
+        rewardList = msg.raw_mentions
+        channel = ctx.channel
+        guild = ctx.guild
+        charEmbed = discord.Embed()
+        charEmbedmsg = None
+        # if nobody was listed, inform the user
+        if rewardList == list():
+            await ctx.channel.send(content=f"I could not find any mention of a user to hand out a reward item.") 
+            #return the unchanged parameters
+            return 
+        usersCollection = db.users
+        userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Double" : count}})
+        await channel.send(f"Increased Double Rewards for <@{rewardList[0]}> by {count}")
 
     
     @commands.command()

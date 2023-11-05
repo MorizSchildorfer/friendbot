@@ -3244,6 +3244,28 @@ class Character(commands.Cog):
             else:
                 await charEmbedmsg.edit(embed=charEmbed)
 
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self,payload):
+        print(payload)
+        if payload.emoji.name == '❌':
+            channel = self.bot.get_channel(payload.channel_id)
+            user = self.bot.get_user(payload.user_id)
+            message = await channel.fetch_message(payload.message_id)
+            if len(message.embeds)==0:
+                return
+            embed = message.embeds[0]
+            print(embed.footer)
+            if embed.footer.text != "Attuned magic items are bolded.":
+                return
+            print(embed.author.name,user.name)
+            if embed.author.name.split('#')[0] != user.name:
+                return
+            embed.set_footer(text="❌ Application Revoked ❌")
+            embed.clear_fields()
+            embed.description = ""
+            embed.set_thumbnail(url=None)
+            await message.edit(embed = embed)
+                
     # @commands.cooldown(1, 5, type=commands.BucketType.member)
     # @is_log_channel_or_game()
     # @commands.command()

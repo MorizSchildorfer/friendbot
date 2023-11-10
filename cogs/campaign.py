@@ -437,6 +437,8 @@ class Campaign(commands.Cog):
     @commands.has_any_role('D&D Friend', 'Campaign Friend')
     @timer.command()
     async def prep(self, ctx, userList, game = ""):
+        
+        ctx.message.content = ctx.message.content.replace("“", "\"").replace("”", "\"")
         #this checks that only the author's response with one of the Tier emojis allows Tier selection
         #the response is limited to only the embed message
         

@@ -286,7 +286,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
                         vRewardList.append("+"+r)
                 # if the character was not dead at the end of the game
                 char_name = v['Character Name']
-                if "Paused" in characterDBentriesDic[v['Character ID']] and characterDBentriesDic[v['Character ID']]["Paused"]:
+                if v['Character ID'] in characterDBentriesDic and "Paused" in characterDBentriesDic[v['Character ID']] and characterDBentriesDic[v['Character ID']]["Paused"]:
                     char_name = "[PAUSED] " + char_name
                     vRewardList = []
                 if v not in deathChars:

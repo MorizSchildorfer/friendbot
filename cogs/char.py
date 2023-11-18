@@ -3253,7 +3253,9 @@ class Character(commands.Cog):
             if len(message.embeds)==0:
                 return
             embed = message.embeds[0]
-            if embed.footer.text != "Attuned magic items are bolded.":
+            if not embed.footer.text:
+                return
+            if not ("To view your character" in embed.footer.text or embed.footer.text == "Attuned magic items are bolded."):
                 return
             if embed.author.name.split('#')[0] != user.name:
                 return

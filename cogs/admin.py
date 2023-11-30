@@ -1079,6 +1079,23 @@ class Admin(commands.Cog, name="Admin"):
         userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Double" : count}})
         await channel.send(f"Increased Double Rewards for <@{rewardList[0]}> by {count}")
 
+    @commands.has_any_role("Bot Friend", "A d m i n")
+    @commands.command()
+    async def addTime(self,ctx, user, time: int):
+        msg = ctx.message
+        rewardList = msg.raw_mentions
+        channel = ctx.channel
+        guild = ctx.guild
+        charEmbed = discord.Embed()
+        charEmbedmsg = None
+        # if nobody was listed, inform the user
+        if rewardList == list():
+            await ctx.channel.send(content=f"I could not find any mention of a user.") 
+            #return the unchanged parameters
+            return 
+        usersCollection = db.users
+        userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Time Bank" : time}})
+        await channel.send(f"Increased Time Bank for <@{rewardList[0]}> by {time}")
     
     @commands.command()
     @admin_or_owner()

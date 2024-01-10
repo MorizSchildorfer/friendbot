@@ -119,7 +119,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
         guildDouble = False
         playerDouble = False
         dmDouble = False
-        
+        tierDouble = False
         if role != "":
             guild_valid =("Guild" in player and 
                             player["Guild"] in guilds and 
@@ -144,7 +144,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             dmDouble = False
             bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
             
-            treasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, gold_modifier)
+            treasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier)
             treasureString = f"{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP"
             
             
@@ -232,13 +232,14 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             
             dmDouble = player["DM Double"] and sessionInfo["DDMRW"]
             bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
+            tierDouble = tierNum == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]
             
             dm_double_string += guildDouble * "2xR "
             dm_double_string += playerDouble * "Fanatic "
             dm_double_string += dmDouble * "DDMRW "
             dm_double_string += bonusDouble * "Bonus "
             
-            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble)
+            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
             
         
         # add the items that the DM awarded themselves to the items list
@@ -526,7 +527,7 @@ class Log(commands.Cog):
             guildDouble = False
             playerDouble = False
             dmDouble = False
-
+            tierDouble = False
             if not ("Paused" in character and character["Paused"]):
                 guild_valid =("Guild" in player and 
                                 player["Guild"] in guilds and 
@@ -542,7 +543,7 @@ class Log(commands.Cog):
                 dmDouble = False
                 bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
                 
-                treasureArray  = calculateTreasure(player["Level"], character["CP"] , duration, guildDouble, playerDouble, dmDouble, bonusDouble, gold_modifier)
+                treasureArray  = calculateTreasure(player["Level"], character["CP"] , duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier)
                 
                 if(guild_valid and 
                         guilds[player["Guild"]]["Items"] and 
@@ -684,8 +685,8 @@ class Log(commands.Cog):
                 
                 dmDouble = player["DM Double"] and sessionInfo["DDMRW"]
                 bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
-                
-                treasureArray  = calculateTreasure(charLevel, character["CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble)
+                tierDouble = tierNum == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]
+                treasureArray  = calculateTreasure(charLevel, character["CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
                     
                     
                 if(guild_valid and 
@@ -1181,6 +1182,14 @@ class Log(commands.Cog):
     async def denyEvent(self, ctx,  num : int):
         await self.session_set(ctx, num, "Event", False)
         
+    @commands.has_any_role('Mod Friend', 'Admins')      
+    @session.command()
+    async def denyTier(self, ctx,  num : int):
+        await self.session_set(ctx, num, "Tier Bonus", False)
+    @commands.has_any_role('Mod Friend', 'Admins')      
+    @session.command()
+    async def approveTier(self, ctx,  num : int):
+        await self.session_set(ctx, num, "Tier Bonus", True)
         
     @commands.has_any_role('Mod Friend', 'Admins')  
     @session.command()
@@ -1205,7 +1214,7 @@ class Log(commands.Cog):
         logData = db.logdata
         sessionInfo = logData.find_one({"Log ID": int(num)})
         if( sessionInfo):
-            if( sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied"):
+            if(sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied"):
                 try:
                     db.logdata.update_one({"_id": sessionInfo["_id"]}, {"$set": {target: goal}})
                 except BulkWriteError as bwe:

@@ -1403,6 +1403,7 @@ Command Checklist
         
         dbEntry["DDMRW"] = settingsRecord["ddmrw"] or userInfo["DDMRW"]
         dbEntry["Event"] = settingsRecord["Event"]
+        dbEntry["Tier Bonus"] = tierNum == 0
         if tierNum < 1:
             tierNum = 1
         rewardsCollection = db.rit

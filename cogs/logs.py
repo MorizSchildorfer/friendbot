@@ -784,7 +784,7 @@ class Log(commands.Cog):
             paused_time = 0
             if "Paused Time" in sessionInfo:
                 paused_time = sessionInfo["Paused Time"]
-            dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"]))
+            dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))
         # that is the base line of sparkles and noodles gained
         sparklesGained = int(maximumCP) // 3
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))

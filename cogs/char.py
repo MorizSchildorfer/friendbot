@@ -4866,7 +4866,7 @@ class Character(commands.Cog):
                     pageStart = perPage*page
                     pageEnd = perPage * (page + 1)
                     alphaIndex = 0
-                    for i in range(pageStart, pageEnd if pageEnd < (len(featChoices) - 1) else (len(featChoices)) ):
+                    for i in range(pageStart, pageEnd if pageEnd <= (len(featChoices) - 1) else (len(featChoices)) ):
                         charEmbed.add_field(name=alphaEmojis[alphaIndex], value=featChoices[i]['Name'], inline=True)
                         alphaIndex+=1
                     charEmbed.set_footer(text= f"Page {page+1} of {numPages} -- use {left} or {right} to navigate or ❌ to cancel.")

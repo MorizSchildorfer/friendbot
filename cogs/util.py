@@ -165,9 +165,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         embed.color = color
     if footer:
         embed.set_footer(text=f"{footer}")
-    # if no preexisting message exists create a new one
-    if not msg:
-        msg = await ctx.channel.send(msg, embed = embed)
     # check that only original user can use the menu
     def userCheck(r,u):
         sameMessage = False
@@ -180,7 +177,11 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         embed.add_field(name=subtitle, value=section_text, inline=inline)
     if (pages>1):
         embed.set_footer(text=f"{footer}\nPage {page+1} of {pages}")
-    await msg.edit(content= content, embed=embed) 
+    # if no preexisting message exists create a new one
+    if not msg:
+        msg = await ctx.channel.send("", embed = embed)
+    else:
+        await msg.edit(content= content, embed=embed) 
     await msg.clear_reactions()
     while pages>1:
         #add navigation

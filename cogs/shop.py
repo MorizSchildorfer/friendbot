@@ -1195,7 +1195,6 @@ class Shop(commands.Cog):
         contents = []
         options = ['Adventuring Gear', 'Ammunition', 'Armor \\(Heavy\\)', 'Armor \\(Light\\)', 'Armor \\(Medium\\)', 'Consumable Spell Components', 'Mount', 'Non-Consumable Spell Components', 'Poison', 'Potion', 'Shield', 'Spellcasting Focus', 'Tack and Harness', 'Tool', 'Trade Good', 'Vehicle', 'Weapon \\(Firearm, Ranged\\)', 'Weapon \\(Martial, Melee\\)', 'Weapon \\(Martial, Ranged\\)', 'Weapon \\(Simple, Melee\\)', 'Weapon \\(Simple, Ranged\\)']
         infoString = ""
-        print(len(options))
         for i in range(len(options)):
             infoString += f"{alphaEmojis[i]}: {options[i]}\n"
         charEmbed.add_field(name=f"Which category would you like to see?", value=infoString, inline=False)

@@ -3022,7 +3022,6 @@ class Character(commands.Cog):
         contents.insert(0, (f"General Information",description, False))
         
         contents.append((f"Characters", charString, False))
-
         await paginate(ctx, self.bot, f"{search_author.display_name}" , contents, separator="\n", author = search_author)
    
             

@@ -1099,7 +1099,6 @@ Command Checklist
             guild = ctx.guild
             startTime = start["Start"]
             total_duration = end - startTime - start["Paused Time"]
-            print(total_duration)
             
             stopEmbed = discord.Embed()
             

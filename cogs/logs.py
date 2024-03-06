@@ -238,9 +238,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             dm_double_string += playerDouble * "Fanatic "
             dm_double_string += dmDouble * "DDMRW "
             dm_double_string += bonusDouble * "Bonus "
-            
-            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
-            
+            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
         
         # add the items that the DM awarded themselves to the items list
         
@@ -686,7 +684,7 @@ class Log(commands.Cog):
                 dmDouble = player["DM Double"] and sessionInfo["DDMRW"]
                 bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
                 tierDouble = tierNum == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]
-                treasureArray  = calculateTreasure(charLevel, character["CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
+                treasureArray  = calculateTreasure(charLevel, character["CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
                     
                     
                 if(guild_valid and 
@@ -784,7 +782,7 @@ class Log(commands.Cog):
             paused_time = 0
             if "Paused Time" in sessionInfo:
                 paused_time = sessionInfo["Paused Time"]
-            dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))
+            dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))*1.5
         # that is the base line of sparkles and noodles gained
         sparklesGained = int(maximumCP) // 3
         timerData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), playerUpdates))

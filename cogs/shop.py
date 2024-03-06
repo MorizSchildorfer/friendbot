@@ -542,7 +542,7 @@ class Shop(commands.Cog):
        
 
     @shop.command()
-    async def toss(self, ctx, charName, searchQuery): 
+    async def toss(self, ctx, charName, searchQuery, count=1): 
         channel = ctx.channel
         # extract the name of the consumable and transform it into a standardized format
         searchItem = searchQuery.lower().replace(' ', '')
@@ -565,18 +565,17 @@ class Shop(commands.Cog):
         
         if not charDict:
             return
-        consumables_list = []
+        item_list = []
         if charDict["Consumables"] != "None":
-            consumables_list  = charDict["Consumables"].split(", ")
+            item_list  = charDict["Consumables"].split(", ")
         foundItem = None
-        for j in consumables_list:
+        for j in item_list:
             # if found than we can mark it as such
             if searchItem == j.lower().replace(" ", ""):
                 foundItem = j
                 item_type = "Consumables"
                 break
          
-        # inform the user if we couldnt find the item
         if not foundItem:
             for key, inv in charDict["Inventory"].items():
                 # if found than we can mark it as such
@@ -584,17 +583,42 @@ class Shop(commands.Cog):
                     foundItem = key
                     item_type = "Inventory"
                     break  
-                    
+           
         if not foundItem:
-            await channel.send(f"I could not find the item **{searchQuery}** in your inventory in order to remove it.")
-                                 
+            item_list = []     
+            if charDict["Magic Items"] != "None":
+                item_list  = charDict["Magic Items"].split(", ")
+            for key in item_list:
+                # if found than we can mark it as such
+                if searchItem == key.lower().replace(' ', ''):
+                    foundItem = key
+                    item_type = "Magic Items"
+                    break  
+                    
+        if item_type == "Magic Items":
+            mRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'rit', foundItem)
+            if not mRecord:
+                await channel.send(f"**{searchQuery}** is not a tossable item.")
+                return
+        # inform the user if we couldnt find the item
+        if not foundItem:
+            await channel.send(f"I could not find the item **{searchQuery}** in your inventory in order to remove it.")                        
         else:
-            if item_type == "Consumables":
+            if item_type == "Consumables" or item_type == "Magic Items":
                 # remove the entry from the list of consumables of the character
-                consumables_list.remove(foundItem)
+                item_list.remove(foundItem)
                 # update the characters consumables to reflect the item removal
-                charDict["Consumables"] = ', '.join(consumables_list).strip()
-                charDict["Consumables"] += "None"*(charDict["Consumables"]=="")
+                charDict[item_type] = ', '.join(item_list).strip()
+                charDict[item_type] += "None"*(charDict[item_type]=="")
+                
+                if (item_type == "Magic Items" and 
+                    foundItem not in item_list and
+                    "Attuned" in charDict and 
+                    foundItem in charDict["Attuned"]):
+                    attunements = charDict["Attuned"].split(", ")
+                    attunements.remove(foundItem)
+                    charDict["Attuned"] = ", ".join(attunements)
+                    
             elif item_type == "Inventory":
                 charDict[item_type][foundItem] -= 1
                         
@@ -628,7 +652,10 @@ class Shop(commands.Cog):
                             del charDict['Inventory'][f"{foundItem}"]
                     try:
                         playersCollection = db.players
-                        playersCollection.update_one({'_id': charDict['_id']}, {"$set": {"Inventory":charDict['Inventory'], "Consumables": charDict['Consumables']}})
+                        if item_type == "Magic Items" and "Attuned" in charDict and not charDict["Attuned"]:
+                            playersCollection.update_one({'_id': charDict['_id']}, {"$set": {"Magic Items": charDict["Magic Items"]}, "$unset": {"Attuned": 1}})
+                        else:
+                            playersCollection.update_one({'_id': charDict['_id']}, {"$set": charDict})
                     except Exception as e:
                         print ('MONGO ERROR: ' + str(e))
                         charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")

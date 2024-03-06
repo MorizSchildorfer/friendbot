@@ -280,7 +280,7 @@ class Help(commands.Cog):
 
         helpEmbedShop.add_field(name=f'▫️ Selling a Mundane Item', value=f'{commandPrefix}shop sell "character name" "item" #', inline=False)
 
-        helpEmbedShop.add_field(name=f'▫️ Tossing a Consumable or Mundane Item', value=f'{commandPrefix}shop toss "character name" "item"', inline=False)
+        helpEmbedShop.add_field(name=f'▫️ Tossing a Non-/Consumable or Mundane Item', value=f'{commandPrefix}shop toss "character name" "item"', inline=False)
 
         helpEmbedShop.add_field(name=f'▫️ Copying a Spell Scroll', value=f'{commandPrefix}shop copy "character name" "spell name"', inline=False)
 

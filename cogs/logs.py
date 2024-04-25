@@ -1325,7 +1325,7 @@ class Log(commands.Cog):
             await ctx.channel.send("The session could not be found, please double check your number or if the session has already been approved.")
     
     
-    @commands.has_any_role('Mod Friend', 'A d m i n')
+    @commands.has_any_role('Mod Friend', 'A d m i n', "Bot Friend")
     @session.command()
     async def genLog(self, ctx,  num : int):
         logData = db.logdata

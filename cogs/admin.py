@@ -657,30 +657,37 @@ class Admin(commands.Cog, name="Admin"):
         
         if(not await self.doubleVerify(ctx, refundEmbedmsg)):
             return None, None
-        
-        try:
-                
-            returnData, playerIDs = self.characterItemRefund(ctx, itemRecord, "Magic Items")
-                                                        
-        except Exception as e:
-            print("ERRORpr", e)
-            traceback.print_exc()
-            await traceBack(ctx,e)
-            return None, None
-        
-        refundData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), returnData))
-        
-        try:
-            if(len(refundData)>0):
-                db.players.bulk_write(refundData)
-        except BulkWriteError as bwe:
-            print(bwe.details)
-            # if it fails, we need to cancel and use the error details
-            return None, None
-        for playerID, charNames in playerIDs.items():
-            player = ctx.guild.get_member(int(playerID))
-            if player:
-                await player.send(f"The magic item {itemRecord['Name']} has been {actionTermPast}. {', '.join(charNames)} have been refunded their purchase.")
+        items_to_refund = [itemRecord["Name"]]
+        if "Grouped" in itemRecord:
+            fullItemRecord = db.mit.find_one({"Grouped": itemRecord["Grouped"]})
+            items_to_refund = fullItemRecord["Name"]
+        for item_to_refund in items_to_refund:
+            print("moving: "+item_to_refund)
+            itemRecord["Name"] = item_to_refund
+            try:
+                    
+                returnData, playerIDs = self.characterItemRefund(ctx, itemRecord, "Magic Items")
+                                                            
+            except Exception as e:
+                print("ERRORpr", e)
+                traceback.print_exc()
+                await traceBack(ctx,e)
+                return None, None
+            
+            refundData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), returnData))
+            
+            try:
+                if(len(refundData)>0):
+                    db.players.bulk_write(refundData)
+                db.stats.update_one({'Life': 1}, {"$unset": {f'Magic Items.{itemRecord["Name"]}': 1}})
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return None, None
+            for playerID, charNames in playerIDs.items():
+                player = ctx.guild.get_member(int(playerID))
+                if player:
+                    await player.send(f"The magic item **{itemRecord['Name']}** has been {actionTermPast}. **{', '.join(charNames[:-1])} and {charNames[-1]}** have been refunded their purchase.")
         return refundEmbedmsg, itemRecord
     
     def characterItemRefund(self, ctx, itemRecord, category):
@@ -1072,7 +1079,7 @@ class Admin(commands.Cog, name="Admin"):
         charEmbedmsg = None
         # if nobody was listed, inform the user
         if rewardList == list():
-            await ctx.channel.send(content=f"I could not find any mention of a user to hand out a reward item.") 
+            await ctx.channel.send(content=f"I could not find any mention of a user.") 
             #return the unchanged parameters
             return 
         usersCollection = db.users

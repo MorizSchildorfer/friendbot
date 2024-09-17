@@ -695,11 +695,13 @@ class Admin(commands.Cog, name="Admin"):
         characters = list( db.players.find({f"Item Spend.{itemRecord['Name']}" : {"$exists": True}}))
         returnData = []
         for char in characters:
+            items = char[category].split(", ")
+            if itemRecord['Name'] not in items:
+                continue
             if char["User ID"] in playerIDs:
                playerIDs[char["User ID"]].append(char["Name"])
             else:
                playerIDs[char["User ID"]] = [char["Name"]]
-            items = char[category].split(", ")
             items.remove(itemRecord['Name'])
             if(len(items)==0):
                 items.append("None")

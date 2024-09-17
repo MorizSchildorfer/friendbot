@@ -1191,7 +1191,7 @@ class Character(commands.Cog):
         # Reset  values here
         charNoneKeyList = ['Magic Items', 'Inventory', 'Current Item', 'Consumables']
 
-        charRemoveKeyList = ['Predecessor','Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'Attuned', 'Spellbook', 'Guild', 'Guild Rank', 'Grouped']
+        charRemoveKeyList = ['Predecessor','Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'Attuned', 'Spellbook', 'Guild', 'Guild Rank', 'Grouped', 'Item Spend']
         
         guild_name = ""
         

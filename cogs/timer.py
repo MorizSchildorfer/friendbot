@@ -13,7 +13,7 @@ from discord.utils import get
 from datetime import datetime, timezone,timedelta
 from discord.ext import commands
 from bfunc import numberEmojis, gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, cp_bound_array, settingsRecord
-from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodleRoleArray, uwuize, confirm
+from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodleRoleArray, uwuize, confirm, spell_item_search
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
@@ -26,9 +26,7 @@ def lowerLimit(value):
         value = max((value)//2, 1)
     return value
 def blocking_type(item):
-    if "Grouped" in item:
-        return item["Grouped"]
-    return item["Name"]
+    return item["_id"]
 
 class Timer(commands.Cog):
     def __init__ (self, bot):
@@ -760,6 +758,7 @@ class Timer(commands.Cog):
         stampEmbedmsg = await channel.send(embed=stampEmbed)
 
         userInfo["DDMRW"] = settingsRecord["ddmrw"]
+        userInfo["T1RW"] = settingsRecord["t1rw"]
         # During Timer
         await self.duringTimer(ctx, userInfo, stampEmbed, stampEmbedmsg)
         
@@ -899,34 +898,23 @@ class Timer(commands.Cog):
                 item_list = []
                 blocking_list_additions = []
                 for query in consumablesList:
-                    # if the player is getting a spell scoll then we need to determine which spell they are going for
+                    # if the player is getting a spell scoll or tattoo then we need to determine which spell they are going for
                     # we do this by searching in the spell table instead
-                    if 'spell scroll' in query.lower():
-                        # extract the spell
-                        spellItem = query.lower().replace("spell scroll", "").replace('(', '').replace(')', '')
-                        # use the callAPI function from bfunc to search the spells table in the DB for the spell being rewarded
-                        sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem, exact=exact)
-                        
+                    item_type = ""
+                    if "spell scroll" in query.lower():
+                        item_type = "Spell Scroll"
+                    elif "spellwrought tattoo" in query.lower():
+                        item_type = "Spellwrought Tattoo"
+                    if item_type.lower() == query.lower().strip():
+                        msg = f"""Please be more specific with the type of spell scroll which you're purchasing. You must format {item_type} as follows: "{item_type} (spell name)".\n"""
+                        await ctx.channel.send(msg)
+                        return userInfo
+                    if item_type:
+                        query, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(ctx, query, item_type, charEmbed, charEmbedmsg, "")
                         # if no spell was found then we inform the user of the failure and stop the command
-                        if not sRecord:
-                            await ctx.channel.send(f'''**{query}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.''')
+                        if msg:
+                            await ctx.channel.send(msg)
                             return userInfo
-
-                        else:
-                            if sRecord["Level"] == 0:
-                                query = f"Spell Scroll (Cantrip)"
-                            else:
-                                # Converts number to ordinal - 1:1st, 2:2nd, 3:3rd...
-                                # floor(n/10)%10!=1, this acts as an if statement to check if the number is in the teens
-                                # (n%10<4), this acts as an if statement to check if the number is below 4
-                                # n%10 get the last digit of the number
-                                # by multiplying these number together we end up with calculation that will be 0 unless both conditions have been met, otherwise it is the digit
-                                # this number x is then used as the starting point of the selection and ::4 will then select the second letter by getting the x+4 element
-                                # technically it will get more, but since the string is only 8 characters it will return 2 characters always
-                                # th, st, nd, rd are spread out by 4 characters in the string 
-                                ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
-                                # change the query to be an accurate representation
-                                query = f"Spell Scroll ({ordinal(sRecord['Level'])} Level)"
                     
 
                     # search for the item in the DB with the function from bfunc
@@ -943,8 +931,9 @@ class Timer(commands.Cog):
                         if "Grouped" in rewardConsumable:
                            rewardConsumable_group_type = "Grouped"
                         # check if the item has already been rewarded to the player
-                        if (rewardConsumable[rewardConsumable_group_type] in item_rewards or
-                            rewardConsumable[rewardConsumable_group_type] in blocking_list_additions):
+                        print(rewardConsumable["_id"], )
+                        if (rewardConsumable["_id"] in item_rewards or
+                            rewardConsumable["_id"] in blocking_list_additions):
                             # inform the user of the issue
                             await ctx.channel.send(f"You cannot award the more than one of the same reward item. Please choose a different reward item.")
                             # return unchanged parameters
@@ -993,9 +982,9 @@ class Timer(commands.Cog):
                                 return userInfo
                             
                         # If it is a spell scroll, since we search for spells, we need to adjust the name
-                        blocking_list_additions.append(rewardConsumable[rewardConsumable_group_type])
-                        if 'spell scroll' in query.lower():
-                            rewardConsumable['Name'] = f"Spell Scroll ({sRecord['Name']})"
+                        blocking_list_additions.append(rewardConsumable['_id'])
+                        if 'spell scroll' in query.lower() or "spellwrought tattoo" in query.lower():
+                            rewardConsumable['Name'] = spell_item_name
                         item_list.append(rewardConsumable['Name'])
                         character_add[rewardConsumable["Type"]].append(rewardConsumable)
                 
@@ -1402,6 +1391,8 @@ Command Checklist
         dbEntry["Players"] = {}
         
         dbEntry["DDMRW"] = settingsRecord["ddmrw"] or userInfo["DDMRW"]
+        dbEntry["T1RW"] = settingsRecord["t1rw"] and tierNum < 2 # or userInfo["T1RW"]
+        
         dbEntry["Event"] = settingsRecord["Event"]
         dbEntry["Tier Bonus"] = tierNum == 0
         if tierNum < 1:

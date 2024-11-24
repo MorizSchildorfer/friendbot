@@ -97,7 +97,19 @@ class Admin(commands.Cog, name="Admin"):
         await ctx.message.delete()
 
     settingsRecord["ddmrw"]
-        
+    @commands.command()
+    async def startT1RW(self, ctx):
+        if "Mod Friend" in [r.name for r in ctx.author.roles]:
+            global settingsRecord
+            settingsRecord["t1rw"] = True
+            await ctx.channel.send("Let the T1 games begin!") 
+    
+    @commands.command()
+    async def endT1RW(self, ctx):
+        if "Mod Friend" in [r.name for r in ctx.author.roles]:
+            global settingsRecord
+            settingsRecord["t1rw"] = False
+            await ctx.channel.send("T1 no more!") 
     @commands.command()
     async def startDDMRW(self, ctx):
         if "Mod Friend" in [r.name for r in ctx.author.roles]:
@@ -754,6 +766,10 @@ class Admin(commands.Cog, name="Admin"):
                     setData["Attuned"] = ", ".join(attunements)
                 except Exception as e:
                     pass
+            elif 'Attuned' in char  and 'Attunement' in itemRecord:
+                attunements = char['Attuned'].split(", ")
+                attunements.remove(itemRecord["Name"])
+                setData["Attuned"] = ", ".join(attunements)
             entry["fields"]["$set"].update(setData)
 
             if("Grouped" in itemRecord):

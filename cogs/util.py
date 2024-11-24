@@ -481,10 +481,10 @@ async def checkForGuild(ctx, name, guildEmbed="" ):
 
     return guildRecords[0], None
 
-def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=False, dmDouble=False, bonusDouble=False, tierBonus=False, gold_modifier = 100):
+def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=False, dmDouble=False, bonusDouble=False, tierBonus=False, gold_modifier = 100, tierOneDouble=False):
     # calculate the CP gained during the game
     cp = ((seconds) // 900) / 4
-    cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus
+    cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus + tierOneDouble
        
         
     crossTier = None

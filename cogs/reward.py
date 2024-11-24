@@ -41,9 +41,12 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
                 temp = sample(randomItem[i]['Name'], 1)[0]
                 tempstr = str(temp)
                 rewardString.append(tempstr)
-            elif 'Spell Scroll' in randomItem[i]['Name']:
+            elif 'Spell Scroll' in randomItem[i]['Name'] or 'Spellwrought Tattoo' in randomItem[i]['Name']:
                 spell = re.findall(r"\d+", randomItem[i]['Name'])
-
+                item_type = 'Spell Scroll'
+                if 'Spellwrought Tattoo' in randomItem[i]['Name']:
+                    item_type = 'Spellwrought Tattoo'
+                
                 # create an embed object for user communication
                 #extract spell level:
                 if len(spell)>0:
@@ -52,7 +55,7 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
                     spellLevel = 0
                 charEmbed = discord.Embed()
                 charEmbed.title = f"{randomItem[i]['Name']}"
-                charEmbed.description = f"What class list would you like the spell scroll to be from?"
+                charEmbed.description = f"What class list would you like the {item_type} to be from?"
 
                 #Determine if the scroll level is available to half-casters
                 if spellLevel < 1: #all caster list
@@ -90,7 +93,7 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
                 output = list(spellCollection.find({"$and": [{"Classes": {"$regex": classList, '$options': 'i' }, "Level": spellLevel}]}))
                 spellReward = sample(output, 1)[0] # results in the entire spell's entry
                 spellRewardStr = []  
-                spellRewardStr.append(f"Spell Scroll ({spellReward['Name']})")
+                spellRewardStr.append(f"{item_type} ({spellReward['Name']})")
                 await charEmbedmsg.delete()
                 rewardString.append(spellRewardStr[0])
             else:

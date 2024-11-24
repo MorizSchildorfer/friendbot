@@ -13,8 +13,11 @@ from datetime import datetime, timezone, timedelta
 from discord.ext import commands
 from urllib.parse import urlparse 
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm
-                
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search
+
+
+
+         
 class Character(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
@@ -399,36 +402,26 @@ class Character(commands.Cog):
             allRewardItemsString = []
             if rewardItems != ['']:
                 for r in rewardItems:
+                    item_type = ""
                     if "spell scroll" in r.lower():
-                        if "spell scroll" == r.lower().strip():
-                            msg += f"""Please be more specific with the type of spell scroll which you're purchasing. You must format spell scrolls as follows: "Spell Scroll (spell name)".\n"""
-                            break 
-                            
-                        spellItem = r.lower().replace("spell scroll", "").replace('(', '').replace(')', '')
-                        sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem) 
-                        
-                        if not sRecord :
-                            msg += f'''**{r}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.'''
-                            
-
-                        else:
-                            
-                            ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
-                            # change the query to be an accurate representation
-                            r = f"Spell Scroll ({ordinal(sRecord['Level'])} Level)"
-
+                        item_type = "Spell Scroll"
+                    elif "spellwrought tattoo" in r.lower():
+                        item_type = "Spellwrought Tattoo"
+                    if item_type.lower() == r.lower().strip():
+                        msg += f"""Please be more specific with the type of spell scroll which you're purchasing. You must format {item_type} as follows: "{item_type} (spell name)".\n"""
+                        break 
+                    if item_type:
+                        r, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(ctx, r, item_type, charEmbed, charEmbedmsg, msg)
                     reRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'rit',r, tier = tierNum, filter_rit = False) 
 
                     if charEmbedmsg == "Fail":
                         return
-                    if not reRecord:
+                    elif not reRecord:
                         msg += f" {r} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.\n"
                         break
-                    else:
-                        
-                        if 'spell scroll' in r.lower() and sRecord:
-                            reRecord['Name'] = f"Spell Scroll ({sRecord['Name']})"
-                        allRewardItemsString.append(reRecord)
+                    if 'spell scroll' in r.lower() or "spellwrought tattoo" in r.lower():
+                        reRecord['Name'] = spell_item_name
+                    allRewardItemsString.append(reRecord)
                 allRewardItemsString.sort(key=lambda x: x["Tier"])
                 tier1CountMNC = 0
                 rewardConsumables = []

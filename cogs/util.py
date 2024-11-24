@@ -538,6 +538,25 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
         gp = min(gp, math.ceil(gold_modifier * gp/100))
     return [gainedCP, tp, gp]
 
+
+async def spell_item_search(ctx, search_parameter, item_type, charEmbed, charEmbedmsg, msg=""):    
+    spellItem = search_parameter.lower().replace(item_type.lower(), "").replace('(', '').replace(')', '')
+    sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem) 
+    
+    spell_item_name = ""
+    if not sRecord :
+        msg += f'''**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.'''
+        
+    elif sRecord["Level"]==0:
+        search_parameter = item_type +" (Cantrip)"
+        spell_item_name = f"{item_type} ({sRecord['Name']})"
+    else:
+        ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
+        # change the query to be an accurate representation
+        search_parameter = f"{item_type} ({ordinal(sRecord['Level'])} Level)"
+        spell_item_name = f"{item_type} ({sRecord['Name']})"
+    return search_parameter, spell_item_name, charEmbed, charEmbedmsg, msg
+
 class Util(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot

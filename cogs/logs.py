@@ -44,6 +44,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
     end = sessionInfo["End"] 
     tierNum = sessionInfo["Tier"]
     
+    tierOneDouble = "T1RW" in sessionInfo and sessionInfo["T1RW"]
     guilds = sessionInfo["Guilds"]
     
     players = sessionInfo["Players"] 
@@ -144,7 +145,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             dmDouble = False
             bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
             
-            treasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier)
+            treasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier, tierOneDouble)
             treasureString = f"{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP"
             
             
@@ -155,6 +156,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
         groupString += guildDouble * "2xR "
         groupString += playerDouble * "Fanatic "
         groupString += bonusDouble * "Bonus "
+        groupString += tierOneDouble * "T1 "
         groupString += f'{role} Friend {"Full"*(player["CP"]==dm["CP"])+"Partial"*(not player["CP"]==dm["CP"])} Rewards:\n{treasureString}'
         
         # if the player was not present the whole game and it was a no rewards game
@@ -238,7 +240,8 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
             dm_double_string += playerDouble * "Fanatic "
             dm_double_string += dmDouble * "DDMRW "
             dm_double_string += bonusDouble * "Bonus "
-            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
+            dm_double_string += tierOneDouble * "T1 "
+            dmtreasureArray  = calculateTreasure(player["Level"], player["Character CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, 100, tierOneDouble)
         
         # add the items that the DM awarded themselves to the items list
         

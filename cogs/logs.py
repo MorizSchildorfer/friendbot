@@ -456,6 +456,8 @@ class Log(commands.Cog):
         tierNum = sessionInfo["Tier"]
         role = sessionInfo["Role"]
         
+        tierOneDouble = "T1RW" in sessionInfo and sessionInfo["T1RW"]
+        
         #dictionary indexed by user id
         players = sessionInfo["Players"] 
         # {cp, magic items, consumables, inventory, status, character id, character name, character level, character cp, double rewards, guild, }
@@ -544,7 +546,7 @@ class Log(commands.Cog):
                 dmDouble = False
                 bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
                 
-                treasureArray  = calculateTreasure(player["Level"], character["CP"] , duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier)
+                treasureArray  = calculateTreasure(player["Level"], character["CP"] , duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier, tierOneDouble)
                 
                 if(guild_valid and 
                         guilds[player["Guild"]]["Items"] and 
@@ -687,7 +689,7 @@ class Log(commands.Cog):
                 dmDouble = player["DM Double"] and sessionInfo["DDMRW"]
                 bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
                 tierDouble = tierNum == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]
-                treasureArray  = calculateTreasure(charLevel, character["CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble)
+                treasureArray  = calculateTreasure(charLevel, character["CP"], duration*1.5, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, 100, tierOneDouble)
                     
                     
                 if(guild_valid and 

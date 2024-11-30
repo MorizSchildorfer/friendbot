@@ -219,7 +219,7 @@ class Character(commands.Cog):
             'Eternal Noodle':[4,5,6,7,8,9],
             'Infinity Noodle':[4,5,6,7,8,9,10],
             'Beyond Noodle':[4,5,6,7,8,9,10,11],
-            'Quantom Noodle':[4,5,6,7,8,9,10,11,12]
+            'Quantum Noodle':[4,5,6,7,8,9,10,11,12]
         }
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author

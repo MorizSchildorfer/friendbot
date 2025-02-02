@@ -641,8 +641,7 @@ class Log(commands.Cog):
                 time_bank = duration * (1 + bonusDouble)
                 playerUpdates.append({'_id': player["Character ID"],
                                         'fields': {"$unset": {f"GID": 1} ,
-                                        "$inc": {"Stored": duration,
-                                                    "Playtime": player["CP"],
+                                        "$inc": {"Playtime": player["CP"],
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
             usersData.append(UpdateOne({'User ID': character["User ID"]}, {'$inc': {'Games': 1, 'Double': -1*player["Double"], 'Time Bank': time_bank}}, upsert=True))
@@ -785,8 +784,7 @@ class Log(commands.Cog):
                 dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))*1.5
                 playerUpdates.append({'_id': player["Character ID"],
                                         'fields': {"$unset": {f"GID": 1},
-                                        "$inc": {"Stored": duration,
-                                                    "Games": 1,
+                                        "$inc": {"Games": 1,
                                                     "Event Token" : event_inc}}})
         else:
             paused_time = 0

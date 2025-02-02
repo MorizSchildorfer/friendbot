@@ -1394,6 +1394,13 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
                 delMessage = await ctx.channel.send(content=f"I've edited the summary for quest #{num}.\n```{editString}```\nPlease double-check that the edit is correct. I will now delete your message and this one in 20 seconds.")
             except Exception as e:
                 delMessage = await ctx.channel.send(content=f"I've edited the summary for quest #{num}.\nPlease double-check that the edit is correct. I will now delete your message and this one in 20 seconds.")
+        modChannel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Mod Campaign Logs"])
+        modEmbed = discord.Embed()
+        modEmbed.description = f"""An updated log for {ctx.channel.mention} has been posted
+Game ID: {editMessage.id}
+Link: {editMessage.jump_url}
+"""
+        modMessage = await modChannel.send(embed=modEmbed)
         await asyncio.sleep(20) 
         await delMessage.delete()
         try:

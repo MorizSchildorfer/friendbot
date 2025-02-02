@@ -469,7 +469,7 @@ class Log(commands.Cog):
         maximumCP = dm["CP"]
         deathChars = []
         playerUpdates = []
-        
+        usersData = []
         # get the collections of characters
         playersCollection = db.players
         guildCollection = db.guilds
@@ -519,6 +519,8 @@ class Log(commands.Cog):
         item_rewards = True
         if "Items" in sessionInfo:
             item_rewards = sessionInfo["Items"]
+        
+        bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
         for character in characterDBentries:
             player = players[str(character["User ID"])]
             # this indicates that the character had died
@@ -531,6 +533,7 @@ class Log(commands.Cog):
             playerDouble = False
             dmDouble = False
             tierDouble = False
+            time_bank = 0
             if not ("Paused" in character and character["Paused"]):
                 guild_valid =("Guild" in player and 
                                 player["Guild"] in guilds and 
@@ -544,7 +547,6 @@ class Log(commands.Cog):
                 player["Double"] = str(character["User ID"]) in userDBEntriesDic.keys() and "Double" in userDBEntriesDic[str(character["User ID"])] and userDBEntriesDic[str(character["User ID"])]["Double"] >0
                 playerDouble = player["Double"]
                 dmDouble = False
-                bonusDouble = "Bonus" in sessionInfo and sessionInfo["Bonus"]
                 
                 treasureArray  = calculateTreasure(player["Level"], character["CP"] , duration, guildDouble, playerDouble, dmDouble, bonusDouble, tierDouble, gold_modifier, tierOneDouble)
                 
@@ -636,12 +638,14 @@ class Log(commands.Cog):
                     charRewards["fields"]["$set"] = {"Death": deathDic}
                 playerUpdates.append(charRewards)
             else:
+                time_bank = duration * (1 + bonusDouble)
                 playerUpdates.append({'_id': player["Character ID"],
                                         'fields': {"$unset": {f"GID": 1} ,
                                         "$inc": {"Stored": duration,
                                                     "Playtime": player["CP"],
                                                     "Games": 1,
                                                     "Event Token" : event_inc}}})
+            usersData.append(UpdateOne({'User ID': character["User ID"]}, {'$inc': {'Games': 1, 'Double': -1*player["Double"], 'Time Bank': time_bank}}, upsert=True))
         dmRewardsList = []
         dm["Double"] = False
         dm_time_bank = 0
@@ -892,7 +896,6 @@ class Log(commands.Cog):
             usersCollection.update_one({'User ID': str(dm["ID"])}, {"$set": {'User ID':str(dm["ID"]),'DM Time': new_dm_time}, "$inc": {'Games': 1, 'Games Hosted': 1, 'Noodles': noodlesGained, 'Double': -1*dm["Double"], 'Time Bank': dm_time_bank}}, upsert=True)
             playersCollection.bulk_write(timerData)
             
-            usersData = list([UpdateOne({'User ID': key}, {'$inc': {'Games': 1, 'Double': -1*item["Double"] }}, upsert=True) for key, item in {character["User ID"] : players[character["User ID"] ] for character in characterDBentries}.items()])
             usersCollection.bulk_write(usersData)
             
             logData.update_one({"_id": sessionInfo["_id"]}, {"$set" : {"Status": "Approved"}})
@@ -1388,7 +1391,13 @@ class Log(commands.Cog):
                 delMessage = await ctx.channel.send(content=f"I've edited the summary for quest #{num}.\n```{editString}```\nPlease double-check that the edit is correct. I will now delete your message and this one in 30 seconds.")
             except Exception as e:
                 delMessage = await ctx.channel.send(content=f"I've edited the summary for quest #{num}.\nPlease double-check that the edit is correct. I will now delete your message and this one in 30 seconds.")
-        
+        modChannel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Mod Logs"])
+        modEmbed = discord.Embed()
+        modEmbed.description = f"""An updated log for {ctx.channel.mention} has been posted
+Game ID: {editMessage.id}
+Link: {editMessage.jump_url}
+"""
+        modMessage = await modChannel.send(embed=modEmbed)
         await asyncio.sleep(30) 
         try:
             await ctx.message.delete()

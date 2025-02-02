@@ -782,6 +782,7 @@ class Log(commands.Cog):
                                  
                 playerUpdates.append(charRewards)
             else:
+                dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))*1.5
                 playerUpdates.append({'_id': player["Character ID"],
                                         'fields': {"$unset": {f"GID": 1},
                                         "$inc": {"Stored": duration,

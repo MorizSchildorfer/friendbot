@@ -349,7 +349,7 @@ class Timer(commands.Cog):
             #the command that starts the timer, it does so by allowing the code to move past the loop
             elif (msg.content == f"{commandPrefix}timer start" or msg.content == f"{commandPrefix}t start"):
                 if await self.permissionCheck(msg, author):
-                    if len(signedPlayers["Players"]) == 1:
+                    if len(signedPlayers["Players"]) == -1:
                         await channel.send(f'There are no players signed up! Players, use the following command to sign up to the quest with your character before the DM starts the timer:\n```yaml\n{commandPrefix}timer signup```') 
                     else:
                         signedPlayers["Started"] = True

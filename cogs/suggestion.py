@@ -80,19 +80,15 @@ class Suggestions(commands.Cog):
 
 Thank you for showing interest in improving the server. When submitting a suggestion, be as detailed as possible and include your reasoning for it. You can also include pictures and external links.
 
-Your suggestion will be sent to the Admins and Mods where it will be reviewed. Submitting a suggestion does not mean that it is guaranteed to be implemented because a suggestion is "an idea or plan put forward for consideration".
+Your suggestion will be sent to the Admins and Mods where it will be reviewed on a rolling basis, or at the next Mod Meeting. Submitting a suggestion will generally have it discussed by the mod team but is not a guarantee of implementation. 
 
-If you want to discuss your suggestion with others, feel free to talk about it in the `#general-dnd` or `#general-off-topic` channels on the server.
+If you want to discuss your suggestion with others, feel free to talk about it in the `#general-dnd` or `#general-off-topic` channels on the server. Additionally, feel free to discuss suggestions during Town Hall events and Office Hours events.
 
-Lastly, your suggestion will be ignored if it involves any of the following things:
-• RP chats.
-• Anything homebrew for player characters and magic items.
-• Forcing DMs to use a universal time zone.
-• Any kind of respecing past Level 4.
-• Trading/selling magic items.
-• Downtime.
+If you wish to have a mod follow up with you once a decision is made, note so here, as well as if you wish to be credited if the idea is implemented on server.
 
 Please copy-paste the following template and reply to me with your filled out template:
+
+Thank you and have a good day! 
 ```$suggestion
 
 Your suggestion here.```

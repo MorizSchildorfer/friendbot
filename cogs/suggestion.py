@@ -80,15 +80,14 @@ class Suggestions(commands.Cog):
 
 Thank you for showing interest in improving the server. When submitting a suggestion, be as detailed as possible and include your reasoning for it. You can also include pictures and external links.
 
-Your suggestion will be sent to the Admins and Mods where it will be reviewed on a rolling basis, or at the next Mod Meeting. Submitting a suggestion will generally have it discussed by the mod team but is not a guarantee of implementation. 
+Your suggestion will be sent to the Admins and Mods where it will be reviewed on a rolling basis, or at the next Mod Meeting.
 
-If you want to discuss your suggestion with others, feel free to talk about it in the `#general-dnd` or `#general-off-topic` channels on the server. Additionally, feel free to discuss suggestions during Town Hall events and Office Hours events.
-
-If you wish to have a mod follow up with you once a decision is made, note so here, as well as if you wish to be credited if the idea is implemented on server.
+Feel free to discuss your suggestion with others in the relevant general chats. Or if you would prefer to talk about it during office hours or town hall, please don't hesitate to reach out.
 
 Please copy-paste the following template and reply to me with your filled out template:
 
-Thank you and have a good day! 
+Thank you and have a good day!
+
 ```$suggestion
 
 Your suggestion here.```

@@ -7,6 +7,7 @@ from discord.ext import commands
 from bfunc import db, commandPrefix, traceBack, alphaEmojis
 from cogs.util import disambiguate
 import traceback as traces
+from functools import reduce
 
 
 class Node():
@@ -37,6 +38,23 @@ class Negation():
         if self.input_node.get_value() != self.value:
             return
         self.value = not self.input_node.get_value()
+        for connection in self.out_connections:
+            connection.update()
+    
+    def get_value(self):
+        return self.value
+        
+class Or():
+    def __init__ (self, input_nodes = [], out_connections = []):
+        self.out_connections = out_connections
+        self.input_nodes = input_nodes
+        self.value = reduce(lambda soFar, n: soFar or n.get_value(), [False] + input_nodes)
+    
+    def update(self):
+        temp = reduce(lambda soFar, n: soFar or n.get_value(), [False] + self.input_nodes)
+        if temp == self.value:
+            return
+        self.value = temp
         for connection in self.out_connections:
             connection.update()
     
@@ -109,21 +127,24 @@ class Puzzle(commands.Cog):
         latch1 = Node(button1, button2)
         latch2 = Node(button2, button3)
         latch3 = Node(button3, button1)
+        or1 = Or([button1, button2, button3])
         neg1 = Negation(button2)
         neg2 = Negation(latch3)
-        button1.out_connections = [latch1, latch3]
-        button2.out_connections = [latch1, latch2, neg1]
-        button3.out_connections = [latch2, latch3]
+        neg3 = Negation(or1)
+        button1.out_connections = [latch1, latch3, or1]
+        button2.out_connections = [latch1, latch2, neg1, or1]
+        button3.out_connections = [latch2, latch3, or1]
         latch3.out_connections = [neg2]
+        or1.out_connections = [neg3]
         buttons = [button1, button2, button3]
-        outputs = [latch1, latch2, neg2, neg1]
+        outputs = [latch1, latch2, neg2, neg1, neg3]
         emotes = [":red_circle:", ":green_circle:"]
         b = "  ".join([emotes[x.get_value()] for x in buttons])
         l = "  ".join([emotes[x.get_value()] for x in outputs])
         def puzzle_text():
             flavor_text = "Mighty adventurer, you have arrived at a giant gate blocking your path. At its foot is a magical mechanism to unlock it. There seem to be 3 buttons you can press and 4 sigils that light up. Can you open this mighty gate?"
             
-            return f"{flavor_text}\n\n{b}\n{l}"
+            return f"{flavor_text}\n\n  {b}\n{l}"
         pEmbed.title = "Dorfer's Magic Puzzle"
         pEmbed.description = puzzle_text()
         pmsg = await channel.send(embed=pEmbed)

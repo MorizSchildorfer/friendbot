@@ -42,7 +42,43 @@ def uwuize(text):
               i += len(randomFace)
         i += 1
     return uwuMessage
-            
+       
+def noodleBarrier(noodlesBefore, noodlesAfter):
+    noodleCongrats = ""
+    # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
+    noodles_barrier = 0
+    for i in range(len(noodleRoleArray)):
+        if noodlesBefore < max(noodles_barrier, 1) and noodlesAfter >= max(noodles_barrier, 1):
+            noodleCongrats = f"Congratulations! You have reached {noodleRoleArray[i]}!"
+        noodles_barrier += 10*(i+1)
+    return noodleCongrats
+       
+async def noodleCheck(ctx, dmID):
+    guild = ctx.guild
+    dmUser = ctx.guild.get_member(int(dmID))
+    if dmUser:
+        dmEntry = db.users.find_one({"User ID" : str(dmID)})
+        noodles = dmEntry["Noodles"]
+        noodleString = ""
+        dmRoleNames = [r.name for r in dmUser.roles]
+        # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
+        noodles_barrier=0
+        broken_barrier=0
+        noodles_position = -1
+        for i in range(len(noodleRoleArray)):
+            if noodles >= max(noodles_barrier, 1):
+                noodles_position = i
+                broken_barrier = max(noodles_barrier, 1)
+            noodles_barrier += 10*(i+1)
+        if noodles_position >= 0:
+            noodle_name = noodleRoleArray[noodles_position]
+            if noodle_name not in dmRoleNames:
+                noodleRole = get(guild.roles, name = noodle_name)
+                await dmUser.add_roles(noodleRole, reason=f"Hosted {broken_barrier} sessions. This user has {broken_barrier}+ Noodles.")
+                if noodles_position>0:
+                    remove_role = noodleRoleArray[noodles_position-1]
+                    if remove_role in dmRoleNames:
+                        await dmUser.remove_roles(get(guild.roles, name = remove_role))
 
 async def confirm(msg, author):
     view = ConfirmView(author)

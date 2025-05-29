@@ -31,6 +31,7 @@ class Help(commands.Cog):
         helpEmbedTp = discord.Embed()
         helpEmbedGuild = discord.Embed()
         helpEmbedCampaign = discord.Embed()
+        helpEmbedRpg = discord.Embed()
 
         page = 0
         if 'gen' in pageString:
@@ -51,12 +52,14 @@ class Help(commands.Cog):
             page = 6
         elif 'campaign' in pageString:
             page = 9
+        elif 'ttrpg' in pageString:
+            page = 10
 
 
     # MAIN HELP MENU ($help)
 
 
-        helpList = [helpEmbedMenu, helpEmbedGen, helpEmbedChar, helpEmbedTp, helpEmbedShop, helpEmbedGuild, helpEmbedTimerOne, helpEmbedTimerTwo, helpEmbedTimerThree, helpEmbedCampaign]
+        helpList = [helpEmbedMenu, helpEmbedGen, helpEmbedChar, helpEmbedTp, helpEmbedShop, helpEmbedGuild, helpEmbedTimerOne, helpEmbedTimerTwo, helpEmbedTimerThree, helpEmbedCampaign, helpEmbedRpg]
 
         helpEmbedMenu.title = 'Bot Friend Commands - Table of Contents'
         helpEmbedMenu.description = 'Please react to the group of commands you would like to see and gain more knowledge about.'
@@ -69,6 +72,7 @@ class Help(commands.Cog):
         helpEmbedMenu.add_field(name=f"{alphaEmojis[6]} Running Timer Commands\n{commandPrefix}help timer2", value="How to do various things while hosting or participating in a one-shot.", inline=False)
         helpEmbedMenu.add_field(name=f"{alphaEmojis[7]} Post-Quest Timer Commands\n{commandPrefix}help timer3", value="How to do various things after the completion of a one-shot.", inline=False)
         helpEmbedMenu.add_field(name=f"{alphaEmojis[8]} Campaign Commands\n{commandPrefix}help campaign", value="How to create, host, and participate in a campaign.", inline=False)
+        helpEmbedMenu.add_field(name=f"{alphaEmojis[9]} TTRPG Timer Commands\n{commandPrefix}help ttrpg", value="How to create, host, and participate in a ttrpg session.", inline=False)
 
 
 
@@ -365,6 +369,33 @@ class Help(commands.Cog):
         helpEmbedCampaign.add_field(name=f'▫️ Unpinning a Message', value=f'{commandPrefix}campaign unpin', inline=False)
 
         helpEmbedCampaign.add_field(name=f'▫️ Changing the Channel Topic', value=f'{commandPrefix}campaign topic text', inline=False)
+
+
+    # TTRPG COMMANDS
+
+        helpEmbedRpg.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}rpg timer prep "@player1, @player2, [...]" "session name"', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Adding Players During a Session (DM)', value=f'{commandPrefix}rpg timer add @player', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Removing Players During a Session (DM)', value=f'{commandPrefix}rpg timer remove @player', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Cancelling the Timer (DM)', value=f'{commandPrefix}rpg timer cancel', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Starting the Timer (DM)', value=f'{commandPrefix}rpg timer start', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Stopping the Timer (DM)', value=f'{commandPrefix}rpg timer stop', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Submitting a TTRPG Log (DM)', value=f'{commandPrefix}rpg log gameID summary', inline=False)
+        
+        helpEmbedRpg.add_field(name=f'▫️ Signing Up (Player)', value=f'{commandPrefix}rpg timer signup', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Adding Yourself (Player)', value=f'{commandPrefix}rpg timer addme', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Removing Yourself (Player)', value=f'{commandPrefix}rpg timer removeme', inline=False)
+
+        helpEmbedRpg.add_field(name=f'▫️ Checking the Timestamp (Player)', value=f'{commandPrefix}rpg timer stamp', inline=False)
+
+        
 
         numPages = len(helpList)
         for i in range(0, len(helpList)):

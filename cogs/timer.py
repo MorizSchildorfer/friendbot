@@ -238,6 +238,7 @@ class Timer(commands.Cog):
                                 "Inventory": {"Add": [], "Remove": []},
                                 "Magic Items": []},
                             "Game" : game,
+                            "Type" : "5e",
                             "Role" : role,
                             "Guilds" : guildsList,
                             "Started": False}

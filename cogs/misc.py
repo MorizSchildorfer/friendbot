@@ -158,8 +158,12 @@ class Misc(commands.Cog):
                     tier_list = []
                     for tierMention in elem.role_mentions:
                         name_split = tierMention.name.split(" ",1)
-                        if tierMention.name.split(" ",1)[1] in tierMap:
-                            tier_list.append(emoteMap[tierMention.name.split(" ",1)[0]]+" "+tierMap[tierMention.name.split(" ",1)[1]])
+                        if len(name_split) > 1 and name_split[0] in emoteMap:
+                            description_text = name_split[1]
+                            if name_split[1] in tierMap:
+                                description_text = tierMap[name_split[1]]
+                            tier_list.append(emoteMap[name_split[0]]+" "+description_text)
+                            
                     time_text = ""
                     hammer_times = re.findall("<t:(\\d+)(?::.)?>", content)
                     if hammer_times:

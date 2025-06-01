@@ -8,6 +8,14 @@ from discord.utils import get
 from discord.ext import commands
 from bfunc import settingsRecord, settingsRecord, alphaEmojis, commandPrefix, db, left,right,back
 
+def split_text(input_text, limit, separator):
+    # get everything to the limit
+    left_text = input_text[:limit]
+    # ensure that we do not separate mid sentence by splitting at the separator
+    right_text = section_text.rsplit(separator, 1)[0]
+    text = input_text[len(section_text):]
+    return left_text, right_text
+
 class Misc(commands.Cog):
     def __init__ (self, bot):
     
@@ -185,14 +193,17 @@ class Misc(commands.Cog):
         post_embed = discord.Embed()
         post_embed.description = build_message
         if len(build_message) > 4000:
-            # get everything to the limit
-            section_text = build_message[:4000]
-            # ensure that we do not separate mid sentence by splitting at the separator
-            section_text = section_text.rsplit("❌", 1)[0]
+            main_text, secondary_text = split_text(build_message, 4000, "❌")
             # then update the text to everything past what we took for the section text
-            text = build_message[len(section_text)+len("❌"):]
-            post_embed.description = section_text
-            post_embed.add_field(name="** **", value= "❌"+text, inline=False)
+            
+            post_embed.description = main_text
+            if len(secondary_text) > 1000:
+                secondary_text, tertiary_text = split_text(secondary_text, 1000, "❌")
+                post_embed.add_field(name="* *", value = secondary_text, inline=False)
+                post_embed.add_field(name="* *", value = tertiary_text, inline=False)
+            else:
+                post_embed.add_field(name="* *", value = secondary_text, inline=False)
+            
         return post_embed
     
         

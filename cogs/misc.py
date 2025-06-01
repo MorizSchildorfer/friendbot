@@ -10,10 +10,11 @@ from bfunc import settingsRecord, settingsRecord, alphaEmojis, commandPrefix, db
 
 def split_text(input_text, limit, separator):
     # get everything to the limit
-    left_text = input_text[:limit]
+    limit_text = input_text[:limit]
     # ensure that we do not separate mid sentence by splitting at the separator
-    right_text = section_text.rsplit(separator, 1)[0]
-    text = input_text[len(section_text):]
+    left_text = limit_text.rsplit(separator, 1)[0]
+    right_text = input_text[len(left_text):]
+    print(len(left_text), len(right_text), right_text)
     return left_text, right_text
 
 class Misc(commands.Cog):
@@ -199,10 +200,10 @@ class Misc(commands.Cog):
             post_embed.description = main_text
             if len(secondary_text) > 1000:
                 secondary_text, tertiary_text = split_text(secondary_text, 1000, "❌")
-                post_embed.add_field(name="* *", value = secondary_text, inline=False)
-                post_embed.add_field(name="* *", value = tertiary_text, inline=False)
+                post_embed.add_field(name="** **", value = secondary_text, inline=False)
+                post_embed.add_field(name="** **", value = tertiary_text, inline=False)
             else:
-                post_embed.add_field(name="* *", value = secondary_text, inline=False)
+                post_embed.add_field(name="** **", value = secondary_text, inline=False)
             
         return post_embed
     

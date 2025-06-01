@@ -14,7 +14,6 @@ def split_text(input_text, limit, separator):
     # ensure that we do not separate mid sentence by splitting at the separator
     left_text = limit_text.rsplit(separator, 1)[0]
     right_text = input_text[len(left_text):]
-    print(len(left_text), len(right_text), right_text)
     return left_text, right_text
 
 class Misc(commands.Cog):

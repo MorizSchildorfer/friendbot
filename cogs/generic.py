@@ -1035,7 +1035,7 @@ Command Checklist
             sessionRecord["Channel"] = ctx.channel.name
             sessionRecord["Channel ID"] = ctx.channel.id
             sessionRecord["Log Channel ID"] = settingsRecord[str(ctx.guild.id)]["Sessions"]
-            if is_campaign_session:
+            if is_campaign_session(gameInfo):
                 sessionRecord["Log Channel ID"] = ctx.channel.id
             sessionRecord["End"] = end
             sessionRecord["Start"] = end

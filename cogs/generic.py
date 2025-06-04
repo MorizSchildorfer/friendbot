@@ -1019,7 +1019,10 @@ Command Checklist
                 players[str(p_key)] = player
 
             # Session Log Channel
-            logChannel = ctx.channel
+            if is_campaign_session(gameInfo):
+                logChannel = ctx.channel
+            else:
+                logChannel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Sessions"])
             stopEmbed.clear_fields()
             stopEmbed.set_footer(text=None)
             dateend = datetime.fromtimestamp(end).astimezone(pytz.timezone(timezoneVar)).strftime("%b-%d-%y %I:%M %p")
@@ -1034,9 +1037,7 @@ Command Checklist
             sessionRecord = {}
             sessionRecord["Channel"] = ctx.channel.name
             sessionRecord["Channel ID"] = ctx.channel.id
-            sessionRecord["Log Channel ID"] = settingsRecord[str(ctx.guild.id)]["Sessions"]
-            if is_campaign_session(gameInfo):
-                sessionRecord["Log Channel ID"] = ctx.channel.id
+            sessionRecord["Log Channel ID"] = logChannel.id 
             sessionRecord["End"] = end
             sessionRecord["Start"] = end
             sessionRecord["Game"] = game

@@ -1054,7 +1054,7 @@ Command Checklist
             
             
             stopEmbed.set_footer(text=f"Placeholder, if this remains remember the wise words DO NOT PANIC and get a towel.")
-            session_msg = await ctx.channel.send(embed=stopEmbed)
+            session_msg = await logChannel.send(embed=stopEmbed)
             sessionRecord["Log ID"] = session_msg.id
             stopEmbed.title = f"Timer: {game} [END] - {absoluteDuration}"
             stopEmbed.description = "**General Summary**" + """

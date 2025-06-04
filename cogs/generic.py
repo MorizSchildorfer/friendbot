@@ -1104,17 +1104,18 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
         botUser = self.bot.user
         # botUser = self.bot.get_user(650734548077772831)
 
-        # Logs channel 
-        # channel = self.bot.get_channel(577227687962214406) 
-        channel = ctx.channel # 728456783466725427 737076677238063125
-        
-
-
         if not game_channel_check(channel):
             #inform the user of the correct location to use the command and how to use it
             await channel.send('Try this command in a game channel! ')
             return
-                
+            
+        logData = db.logdata
+        sessionInfo = db.logdata.find_one({"Log ID": int(num)})
+        if( not sessionInfo):
+            await ctx.channel.send("The session could not be found. Please double check your number or if the session has already been approved.")
+            return
+
+        channel = self.bot.get_channel(sessionInfo["Log Channel ID"])
         try:
             editMessage = await channel.fetch_message(num)
         except Exception as e:
@@ -1128,10 +1129,6 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
 
         sessionLogEmbed = editMessage.embeds[0]
 
-        sessionInfo = db.logdata.find_one({"Log ID": int(num)})
-        if( not sessionInfo):
-            await ctx.channel.send("The session could not be found. Please double check your number or if the session has already been approved.")
-            return
         if sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied":
             summaryIndex = sessionLogEmbed.description.find('Summary**')
             sessionLogEmbed.description = sessionLogEmbed.description[:summaryIndex]+"Summary**\n" + editString+"\n"

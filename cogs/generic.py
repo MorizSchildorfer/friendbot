@@ -1104,7 +1104,7 @@ Reminder: do not deny any logs until we have spoken about it as a team."""
         botUser = self.bot.user
         # botUser = self.bot.get_user(650734548077772831)
 
-        if not game_channel_check(channel):
+        if not game_channel_check(ctx.channel):
             #inform the user of the correct location to use the command and how to use it
             await channel.send('Try this command in a game channel! ')
             return

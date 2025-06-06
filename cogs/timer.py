@@ -1462,7 +1462,7 @@ Command Checklist
             
         # post a session log entry in the log channel
         sessionMessage = await logChannel.send(embed=stopEmbed)
-        await ctx.channel.send(f"The timer has been stopped! Your session log has been posted in the {logChannel.mention} channel. Write your session log summary in this channel by using the following command:\n```ini\n$session log {sessionMessage.id} [Replace the brackets and this text with your session summary log.]```")
+        await ctx.channel.send(f"The timer has been stopped! Your session log has been posted {sessionMessage.jump_url}. Write your session log summary in this channel by using the following command:\n```ini\n$session log {sessionMessage.id} [Replace the brackets and this text with your session summary log.]```")
 
         stopEmbed.set_footer(text=f"Game ID: {sessionMessage.id}")
         modChannel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Mod Logs"])
@@ -1476,8 +1476,11 @@ Link: {sessionMessage.jump_url}
 React with :construction: if a summary log has not yet been appended by the DM.
 React with :pencil: if you messaged the DM to fix something in their summary log.
 React with ✅ if you have approved the session log.
+```ini\n$session approve {sessionMessage.id}```
 React with :x: if you have denied the session log.
+```ini\n$session deny {sessionMessage.id}```
 React with :classical_building: if you have denied one of the guilds.
+```ini\n$session denyGuild {sessionMessage.id} #guild```
 
 Reminder: do not deny any session logs until we have spoken about it as a team."""
         modMessage = await modChannel.send(embed=modEmbed)

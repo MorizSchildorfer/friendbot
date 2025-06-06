@@ -1055,6 +1055,8 @@ Command Checklist
             
             stopEmbed.set_footer(text=f"Placeholder, if this remains remember the wise words DO NOT PANIC and get a towel.")
             session_msg = await logChannel.send(embed=stopEmbed)
+            await ctx.channel.send(f"The timer has been stopped! Your session log has been posted {session_msg.jump_url}. Write your session log summary in this channel by using the following command:\n```ini\n$rpg log {session_msg.id} [Replace the brackets and this text with your session summary log.]```")
+
             sessionRecord["Log ID"] = session_msg.id
             stopEmbed.title = f"Timer: {game} [END] - {absoluteDuration}"
             stopEmbed.description = "**General Summary**" + """
@@ -1076,7 +1078,9 @@ Link: {session_msg.jump_url}
 React with :construction: if a summary log has not yet been appended by the DM.
 React with :pencil: if you messaged the DM to fix something in their summary log.
 React with ✅ if you have approved the session log.
+```ini\n$rpg approve {session_msg.id}```
 React with :x: if you have denied the session log.
+```ini\n$rpg deny {session_msg.id}```
 
 Reminder: do not deny any logs until we have spoken about it as a team."""
 

@@ -1296,6 +1296,38 @@ Link: {editMessage.jump_url}
             print(bwe.details)
             charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
 
+    @rpg.command()
+    async def apply(self, ctx,*, editString=""):
+        message = ctx.message
+        message_id = message.id
+        await message.delete()
+        embed=discord.Embed(title="TTRPG Application", description=editString, color=0x00ff00)
+        name = ctx.message.author.display_name
+        embed.set_author(name=name, icon_url=ctx.message.author.display_avatar)
+        await ctx.message.channel.send(embed=embed)
+        
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self,payload):
+        if payload.emoji.name == '❌':
+            channel = self.bot.get_channel(payload.channel_id)
+            user = self.bot.get_user(payload.user_id)
+            message = await channel.fetch_message(payload.message_id)
+            if len(message.embeds)==0:
+                return
+            embed = message.embeds[0]
+            if not embed.title:
+                return
+            if not ("TTRPG Application" in embed.title):
+                return
+            if embed.author.name.split('#')[0] != user.name:
+                return
+            embed.set_footer(text="❌ Application Revoked")
+            embed.color=0xff0000
+            embed.clear_fields()
+            embed.description = ""
+            embed.set_thumbnail(url=None)
+            await message.edit(embed = embed)
+
     @commands.has_any_role('Mod Friend', 'A d m i n', "Bot Friend")
     @rpg.command()
     async def genLog(self, ctx,  num : int):

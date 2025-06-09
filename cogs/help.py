@@ -372,7 +372,6 @@ class Help(commands.Cog):
 
 
     # TTRPG COMMANDS
-
         helpEmbedRpg.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}rpg timer prep "@player1, @player2, [...]" "session name"', inline=False)
 
         helpEmbedRpg.add_field(name=f'▫️ Adding Players During a Session (DM)', value=f'{commandPrefix}rpg timer add @player', inline=False)
@@ -386,6 +385,8 @@ class Help(commands.Cog):
         helpEmbedRpg.add_field(name=f'▫️ Stopping the Timer (DM)', value=f'{commandPrefix}rpg timer stop', inline=False)
 
         helpEmbedRpg.add_field(name=f'▫️ Submitting a TTRPG Log (DM)', value=f'{commandPrefix}rpg log gameID summary', inline=False)
+        
+        helpEmbedRpg.add_field(name=f'▫️ Applying for the game (Player)', value=f'{commandPrefix}rpg apply', inline=False)
         
         helpEmbedRpg.add_field(name=f'▫️ Signing Up (Player)', value=f'{commandPrefix}rpg timer signup', inline=False)
 

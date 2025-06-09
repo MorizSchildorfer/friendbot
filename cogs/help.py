@@ -386,7 +386,7 @@ class Help(commands.Cog):
 
         helpEmbedRpg.add_field(name=f'▫️ Submitting a TTRPG Log (DM)', value=f'{commandPrefix}rpg log gameID summary', inline=False)
         
-        helpEmbedRpg.add_field(name=f'▫️ Applying for the game (Player)', value=f'{commandPrefix}rpg apply', inline=False)
+        helpEmbedRpg.add_field(name=f'▫️ Applying for the game (Player)', value=f'{commandPrefix}rpg apply info about yourself', inline=False)
         
         helpEmbedRpg.add_field(name=f'▫️ Signing Up (Player)', value=f'{commandPrefix}rpg timer signup', inline=False)
 

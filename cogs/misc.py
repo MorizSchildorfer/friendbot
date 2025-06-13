@@ -159,9 +159,7 @@ class Misc(commands.Cog):
             #loop in order to avoid guild channels blocking the check
             for mention in elem.channel_mentions:
                 if mention.id in game_channel_ids:
-                    username = elem.author.name
-                    if(elem.author.nick):
-                        username = elem.author.nick
+                    username = elem.author.display_name
                     channel_dm_dic[mention.mention][0] = "❌ "+mention.mention+": "+username
                     tier_list = []
                     for tierMention in elem.role_mentions:

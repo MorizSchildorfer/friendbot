@@ -1236,7 +1236,7 @@ Link: {editMessage.jump_url}
             for key in players.keys():
                 c = ctx.guild.get_member(int(key))
                 if(c):
-                    if(key != dm["ID"])
+                    if(key != dm["ID"]):
                         await c.send(f"The session log for **{game}** has been approved. Time has been added to the Time Bank.")
                     else:
                         await c.send(f"Your session log for **{game}** has been approved. Time has been added to the Time Bank.")

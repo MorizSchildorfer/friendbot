@@ -1233,13 +1233,13 @@ Link: {editMessage.jump_url}
                 dateyear = datetime.fromtimestamp(start).astimezone(pytz.timezone(timezoneVar)).strftime("%b-%y")
                 db.stats.update_one({"Date": dateyear}, {"$inc" : {"Campaigns" : 1}})
                 db.stats.update_one({"Life": 1}, {"$inc" : {"Campaigns" : 1}})
-            for key in sessionInfo["Players"].keys():
+            for key in players.keys():
                 c = ctx.guild.get_member(int(key))
                 if(c):
-                    await c.send(f"The session log for **{game}** has been approved. Time has been added to the Time Bank.")
-            c = ctx.guild.get_member(int(dm["ID"]))
-            if(c):
-                await c.send(f"Your session log for **{game}** has been approved. Time has been added to the Time Bank.")
+                    if(key != dm["ID"])
+                        await c.send(f"The session log for **{game}** has been approved. Time has been added to the Time Bank.")
+                    else:
+                        await c.send(f"Your session log for **{game}** has been approved. Time has been added to the Time Bank.")
                 
             logData.update_one({"_id": sessionInfo["_id"]}, {"$set" : {"Status": "Approved"}})
         except Exception as e:

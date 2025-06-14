@@ -10,6 +10,7 @@ import asyncio
 from cogs.guild import pin_control
 from discord.utils import get        
 from discord.ext import commands
+from discord.errors import Forbidden
 from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta

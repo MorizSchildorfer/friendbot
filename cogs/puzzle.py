@@ -141,10 +141,11 @@ class Puzzle(commands.Cog):
         emotes = [":red_circle:", ":green_circle:"]
         b = "  ".join([emotes[x.get_value()] for x in buttons])
         l = "  ".join([emotes[x.get_value()] for x in outputs])
+        blank_space = "  ".join([":black_circle:"]*len(outputs))
         def puzzle_text():
-            flavor_text = "Mighty adventurer, you have arrived at a giant gate blocking your path. At its foot is a magical mechanism to unlock it. There seem to be 3 buttons you can press and 4 sigils that light up. Can you open this mighty gate?"
+            flavor_text = "Mighty adventurer, you have arrived at a giant gate blocking your path. At its foot is a magical mechanism to unlock it. There seem to be 3 buttons you can press and 5 sigils that light up. Can you open this mighty gate?"
             
-            return f"{flavor_text}\n\n  {b}\n{l}"
+            return f"{flavor_text}\n\n:black_circle: {b} :black_circle:\n{blank_space}\n{l}"
         pEmbed.title = "Dorfer's Magic Puzzle"
         pEmbed.description = puzzle_text()
         pmsg = await channel.send(embed=pEmbed)
@@ -162,7 +163,7 @@ class Puzzle(commands.Cog):
             pEmbed.description = puzzle_text()
             await pmsg.edit(embed=pEmbed)
             if all([x.get_value() for x in outputs]):
-                pEmbed.description = f"{l}\n\nYou have released the seal on the door with {count} presses! By either luck or skill you may pass."
+                pEmbed.description = f":black_circle: {b} :black_circle:\n{blank_space}\n{l}\n\nYou have released the seal on the door with {count} presses! By either luck or skill you may pass."
                 await pmsg.edit(embed=pEmbed)
                 break
         self.bot.get_command('puzzle').reset_cooldown(ctx)

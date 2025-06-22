@@ -162,13 +162,17 @@ class Misc(commands.Cog):
                     username = elem.author.display_name
                     channel_dm_dic[mention.mention][0] = "❌ "+mention.mention+": "+username
                     tier_list = []
+                    system = "5E"
+                    systems = re.findall("SYSTEM.*?:.*? (.*?)\n", content, re.IGNORECASE)
+                    if len(systems) > 0:
+                        system = systems[0]
                     for tierMention in elem.role_mentions:
                         name_split = tierMention.name.split(" ",1)
                         if len(name_split) > 1 and name_split[0] in emoteMap:
                             description_text = name_split[1]
                             if name_split[1] in tierMap:
                                 description_text = tierMap[name_split[1]]
-                            tier_list.append(emoteMap[name_split[0]]+" "+description_text)
+                            tier_list.append(emoteMap[name_split[0]]+" "+system+" "+description_text)
                             
                     time_text = ""
                     hammer_times = re.findall("<t:(\\d+)(?::.)?>", content)

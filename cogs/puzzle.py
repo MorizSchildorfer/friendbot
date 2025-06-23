@@ -146,7 +146,7 @@ class Puzzle(commands.Cog):
             flavor_text = "Mighty adventurer, you have arrived at a giant gate blocking your path. At its foot is a magical mechanism to unlock it. There seem to be 3 buttons you can press and 5 sigils that light up. Can you open this mighty gate?"
             
             return f"{flavor_text}\n\n:black_circle: {b} :black_circle:\n{blank_space}\n{l}"
-        pEmbed.title = "Dorfer's Magic Puzzle"
+        pEmbed.title = "Vault Beyond Reality"
         pEmbed.description = puzzle_text()
         pmsg = await channel.send(embed=pEmbed)
         
@@ -166,7 +166,7 @@ class Puzzle(commands.Cog):
                 pEmbed.description = f":black_circle: {b} :black_circle:\n{blank_space}\n{l}\n\nYou have released the seal on the door with {count} presses! By either luck or skill you may pass."
                 await pmsg.edit(embed=pEmbed)
                 break
-        self.bot.get_command('puzzle').reset_cooldown(ctx)
+        self.bot.get_command('youreallyshouldnothavebeenabletofindthiswhatthehell').reset_cooldown(ctx)
         
 async def setup(bot):
     await bot.add_cog(Puzzle(bot))

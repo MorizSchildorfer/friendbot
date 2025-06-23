@@ -116,7 +116,7 @@ class Puzzle(commands.Cog):
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_private_channel()
     @commands.command()
-    async def puzzle(self, ctx):
+    async def youreallyshouldnothavebeenabletofindthiswhatthehell(self, ctx):
         channel = ctx.channel
         author = ctx.author
         pEmbed = discord.Embed()
@@ -136,7 +136,7 @@ class Puzzle(commands.Cog):
         button3.out_connections = [latch2, latch3, or1]
         latch3.out_connections = [neg2]
         or1.out_connections = [neg3]
-        buttons = [button1, button2, button3]
+        buttons = [button2, button1, button3]
         outputs = [latch1, latch2, neg2, neg1, neg3]
         emotes = [":red_circle:", ":green_circle:"]
         b = "  ".join([emotes[x.get_value()] for x in buttons])

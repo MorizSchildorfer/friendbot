@@ -6,13 +6,30 @@ from discord.utils import get
 from discord.ext import commands
 from cogs.admin import liner_dic
 from bfunc import db, commandPrefix,  alphaEmojis, roleArray, traceBack, numberEmojis, settingsRecord
-from cogs.util import callAPI, checkForChar, noodleRoleArray, paginate, disambiguate
+from cogs.util import callAPI, checkForChar, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles
 from math import floor
 
 
 
 def ordinal(n): 
     return "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
+    
+training_options = ["Weapon/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Language/Too",
+"Weapon/Skill/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Skill/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Skill/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Skill/Language/Tool",
+"Weapon/Language/Tool",
+"Weapon/Skill/Language/Tool"]
 
 class Shop(commands.Cog):
     def __init__ (self, bot):
@@ -1088,7 +1105,7 @@ class Shop(commands.Cog):
       channel -> the channel the interaction is being made in
       author -> who is doing the purchase
     """
-    async def purchaseProficiency(self, purchaseOption, trainingType, specificationText, skillFloor, skillRate, gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author ):
+    async def purchaseProficiency(self, purchaseOption, trainingType, specificationText, purchasePossibilities, gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author ):
         if gpNeeded > charRecords['GP']:
             await channel.send(f"***{charRecords['Name']}*** does not have enough GP to learn a language or gain proficiency in a tool in this way.")
             return
@@ -1105,10 +1122,6 @@ class Shop(commands.Cog):
         #increase the purchase level of the specific option
         charRecords[purchaseOption] += 1
         
-        #pick which text to show for the possibility of Skill being an option
-        purchasePossibilities = "language or tool"
-        if((not charRecords[purchaseOption]<skillFloor) and (charRecords[purchaseOption]-skillFloor)%skillRate == 0):
-            purchasePossibilities = purchasePossibilities+" (or skill)"
         
         #update embed text to ask for confirmation
         shopEmbed.title = f"Downtime {trainingType} Training: {charRecords['Name']}"
@@ -1171,8 +1184,14 @@ class Shop(commands.Cog):
             # text used to inform the user which purchase they are making
             textArray = ["1st", "2nd", "3rd", "4th", "5th"]
             
+            
+            #pick which text to show for the possibility of Skill being an option
+            purchasePossibilities = "Weapon/Language/Tool"
+            if(charRecords["Proficiency"] == 4):
+                purchasePossibilities = purchasePossibilities+"/Skill"
+            
             #call the extracted function
-            await self.purchaseProficiency('Proficiency', 'Friend', textArray[charRecords['Proficiency']], 0, 5, gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author )
+            await self.purchaseProficiency('Proficiency', 'Friend', textArray[charRecords['Proficiency']], purchasePossibilities, gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author )
                 
     @downtime.command(aliases=["n"])
     async def noodle(self, ctx , charName):
@@ -1183,34 +1202,25 @@ class Shop(commands.Cog):
         if charRecords:
             roles = author.roles
             
-            #check for a noodle role
-            noodleRole = None
-            for r in roles:
-                if 'Noodle' in r.name:
-                    noodleRole = r
-                    break
-
-            if not noodleRole:
+            noodle_name, noodle_data, noodle_role = findNoodleDataFromRoles(author.roles)
+            if not noodle_role:
                 await channel.send(f"***{author.display_name}***, you don't have any Noodle roles! A Noodle role is required in order for ***{charRecords['Name']}*** to learn a language or gain proficiency in a tool in this way.")
                 return    
-            
-            #find which rank it is based on the positioning in the array in bfunc
-            noodleLimit = noodleRoleArray.index(noodleRole.name) - 1
-            
+            noodleLimit = noodle_data['training']
             #establish the data record if it does not exist yet
             if 'NoodleTraining' not in charRecords:
                 charRecords['NoodleTraining'] = 0
-
+            training_level = charRecords['NoodleTraining']
             #limit the purchase to only the rank
-            if charRecords['NoodleTraining'] > noodleLimit:
-                await channel.send(f"**{author.display_name}**, your current **{noodleRole.name}** role does not allow ***{charRecords['Name']}*** to learn a language or gain proficiency in a tool in this way.")
+            if training_level >= noodleLimit:
+                await channel.send(f"**{author.display_name}**, your current **{noodle_name}** role does not allow ***{charRecords['Name']}*** to learn a language or gain proficiency in a tool in this way.")
                 return
             
             #all purchases past the 5th are free, but the formular can never go negative
-            gpNeeded = max(0, 500 - charRecords['NoodleTraining'] * 100)
+            gpNeeded = max(0, 500 - training_level * 100)
             
             #call the extracted function
-            await self.purchaseProficiency('NoodleTraining', 'Noodle', noodleRoleArray[charRecords['NoodleTraining']+1], 3, 2, gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author )
+            await self.purchaseProficiency('NoodleTraining', 'Noodle', list(noodle_roles.keys())[training_level+1], training_options[training_level-1], gpNeeded, charRecords, shopEmbed, shopEmbedmsg, channel, author )
             
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @shop.command(aliases=["peruse", "view"])

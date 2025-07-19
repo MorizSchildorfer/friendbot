@@ -2,12 +2,32 @@ import discord
 import random
 import asyncio
 import re
-from cogs.view import AlphaView, ConfirmView
+from cogs.view import AlphaView, ConfirmView, TestView, Report
 from discord.utils import get      
 from math import floor
 from discord.ext import commands
 from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, tier_reward_dictionary
 import math
+
+noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 1, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
+'Fresh Noodle': {'noodles': 3, 'creation_items': [1, 0, 0], 'creation_level_bonus': 2, 'dm_item_rewards': [1, 1, 0], 'player_item_rewards': [1, 2, 1], 'training': 0},
+'Good Noodle': {'noodles': 10, 'creation_items': [1, 1, 0], 'creation_level_bonus': 3, 'dm_item_rewards': [1, 1, 1], 'player_item_rewards': [1, 2, 2], 'training': 1},
+'Elite Noodle': {'noodles': 25, 'creation_items': [1, 1, 1], 'creation_level_bonus': 4, 'dm_item_rewards': [2, 1, 1], 'player_item_rewards': [2, 3, 2], 'training': 2},
+'True Noodle': {'noodles': 45, 'creation_items': [2, 1, 1], 'creation_level_bonus': 5, 'dm_item_rewards': [2, 2, 1], 'player_item_rewards': [2, 3, 3], 'training': 3},
+'Nice Noodle': {'noodles': 69, 'creation_items': [2, 2, 1], 'creation_level_bonus': 6, 'dm_item_rewards': [2, 2, 2], 'player_item_rewards': [2, 4, 3], 'training': 4},
+'Ascended Noodle': {'noodles': 100, 'creation_items': [2, 2, 2], 'creation_level_bonus': 7, 'dm_item_rewards': [3, 2, 2], 'player_item_rewards': [3, 4, 4], 'training': 5},
+'Immortal Noodle': {'noodles': 140, 'creation_items': [3, 2, 2], 'creation_level_bonus': 8, 'dm_item_rewards': [3, 3, 2], 'player_item_rewards': [3, 5, 4], 'training': 6},
+'Eternal Noodle': {'noodles': 185, 'creation_items': [3, 3, 2], 'creation_level_bonus': 9, 'dm_item_rewards': [3, 3, 3], 'player_item_rewards': [3, 5, 5], 'training': 7},
+'Infinity Noodle': {'noodles': 235, 'creation_items': [3, 3, 3], 'creation_level_bonus': 10, 'dm_item_rewards': [4, 3, 3], 'player_item_rewards': [4, 6, 5], 'training': 8},
+'Beyond Noodle': {'noodles': 290, 'creation_items': [4, 3, 3], 'creation_level_bonus': 11, 'dm_item_rewards': [4, 4, 3], 'player_item_rewards': [4, 6, 6], 'training': 9},
+'Transcendent Noodle': {'noodles': 350, 'creation_items': [4, 4, 3], 'creation_level_bonus': 12, 'dm_item_rewards': [4, 4, 4], 'player_item_rewards': [4, 7, 6], 'training': 10},
+'Blazing Noodle': {'noodles': 420, 'creation_items': [4, 4, 4], 'creation_level_bonus': 13, 'dm_item_rewards': [5, 4, 4], 'player_item_rewards': [5, 7, 7], 'training': 11},
+'Quantum Noodle': {'noodles': 500, 'creation_items': [5, 4, 4], 'creation_level_bonus': 14, 'dm_item_rewards': [5, 5, 4], 'player_item_rewards': [5, 8, 7], 'training': 12},
+'Deific Noodle': {'noodles': 580, 'creation_items': [5, 5, 4], 'creation_level_bonus': 15, 'dm_item_rewards': [5, 5, 5], 'player_item_rewards': [5, 8, 8], 'training': 13},
+'Infernal Noodle': {'noodles': 666, 'creation_items': [5, 5, 5], 'creation_level_bonus': 16, 'dm_item_rewards': [6, 5, 5], 'player_item_rewards': [6, 9, 8], 'training': 14},
+'Lucky Noodle': {'noodles': 777, 'creation_items': [6, 5, 5], 'creation_level_bonus': 17, 'dm_item_rewards': [6, 6, 5], 'player_item_rewards': [6, 9, 9], 'training': 15},
+'Millenium Noodle': {'noodles': 1000, 'creation_items': [6, 6, 5], 'creation_level_bonus': 18, 'dm_item_rewards': [6, 6, 6], 'player_item_rewards': [6, 10, 9], 'training': 16}}
+
 def admin_or_owner():
     async def predicate(ctx):
         output = ctx.message.author.id in [220742049631174656, 203948352973438995] or (get(ctx.message.guild.roles, name = "A d m i n") in ctx.message.author.roles)
@@ -45,13 +65,25 @@ def uwuize(text):
        
 def noodleBarrier(noodlesBefore, noodlesAfter):
     noodleCongrats = ""
-    # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
-    noodles_barrier = 0
-    for i in range(len(noodleRoleArray)):
-        if noodlesBefore < max(noodles_barrier, 1) and noodlesAfter >= max(noodles_barrier, 1):
-            noodleCongrats = f"Congratulations! You have reached {noodleRoleArray[i]}!"
-        noodles_barrier += 10*(i+1)
+    for name, data in noodle_roles:
+        noodles = data['noodles']
+        if noodles > noodlesBefore and noodles < noodleAfter:
+            noodleCongrats = f"Congratulations! You have reached {name}!"
     return noodleCongrats
+    
+def findNoodleData(noodles):
+    noodle_name = "Newdle"
+    for name, data in noodle_roles.items():
+        if data['noodles'] > noodles:
+            break
+        noodle_name = name
+    return noodle_name, noodle_roles[noodle_name]
+    
+def findNoodleDataFromRoles(roles):
+    search_result = list([(r.name, noodle_roles[r.name], r) for r in roles if r.name in noodle_roles])
+    if not search_result:
+        return (None, None, None)
+    return search_result[0]
        
 async def noodleCheck(ctx, dmID):
     guild = ctx.guild
@@ -60,25 +92,14 @@ async def noodleCheck(ctx, dmID):
         dmEntry = db.users.find_one({"User ID" : str(dmID)})
         noodles = dmEntry["Noodles"]
         noodleString = ""
-        dmRoleNames = [r.name for r in dmUser.roles]
+        noodle_name, noodle_data, _ =  findNoodleDataFromRoles(dmUser.roles)
         # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
-        noodles_barrier=0
-        broken_barrier=0
-        noodles_position = -1
-        for i in range(len(noodleRoleArray)):
-            if noodles >= max(noodles_barrier, 1):
-                noodles_position = i
-                broken_barrier = max(noodles_barrier, 1)
-            noodles_barrier += 10*(i+1)
-        if noodles_position >= 0:
-            noodle_name = noodleRoleArray[noodles_position]
-            if noodle_name not in dmRoleNames:
-                noodleRole = get(guild.roles, name = noodle_name)
-                await dmUser.add_roles(noodleRole, reason=f"Hosted {broken_barrier} sessions. This user has {broken_barrier}+ Noodles.")
-                if noodles_position>0:
-                    remove_role = noodleRoleArray[noodles_position-1]
-                    if remove_role in dmRoleNames:
-                        await dmUser.remove_roles(get(guild.roles, name = remove_role))
+        next_name, next_data = findNoodleData(noodles)
+        if noodle_name != next_name:
+            noodleRole = get(guild.roles, name = next_name)
+            await dmUser.add_roles(noodleRole, reason=f"Hosted {noodles} sessions. This user has {next_data['noodles']}+ Noodles.")
+            if noodle_name != None:
+                await dmUser.remove_roles(get(guild.roles, name = noodle_name))
 
 async def confirm(msg, author):
     view = ConfirmView(author)
@@ -86,6 +107,13 @@ async def confirm(msg, author):
     await view.wait()
     await msg.edit(view = None)
     return view.state
+
+async def texttest(msg, author):
+    view = Report()
+    msg = await msg.edit(view = view)
+    await view.wait()
+    await msg.edit(view = None)
+    return view.value
 
 async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
     view = AlphaView(options, author, emojies, cancel)
@@ -102,8 +130,6 @@ def timeConversion (time,hmformat=False):
         return ('%d Hours %d Minutes' %(hours,minutes))
     else:
         return ('%dh%dm' %(hours,minutes))
-
-noodleRoleArray = ['Newdle', 'Good Noodle', 'Elite Noodle', 'True Noodle', 'Ascended Noodle', 'Immortal Noodle', 'Eternal Noodle', 'Infinity Noodle', 'Beyond Noodle', 'Quantum Noodle']
 
 """
 Paginate is a function that given a list of text contents turns them into an embed menu system displaying them while creating pagination when required

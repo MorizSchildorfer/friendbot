@@ -328,13 +328,7 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
                     gain += sparklesGained*int("Guild" in dm and dm["Guild"] == name)
                     guildRewardsStr += f"{g['Name']}: +{int(gain)} :sparkles:\n"
         
-        noodleCongrats = ""
-        # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
-        noodles_barrier = 0
-        for i in range(len(noodleRoleArray)):
-            if noodles < max(noodles_barrier, 1) and noodleFinal >= max(noodles_barrier, 1):
-                noodleCongrats = f"Congratulations! You have reached {noodleRoleArray[i]}!"
-            noodles_barrier += 10*(i+1)
+        noodleCongrats = noodleBarrier(noodles, noodleFinal)
         game_channel = get(ctx.guild.text_channels, name = sessionInfo['Channel'])
         if not game_channel:
             game_channel = sessionInfo['Channel']
@@ -930,35 +924,12 @@ class Log(commands.Cog):
         except BulkWriteError as bwe:
             print(bwe.details)
             charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
-        guild = ctx.guild
-        dmUser = ctx.guild.get_member(int(dm["ID"]))
-        if dmUser:
-            noodleString = ""
-            dmRoleNames = [r.name for r in dmUser.roles]
-            # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
-            noodles_barrier=0
-            broken_barrier=0
-            noodles_position = -1
-            for i in range(len(noodleRoleArray)):
-                if noodles >= max(noodles_barrier, 1):
-                    noodles_position = i
-                    broken_barrier = max(noodles_barrier, 1)
-                noodles_barrier += 10*(i+1)
-            if noodles_position >= 0:
-                noodle_name = noodleRoleArray[noodles_position]
-                if noodle_name not in dmRoleNames:
-                    noodleRole = get(guild.roles, name = noodle_name)
-                    await dmUser.add_roles(noodleRole, reason=f"Hosted {broken_barrier} sessions. This user has {broken_barrier}+ Noodles.")
-                    if noodles_position>0:
-                        remove_role = noodleRoleArray[noodles_position-1]
-                        if remove_role in dmRoleNames:
-                            await dmUser.remove_roles(get(guild.roles, name = remove_role))
+        await noodleCheck(ctx, dm["ID"])
 
 
     @commands.has_any_role('Mod Friend', 'A d m i n')
     @session.command()
     async def deny(self,ctx,  num : int):
-        channel = self.bot.get_channel
         logData = db.logdata
         sessionInfo = logData.find_one({"Log ID": int(num)})
         channel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Sessions"]) 
@@ -1306,7 +1277,7 @@ class Log(commands.Cog):
         else:
             await ctx.channel.send("The session could not be found, please double check your number or if the session has already been approved.")
     
-    @session.command()
+    # @session.command()
     async def setGold(self, ctx,  num : int, gold_modifier : int):
         if gold_modifier < 0 or gold_modifier > 100:
             await ctx.channel.send(f"{gold_modifier} is an invalid percentage.")

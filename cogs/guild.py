@@ -5,7 +5,7 @@ from discord.utils import get
 from discord.ext import commands
 from bfunc import  timezoneVar, commandPrefix, db, traceBack, alphaEmojis, settingsRecord
 from datetime import datetime, timezone,timedelta
-from cogs.util import checkForChar, checkForGuild, paginate, noodleRoleArray
+from cogs.util import checkForChar, checkForGuild, paginate, noodle_roles
 
 async def pin_control(self, ctx, goal):
     author = ctx.author
@@ -189,8 +189,8 @@ class Guild(commands.Cog):
                         return
 
                     # Available Noodle Roles.
-                    for i in range (noodleRoleArray.index(noodleRole.name) + 2, len(noodleRoleArray)):
-                        del noodleRep[-1]
+                    #for i in range (noodleRoleArray.index(noodleRole.name) + 2, len(noodleRoleArray)):
+                    #    del noodleRep[-1]
 
                     # Look through Noodles and filter used noodles for base rep.
                     for n in userRecords["Guilds"]:

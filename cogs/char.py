@@ -13,9 +13,7 @@ from datetime import datetime, timezone, timedelta
 from discord.ext import commands
 from urllib.parse import urlparse 
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search
-
-
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search, noodle_roles, findNoodleDataFromRoles
 
          
 class Character(commands.Cog):
@@ -206,20 +204,11 @@ class Character(commands.Cog):
         
         characterCog = self.bot.get_cog('Character')
         roleCreationDict = {
-            'D&D Friend':[2],
-            'Journeyfriend':[3],
-            'Elite Friend':[3],
-            'True Friend':[3],
-            'Ascended Friend':[3],
-            'Good Noodle':[4],
-            'Elite Noodle':[4,5],
-            'True Noodle':[4,5,6],
-            'Ascended Noodle':[4,5,6,7],
-            'Immortal Noodle':[4,5,6,7,8],
-            'Eternal Noodle':[4,5,6,7,8,9],
-            'Infinity Noodle':[4,5,6,7,8,9,10],
-            'Beyond Noodle':[4,5,6,7,8,9,10,11],
-            'Quantum Noodle':[4,5,6,7,8,9,10,11,12]
+            'D&D Friend':2,
+            'Journeyfriend':3,
+            'Elite Friend':3,
+            'True Friend':3,
+            'Ascended Friend':3
         }
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author
@@ -283,22 +272,24 @@ class Character(commands.Cog):
         
         # Check if level or roles are vaild
         # A set that filters valid levels depending on user's roles
-        roleSet = [1]
+        role_limit = 1
         for d in roleCreationDict.keys():
             if d in roles:
-                roleSet += roleCreationDict[d]
-
-        roleSet = set(roleSet)
+                role_limit = max(role_limit, roleCreationDict[d])
 
         # If roles are present, add base levels + 1 for extra levels for these special roles.
         if ("Nitro Booster" in roles):
-            roleSet = roleSet.union(set(map(lambda x: x+1,roleSet.copy())))
+            role_limit += 1
 
         if ("Bean Friend" in roles):
-            roleSet = roleSet.union(set(map(lambda x: x+1,roleSet.copy())))
-            roleSet = roleSet.union(set(map(lambda x: x+1,roleSet.copy())))
+            role_limit += 2
+            
+        for noodle_name, noodle_data in noodle_roles.items():
+            if noodle_name in roles:
+                role_limit += noodle_data["creation_level_bonus"]
+                break
           
-        if lvl not in roleSet:
+        if lvl > role_limit:
             msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role!\n"
         
         # Checks CP
@@ -424,53 +415,23 @@ class Character(commands.Cog):
                         reRecord['Name'] = spell_item_name
                     allRewardItemsString.append(reRecord)
                 allRewardItemsString.sort(key=lambda x: x["Tier"])
-                tier1CountMNC = 0
                 rewardConsumables = []
                 rewardMagics = []
                 rewardInv = []
-                tierConsumableCounts = [0,0,0,0,0,0]
-                if 'Good Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                elif 'Elite Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 1
-                elif 'True Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[2] = 1
-                elif 'Ascended Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 1
-                    tierConsumableCounts[2] = 1
-                elif 'Immortal Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 2
-                    tierConsumableCounts[2] = 1
-                elif 'Eternal Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 2
-                    tierConsumableCounts[2] = 2
-                elif 'Infinity Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 3
-                    tierConsumableCounts[2] = 2
-                elif 'Beyond Noodle' in roles:
-                    tierConsumableCounts[0] = 1
-                    tierConsumableCounts[1] = 3
-                    tierConsumableCounts[2] = 3
-                if 'Nitro Booster' in roles:
-                    tierConsumableCounts[0] += 2
-
+                
+                noodle_name, noodle_data, _  = findNoodleDataFromRoles(ctx.author.roles)
+                tierConsumableCounts = noodle_data["creation_items"]
                 if 'Bean Friend' in roles:
                     tierConsumableCounts[0] += 2
-                    tierConsumableCounts[tierNum] += 2
+                    tierConsumableCounts[2] += 2
                 startCounts = tierConsumableCounts.copy()
-                startCounts[0] = 0
-                startt1MNC = tierConsumableCounts[0]
-
                 for item in allRewardItemsString:
+                    count_balance = 2
                     if item['Minor/Major'] == 'Minor' and item["Type"] == 'Magic Items':
-                        item['Tier'] -= 1
-                    i = item["Tier"]
+                        count_balance = 0
+                    elif item['Minor/Major'] == 'Minor':
+                        count_balance = 1
+                    i = count_balance
                     while i < len(tierConsumableCounts):
                         if tierConsumableCounts[i] > 0 or i == len(tierConsumableCounts)-1:
                             tierConsumableCounts[i] -= 1
@@ -488,13 +449,9 @@ class Character(commands.Cog):
                         rewardInv.append(item)
 
 
-                if tier1CountMNC < 0 or any([count < 0 for count in tierConsumableCounts]):
-                    msg += f":warning: You do not have the right roles for these reward items. You can only choose **{startt1MNC}** Tier 1 (Non-Consumable) item(s)"
-                    z = 0
-                    for amount in startCounts:
-                        if amount > 0:
-                            msg += f", and **{amount}** Tier {z} (or lower) item(s)"
-                        z += 1
+                if any([count < 0 for count in tierConsumableCounts]):
+                    msg += f":warning: You do not have the right roles for these reward items. You can only choose **{startCounts[2]}** Majors"
+                    msg += f", **{startCounts[1]}** Minors and, **{startCounts[0]}** Non-Consumables"
                     msg += "\n"
                 else:
                     for r in rewardConsumables:

@@ -2,7 +2,7 @@ import discord
 import random
 import asyncio
 import re
-from cogs.view import AlphaView, ConfirmView, TestView, Report
+from cogs.view import AlphaView, ConfirmView
 from discord.utils import get      
 from math import floor
 from discord.ext import commands

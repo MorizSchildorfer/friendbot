@@ -20,7 +20,7 @@ from cogs.logs import generateLog
 from pymongo.errors import BulkWriteError
 from cogs.reward import randomReward
 
-time_bonus = 3600 * 3
+time_bonus = 3600 * 0
 def lowerLimit(value):
     if value > 0:
         value = max((value)//2, 1)

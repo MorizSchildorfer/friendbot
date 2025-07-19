@@ -1174,9 +1174,9 @@ Link: {editMessage.jump_url}
         if "Type" not in sessionInfo or sessionInfo["Type"] == "5e":
             await ctx.channel.send(f"Please use $session approve {num} instead")
             return
-        #if sessionInfo["Status"] == "Approved" or sessionInfo["Status"] == "Denied":
-        #    await ctx.channel.send("This session has already been processed")
-        #    return
+        if sessionInfo["Status"] == "Approved" or sessionInfo["Status"] == "Denied":
+            await ctx.channel.send("This session has already been processed")
+            return
         #if ctx.message.author.id == int(sessionInfo["DM"]["ID"]):
         #    await ctx.channel.send("You cannot approve your own log.")
         #    return

@@ -12,7 +12,7 @@ from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodleRoleArray
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, confirm, texttest
 
 class Admin(commands.Cog, name="Admin"):
     def __init__ (self, bot):
@@ -96,7 +96,6 @@ class Admin(commands.Cog, name="Admin"):
         await message.remove_reaction(emote, self.bot.user)
         await ctx.message.delete()
 
-    settingsRecord["ddmrw"]
     @commands.command()
     async def startT1RW(self, ctx):
         if "Mod Friend" in [r.name for r in ctx.author.roles]:
@@ -475,16 +474,11 @@ class Admin(commands.Cog, name="Admin"):
         all_users = list(db.users.find( {"Noodles": {"$gt":0}}))
         all_users = list(filter(lambda x: ctx.guild.get_member(int(x['User ID'])), all_users))
         
-        cut_off_num = 0
         cut_off_list = []
-        for i in range(0,len(noodleRoleArray)):
-            cut_off_list.append(max(1, cut_off_num))
-            cut_off_num += 10*(i+1)
         cut_offs = {}
-        i = 0
-        for cut_off_num in cut_off_list:
-            cut_offs[cut_off_num] = {"Users": [], "Role": get(ctx.guild.roles, name=noodleRoleArray[i]).mention}
-            i+=1
+        for noodle_name, noodle_data in noodle_roles.items():
+            cut_off_list.append(max(1, noodle_data['noodles']))
+            cut_offs[noodle_data['noodles']] = {"Users": [], "Role": get(ctx.guild.roles, name=noodle_name).mention}
         
         cut_off_list.reverse()
         for user in all_users:

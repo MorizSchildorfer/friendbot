@@ -97,6 +97,7 @@ class FriendBot(commands.Bot):
         change_status.start()
         for extension in [f.replace('.py', '') for f in listdir(cogs_dir) if isfile(join(cogs_dir, f))]:
             try:
+                print(extension)
                 await bot.load_extension(cogs_dir + "." + extension)
             except (discord.ClientException, ModuleNotFoundError):
                 print(f'Failed to load extension {extension}.')

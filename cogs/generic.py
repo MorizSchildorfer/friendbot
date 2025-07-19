@@ -15,7 +15,7 @@ from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta
 from bfunc import gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, roleArray, cp_bound_array, settingsRecord
-from cogs.util import callAPI, paginate, timeConversion, noodleRoleArray, disambiguate, noodleCheck, noodleBarrier
+from cogs.util import callAPI, paginate, timeConversion, disambiguate, noodleCheck, noodleBarrier
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 

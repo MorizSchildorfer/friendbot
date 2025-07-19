@@ -23,7 +23,7 @@ noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_
 'Transcendent Noodle': {'noodles': 350, 'creation_items': [4, 4, 3], 'creation_level_bonus': 12, 'dm_item_rewards': [4, 4, 4], 'player_item_rewards': [4, 7, 6], 'training': 10},
 'Blazing Noodle': {'noodles': 420, 'creation_items': [4, 4, 4], 'creation_level_bonus': 13, 'dm_item_rewards': [5, 4, 4], 'player_item_rewards': [5, 7, 7], 'training': 11},
 'Quantum Noodle': {'noodles': 500, 'creation_items': [5, 4, 4], 'creation_level_bonus': 14, 'dm_item_rewards': [5, 5, 4], 'player_item_rewards': [5, 8, 7], 'training': 12},
-'Deific Noodle': {'noodles': 580, 'creation_items': [5, 5, 4], 'creation_level_bonus': 15, 'dm_item_rewards': [5, 5, 5], 'player_item_rewards': [5, 8, 8], 'training': 13},
+'Divine Noodle': {'noodles': 580, 'creation_items': [5, 5, 4], 'creation_level_bonus': 15, 'dm_item_rewards': [5, 5, 5], 'player_item_rewards': [5, 8, 8], 'training': 13},
 'Infernal Noodle': {'noodles': 666, 'creation_items': [5, 5, 5], 'creation_level_bonus': 16, 'dm_item_rewards': [6, 5, 5], 'player_item_rewards': [6, 9, 8], 'training': 14},
 'Lucky Noodle': {'noodles': 777, 'creation_items': [6, 5, 5], 'creation_level_bonus': 17, 'dm_item_rewards': [6, 6, 5], 'player_item_rewards': [6, 9, 9], 'training': 15},
 'Millenium Noodle': {'noodles': 1000, 'creation_items': [6, 6, 5], 'creation_level_bonus': 18, 'dm_item_rewards': [6, 6, 6], 'player_item_rewards': [6, 10, 9], 'training': 16}}

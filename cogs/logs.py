@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord.errors import Forbidden
 from datetime import datetime, timezone,timedelta
 from bfunc import db, traceBack, roleArray, settingsRecord, timezoneVar
-from cogs.util import calculateTreasure, callAPI, timeConversion, noodleRoleArray, uwuize
+from cogs.util import calculateTreasure, callAPI, timeConversion, uwuize, noodleCheck, noodleBarrier
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 

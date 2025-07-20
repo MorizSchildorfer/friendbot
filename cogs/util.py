@@ -65,9 +65,9 @@ def uwuize(text):
        
 def noodleBarrier(noodlesBefore, noodlesAfter):
     noodleCongrats = ""
-    for name, data in noodle_roles:
+    for name, data in noodle_roles.items():
         noodles = data['noodles']
-        if noodles > noodlesBefore and noodles < noodleAfter:
+        if noodles > noodlesBefore and noodles < noodlesAfter:
             noodleCongrats = f"Congratulations! You have reached {name}!"
     return noodleCongrats
     

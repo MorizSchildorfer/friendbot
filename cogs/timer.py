@@ -811,7 +811,7 @@ class Timer(commands.Cog):
                 else:
                     await ctx.channel.send(content=f'You need to include quotes around the reward item in your command. Please follow this format and try again:\n```yaml\n{commandPrefix}timer reward @player "reward item1, reward item2, [...]"```')
                     return userInfo
-                half_reward_time_count = 2
+                half_reward_time_count = 0
                 for player in userInfo["Players"].values():
                     playtime = player["Duration"] + time_bonus
                     if player["State"] in ["Full", "Partial"] and not userInfo["Paused"]:

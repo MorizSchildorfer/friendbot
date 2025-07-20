@@ -204,11 +204,11 @@ class Character(commands.Cog):
         
         characterCog = self.bot.get_cog('Character')
         roleCreationDict = {
-            'D&D Friend':2,
-            'Journeyfriend':3,
-            'Elite Friend':3,
-            'True Friend':3,
-            'Ascended Friend':3
+            'D&D Friend': 2,
+            'Journeyfriend': 3,
+            'Elite Friend': 3,
+            'True Friend': 3,
+            'Ascended Friend': 3
         }
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author
@@ -404,7 +404,7 @@ class Character(commands.Cog):
                         break 
                     if item_type:
                         r, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(ctx, r, item_type, charEmbed, charEmbedmsg, msg)
-                    reRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'rit',r, tier = tierNum, filter_rit = False) 
+                    reRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'rit',r, tier = tierNum, filter_rit = True) 
 
                     if charEmbedmsg == "Fail":
                         return
@@ -420,7 +420,7 @@ class Character(commands.Cog):
                 rewardInv = []
                 
                 noodle_name, noodle_data, _  = findNoodleDataFromRoles(ctx.author.roles)
-                tierConsumableCounts = noodle_data["creation_items"]
+                tierConsumableCounts = noodle_data["creation_items"].copy()
                 if 'Bean Friend' in roles:
                     tierConsumableCounts[0] += 2
                     tierConsumableCounts[2] += 2
@@ -447,7 +447,6 @@ class Character(commands.Cog):
                       rewardMagics.append(item)
                     else:
                         rewardInv.append(item)
-
 
                 if any([count < 0 for count in tierConsumableCounts]):
                     msg += f":warning: You do not have the right roles for these reward items. You can only choose **{startCounts[2]}** Majors"

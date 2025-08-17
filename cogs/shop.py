@@ -16,7 +16,7 @@ def ordinal(n):
     
 training_options = ["Weapon/Language/Tool",
 "Weapon/Language/Tool",
-"Weapon/Language/Too",
+"Weapon/Language/Tool",
 "Weapon/Skill/Language/Tool",
 "Weapon/Language/Tool",
 "Weapon/Skill/Language/Tool",

@@ -72,6 +72,14 @@ class Apps(commands.Cog):
                 kidRole = get(guild.roles, name = 'Under-18 Friendling')
                 await appMember.add_roles(kidRole, reason="Approved application - the user is under 18.")
             
+            
+            userRecords = db.users.find_one({"User ID": str(appMember.id)})
+            if not userRecords: 
+                userRecords = {'User ID': str(appMember.id), 'Games' : 0, 'Time Bank': 3600*16}
+                usersData = db.users.insert_one(userRecords)  
+                await channel.send(f'A user profile has been created.') 
+            else:
+                usersData = db.users.update_one({'_id': userRecords['_id']}, {'$inc' : {'Time Bank': 3600*16}})  
             if db.players.find_one({"User ID" : str(appMember.id), "Level" : {"$gt" : 1}}):
 
                 juniorRole = get(guild.roles, name = 'Junior Friend')

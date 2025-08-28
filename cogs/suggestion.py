@@ -1,7 +1,7 @@
 import discord
 import asyncio 
 from discord.ext import commands
-from bfunc import traceBack
+from bfunc import traceBack, commandPrefix
 
 class Suggestions(commands.Cog):
     def __init__ (self, bot):
@@ -25,6 +25,16 @@ class Suggestions(commands.Cog):
             await ctx.channel.send(msg)
         # bot.py handles this, so we don't get traceback called.
         elif isinstance(error, commands.CommandOnCooldown):
+            commandParent = ctx.command.parent
+            if commandParent is None:
+                commandParent = ''
+            else:
+                commandParent = commandParent.name + " "
+
+            if error.retry_after == float('inf'):
+                await ctx.channel.send(f"Sorry, the command **`{commandPrefix}{commandParent}{ctx.invoked_with}`** is already in progress, please complete the command before trying again.")
+            else:
+                await ctx.channel.send(f"Sorry, the command **`{commandPrefix}{commandParent}{ctx.invoked_with}`** is on cooldown for you! Try the command in the next " + "{:.1f}seconds".format(error.retry_after))
             return
         elif isinstance(error, commands.UnexpectedQuoteError) or isinstance(error, commands.ExpectedClosingQuoteError) or isinstance(error, commands.InvalidEndOfQuotedStringError):
              return
@@ -93,6 +103,45 @@ Thank you and have a good day!
 Your suggestion here.```
 """
         await ctx.channel.send(content=text)
+        
+    @commands.command()
+    @is_private_channel()
+    @commands.cooldown(1, 60, type=commands.BucketType.user)
+    async def report(self, ctx, *, response = ""):
+        response = response.strip()
+        if not response:
+            text = f"""This report is by default anonymous, you may add your discord ID at the end
+The report should follow the following format:
+```
+$report
+- Who are you reporting?
+- When did it happen?
+- Where did it happen? (In a game, in gen chat or other)
+- Describe the incident in as much detail as possible.
+- [optional] @yourself (to not be anonymous)
+- [optional] attach files (via links. you can send them as a separate message [not $report] and right click copy link)
+```
+    """
+            await ctx.channel.send(content=text)
+            return
+            
+        msg = ctx.message
+        await ctx.channel.send(content='Thanks! Your suggestion has been submitted and will be reviewed by the Admin and Mod teams.')
+            
+        # suggestion channel
+        channelID = 390727227899248651
+        channel = self.bot.get_channel(channelID)
+        files =None
+        if msg.attachments:
+            files =[]
+            for att in msg.attachments:
+                files.append(await att.to_file())
+        botMsg = await channel.send(f"<@&382052033987084288> Incoming Report", 
+                        files= files)
+                        
+        embed = discord.Embed()
+        embed.description = response
+        await botMsg.edit(content=f"<@&382052033987084288> Incoming Report", embed=embed)
                 
 async def setup(bot):
     await bot.add_cog(Suggestions(bot))

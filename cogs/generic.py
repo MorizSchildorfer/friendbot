@@ -27,7 +27,7 @@ def game_channel_check(channel):
 def is_campaign_session(sessionDict):
     return "campaign" == sessionDict["Type"].lower()
     
-async def generateLog(self, ctx, num : int, sessionInfo=None):
+async def generateLog(self, ctx, num : int, sessionInfo=None, userDBEntriesDic=None):
     logData = db.logdata
     if sessionInfo == None:
         sessionInfo = logData.find_one({"Log ID": int(num)})
@@ -47,6 +47,17 @@ async def generateLog(self, ctx, num : int, sessionInfo=None):
     guildCollection = db.guilds
     statsCollection = db.stats
     usersCollection = db.users
+    
+    players = sessionInfo["Players"] 
+    
+    userIDs = list(players.keys())
+    userIDs.append(str(sessionInfo["DM"]["ID"]))
+    # the db entry of every user
+    if userDBEntriesDic == None:
+        userDBentries = usersCollection.find({"User ID": {"$in": userIDs}})
+        userDBEntriesDic = {}
+        for u in userDBentries:
+            userDBEntriesDic[u["User ID"]] = u
 
     sessionLogEmbed = editMessage.embeds[0]
     summaryIndex = sessionLogEmbed.description.find('Summary**')
@@ -57,7 +68,6 @@ async def generateLog(self, ctx, num : int, sessionInfo=None):
     end = sessionInfo["End"] 
     
     
-    players = sessionInfo["Players"] 
     #dictionary indexed by user id
     # {cp, magic items, consumables, inventory, partial, status, user id, character id, character name, character level, character cp, double rewards, guild, }
     
@@ -69,10 +79,13 @@ async def generateLog(self, ctx, num : int, sessionInfo=None):
     allRewardStrings = {}
         
     for k, player in players.items():
-        player_duration = player["Rewards"] * (1 + bonusDouble) 
+        player["Double"] = "Double" in player and player["Double"] and k in userDBEntriesDic.keys() and "Double" in userDBEntriesDic[k] and userDBEntriesDic[k]["Double"] >0
+        playerDouble = player["Double"]
+        player_duration = player["Rewards"] * (1 + bonusDouble + playerDouble) 
         treasureString = timeConversion(player_duration) 
         
         groupString = ""
+        groupString += playerDouble * "Fanatic "
         groupString += bonusDouble * "Bonus "
         groupString += f'Rewards:\n{treasureString}'
         
@@ -90,12 +103,16 @@ async def generateLog(self, ctx, num : int, sessionInfo=None):
     dateend = datetime.fromtimestamp(end).astimezone(pytz.timezone(timezoneVar)).strftime("%b-%d-%y %I:%M %p")
     totalDuration = timeConversion(end - start - paused_time)
     sessionLogEmbed.title = f"Timer: {game} [END] - {totalDuration}"
+    dm_id = dm["ID"]
+    dm["Double"] = "Double" in dm and dm["Double"] and str(dm_id) in userDBEntriesDic.keys() and "Double" in userDBEntriesDic[str(dm_id)] and userDBEntriesDic[str(dm_id)]["Double"] >0
+    playerDouble = dm["Double"]
     
     dmDouble = sessionInfo["DDMRW"]
     dm_double_string = ""
+    dm_double_string +=  playerDouble * "Fanatic "
     dm_double_string += dmDouble * "DDMRW "
     dm_double_string += bonusDouble * "Bonus "
-    dm_time_bank = dm["Rewards"] * (1 + bonusDouble + dmDouble) * 1.5
+    dm_time_bank = dm["Rewards"] * (1 + bonusDouble + dmDouble + playerDouble) * 1.5
     dmRewardsList = []
     #DM REWARD MATH STARTS HERE
     
@@ -1012,6 +1029,7 @@ Command Checklist
             players = {}
             for p_key, p_val in gameInfo["Players"].items():
                 player = {}
+                player["Double"] = True
                 reward = end - p_val["Latest Join"] + p_val["Duration"]
                 if p_val["State"] == "Removed":
                     reward = p_val["Duration"]
@@ -1050,6 +1068,7 @@ Command Checklist
             sessionRecord["DDMRW"] = settingsRecord["ddmrw"] or ("DDMRW" in gameInfo and gameInfo["DDMRW"])
             dmDBEntry= {"ID": dmChar["Member"].id, 
                 "Rewards": total_duration,
+                "Double": True,
                 "Mention": dmChar["Member"].mention}
             sessionRecord["DM"] =  dmDBEntry
             
@@ -1201,7 +1220,10 @@ Link: {editMessage.jump_url}
         for playerDict in userRecordsList:
             gameTime = players[playerDict["User ID"]]["Rewards"]
             timeBank = gameTime
-            bonusMultiplier = 1 + bonusDouble
+            player = players[playerDict["User ID"]]
+            player["Double"] = "Double" in player and player["Double"] and playerDict["Double"] >0
+            playerDouble = player["Double"]
+            bonusMultiplier = 1 + bonusDouble + playerDouble
             playerRewards = {}
             if playerDict["User ID"] == str(dm["ID"]):
                 dmDouble = sessionInfo["DDMRW"]
@@ -1213,6 +1235,7 @@ Link: {editMessage.jump_url}
                 playerRewards["DM Time"] = (gameTime + playerDict["DM Time"])%(3*3600) - playerDict["DM Time"]
                 playerRewards["Noodles"] = int((gameTime + playerDict["DM Time"])//(3*3600))
             playerRewards["Time Bank"] = timeBank
+            playerRewards["Double"] = -1 * playerDouble
             data.append({'_id': playerDict['_id'], "fields": {"$inc": playerRewards}})
         if is_campaign_session(sessionInfo):
             campaignCollection = db.campaigns
@@ -1343,6 +1366,46 @@ Link: {editMessage.jump_url}
     
         else:
             await ctx.channel.send("The session could not be found, please double check your number.")
+    
+    
+    @rpg.group()
+    async def fanatic(self, ctx):	
+        pass
+    
+    @fanatic.command()
+    async def optout(self, ctx, num :int):
+        await self.fanaticOpt(ctx, num, False)
+    @fanatic.command()
+    async def optin(self, ctx, num : int):
+        await self.fanaticOpt(ctx, num, True)
+    
+    # allows DMs to opt in or out of DDMRW
+    async def fanaticOpt(self, ctx, num : int, goal):
+        logData =db.logdata
+        sessionInfo = logData.find_one({"Log ID": int(num)})
+        if( sessionInfo):
+            if(sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied"):
+                if (ctx.author.id == sessionInfo["DM"]["ID"]):
+                    try:
+                        db.logdata.update_one({"_id": sessionInfo["_id"]}, {"$set": {f"DM.Double": goal}})
+                        await generateLog(self, ctx, num)
+                        await ctx.channel.send("Log has been updated.")
+                    except BulkWriteError as bwe:
+                        print(bwe)
+                elif(str(ctx.author.id) in sessionInfo["Players"]):
+                    try:
+                        db.logdata.update_one({"_id": sessionInfo["_id"]}, {"$set": {f"Players.{str(ctx.author.id)}.Double": goal}})
+                        await generateLog(self, ctx, num)
+                        await ctx.channel.send("Log has been updated.")
+                    except BulkWriteError as bwe:
+                        print(bwe)
+                else:
+                    await ctx.channel.send("You were not part of the session.")
+            else:
+                await ctx.channel.send("This session has already been processed")
+        else:
+            await ctx.channel.send("The session could not be found, please double check your number or if the session has already been approved.")
+      
     
     
 async def setup(bot):

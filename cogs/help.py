@@ -396,9 +396,9 @@ class Help(commands.Cog):
 
         helpEmbedRpg.add_field(name=f'▫️ Checking the Timestamp (Player)', value=f'{commandPrefix}rpg timer stamp', inline=False)
         
-        helpEmbedRpg.add_field(name=f'▫️ Opting into Fanatic Bonuses', value=f'{commandPrefix}rpg fanatic optin', inline=False)
+        helpEmbedRpg.add_field(name=f'▫️ Opting into Fanatic Bonuses', value=f'{commandPrefix}rpg fanatic optin gameId', inline=False)
 
-        helpEmbedRpg.add_field(name=f'▫️ Opting out of Fanatic Bonuses', value=f'{commandPrefix}rpg fanatic optout', inline=False)
+        helpEmbedRpg.add_field(name=f'▫️ Opting out of Fanatic Bonuses', value=f'{commandPrefix}rpg fanatic optout gameId', inline=False)
 
         
 

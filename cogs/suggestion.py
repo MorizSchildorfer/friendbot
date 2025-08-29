@@ -136,12 +136,12 @@ $report
             files =[]
             for att in msg.attachments:
                 files.append(await att.to_file())
-        botMsg = await channel.send(f"<@&382052033987084288> Incoming Report", 
+        botMsg = await channel.send(f"@here Incoming Report", 
                         files= files)
                         
         embed = discord.Embed()
         embed.description = response
-        await botMsg.edit(content=f"<@&382052033987084288> Incoming Report", embed=embed)
+        await botMsg.edit(content=f"@here Incoming Report", embed=embed)
                 
 async def setup(bot):
     await bot.add_cog(Suggestions(bot))

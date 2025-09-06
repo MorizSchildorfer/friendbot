@@ -151,7 +151,7 @@ class Guild(commands.Cog):
         roles = author.roles
         noodleRole = None
         for r in roles:
-            if r.name in noodleRoleArray and r.name not in ['Newdle', 'Good Noodle']:
+            if r.name in noodle_roles and r.name not in ['Newdle', 'Good Noodle']:
                 noodleRole = r
 
         if noodleRole:

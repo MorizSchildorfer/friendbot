@@ -260,15 +260,15 @@ class Guild(commands.Cog):
                     except Exception as e:
                         print ('MONGO ERROR: ' + str(e))
                         guildEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your guild again.")
+                        return
 
-
-                        guildEmbed.title = f"Guild Creation: {guildName}"
-                        guildEmbed.description = f"***{charDict['Name']}*** has created ***{guildName}***!\n\nThe guild's status can be checked using the following command:\n```yaml\n{commandPrefix}guild info #guild-channel```"
-                        if guildEmbedmsg:
-                            await guildEmbedmsg.clear_reactions()
-                            await guildEmbedmsg.edit(embed=guildEmbed)
-                        else: 
-                            guildEmbedmsg = await channel.send(embed=guildEmbed)
+                    guildEmbed.title = f"Guild Creation: {guildName}"
+                    guildEmbed.description = f"***{charDict['Name']}*** has created ***{guildName}***!\n\nThe guild's status can be checked using the following command:\n```yaml\n{commandPrefix}guild info #guild-channel```"
+                    if guildEmbedmsg:
+                        await guildEmbedmsg.clear_reactions()
+                        await guildEmbedmsg.edit(embed=guildEmbed)
+                    else: 
+                        guildEmbedmsg = await channel.send(embed=guildEmbed)
                           
             else:
                 await channel.send(f'***{author.display_name}*** you will need to play at least one game with a character before you can create a guild.')

@@ -2382,15 +2382,19 @@ class Character(commands.Cog):
                     subel2 = subel1
                 return [(subel2, subel1)]*count
             pool = [("Bag of Disappointment", None, 1), 
-                    ("Dread Helm", None, 2),
-                    ("Pipe of Smoke Monsters", None, 2),
-                    ("Common Glamerweave", None, 2),
-                    ("Wand of Scowls", None, 2),
-                    ("Wand of Pyrotechnics", None, 2),
-                    ("Wildspace Orrery", "Projection Machine", 2),
-                    ("Talking Doll", None, 2),
-                    ("Potion of Diminution", None, 2),
-                    ("Bottle of Boundless Coffee", "Apple Cider", 2),
+                    ("Dread Helm", "Wearable Jack-o-lantern", 1),
+                    ("Pipe of Smoke Monsters", None, 1),
+                    ("Instrument of Illusions", None, 1),
+                    ("Common Glamerweave", None, 1),
+                    ("Cloak of Many Fashions", "Cloak of Many Costumes", 1),
+                    ("Wand of Scowls", None, 1),
+                    ("Wand of Pyrotechnics", None, 1),
+                    ("Wildspace Orrery", "Projection Machine", 1),
+                    ("Talking Doll", None, 1),
+                    ("Potion of Diminution", None, 1),
+                    ("Bottle of Boundless Coffee", "Bottle of Boundless Cider", 1),
+                    ("Arcanaloth's Music Box","Haunted Music Box", 1),
+                    ("Medal of the Meat Pie", "Basket full of candy", 1),
                     ("Soul Coin", None, 1),
                     ]
             outcomes = []

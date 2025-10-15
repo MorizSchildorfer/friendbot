@@ -167,7 +167,37 @@ class Character(commands.Cog):
             await ctx.channel.send(embed=raceEmbed)
     
         except Exception as e:
-            traceback.print_exc()   
+            traceback.print_exc()  
+
+
+    def getLeveLimit(self, roles):
+        roleCreationDict = {
+            'D&D Friend': 2,
+            'Journeyfriend': 3,
+            'Elite Friend': 3,
+            'True Friend': 3,
+            'Ascended Friend': 3
+        }
+        # Check if level or roles are vaild
+        # A set that filters valid levels depending on user's roles
+        role_limit = 1
+        for d in roleCreationDict.keys():
+            if d in roles:
+                role_limit = max(role_limit, roleCreationDict[d])
+
+        # If roles are present, add base levels + 1 for extra levels for these special roles.
+        if ("Nitro Booster" in roles):
+            role_limit += 1
+
+        if ("Bean Friend" in roles):
+            role_limit += 2
+            
+        for noodle_name, noodle_data in noodle_roles.items():
+            if noodle_name in roles:
+                role_limit += noodle_data["creation_level_bonus"]
+                break
+        return role_limit
+            
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command()
@@ -203,13 +233,6 @@ class Character(commands.Cog):
             return
         
         characterCog = self.bot.get_cog('Character')
-        roleCreationDict = {
-            'D&D Friend': 2,
-            'Journeyfriend': 3,
-            'Elite Friend': 3,
-            'True Friend': 3,
-            'Ascended Friend': 3
-        }
         roles = [r.name for r in ctx.author.roles]
         author = ctx.author
         guild = ctx.guild
@@ -270,27 +293,9 @@ class Character(commands.Cog):
             if userRecords != list():
                 msg += f":warning: You already have a character by the name of ***{name}***! Please use a different name.\n"
         
-        # Check if level or roles are vaild
-        # A set that filters valid levels depending on user's roles
-        role_limit = 1
-        for d in roleCreationDict.keys():
-            if d in roles:
-                role_limit = max(role_limit, roleCreationDict[d])
-
-        # If roles are present, add base levels + 1 for extra levels for these special roles.
-        if ("Nitro Booster" in roles):
-            role_limit += 1
-
-        if ("Bean Friend" in roles):
-            role_limit += 2
-            
-        for noodle_name, noodle_data in noodle_roles.items():
-            if noodle_name in roles:
-                role_limit += noodle_data["creation_level_bonus"]
-                break
-          
+        role_limit = self.getLeveLimit(roles)
         if lvl > role_limit:
-            msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role!\n"
+            msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role and are limit to level **{role_limit}**!\n"
         
         # Checks CP
         if lvl < 5:
@@ -2969,7 +2974,7 @@ class Character(commands.Cog):
             if "DM Time" in userRecords and userRecords["DM Time"] > 0:
                 dm_time = f" ({int(userRecords['DM Time']/10800*100)}%)"
             noodles_text = f"Noodles: {userRecords['Noodles']}:star:"
-        description = f"Total One-shots Played|Hosted: {totalGamesPlayed-games_hosted}|{games_hosted}\n{noodles_text}{dm_time}\n"
+        description = f"Total One-shots Played|Hosted: {totalGamesPlayed-games_hosted}|{games_hosted}\n{noodles_text}{dm_time}\nMax Creation Level: {self.getLeveLimit(list([role.name for role in author.roles]))}\n"
     
         description += f"Total Characters: {len(charRecords)}\nTier 1 Characters: {len(charDictTiers[0])}\nTier 2 Characters: {len(charDictTiers[1])}\nTier 3 Characters: {len(charDictTiers[2])}\nTier 4 Characters: {len(charDictTiers[3])}\nTier 5 Characters: {len(charDictTiers[4])}"
 

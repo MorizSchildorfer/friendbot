@@ -295,7 +295,7 @@ class Character(commands.Cog):
         
         role_limit = self.getLeveLimit(roles)
         if lvl > role_limit:
-            msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role and are limit to level **{role_limit}**!\n"
+            msg += f":warning: You cannot create a character of **{lvl}**! You do not have the correct role and are limited to level **{role_limit}**!\n"
         
         # Checks CP
         if lvl < 5:

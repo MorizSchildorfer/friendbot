@@ -82,7 +82,7 @@ def findNoodleData(noodles):
 def findNoodleDataFromRoles(roles):
     search_result = list([(r.name, noodle_roles[r.name], r) for r in roles if r.name in noodle_roles])
     if not search_result:
-        return (None, None, None)
+        return (None, {'noodles': 0, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [0, 0, 0], 'player_item_rewards': [0, 0, 0], 'training': 0}, None)
     return search_result[0]
        
 async def noodleCheck(ctx, dmID):

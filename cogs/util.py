@@ -9,24 +9,26 @@ from discord.ext import commands
 from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, tier_reward_dictionary
 import math
 
-noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 1, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
-'Fresh Noodle': {'noodles': 3, 'creation_items': [1, 0, 0], 'creation_level_bonus': 2, 'dm_item_rewards': [1, 1, 0], 'player_item_rewards': [1, 2, 1], 'training': 0},
-'Good Noodle': {'noodles': 10, 'creation_items': [1, 1, 0], 'creation_level_bonus': 3, 'dm_item_rewards': [1, 1, 1], 'player_item_rewards': [1, 2, 2], 'training': 1},
-'Elite Noodle': {'noodles': 25, 'creation_items': [1, 1, 1], 'creation_level_bonus': 4, 'dm_item_rewards': [2, 1, 1], 'player_item_rewards': [2, 3, 2], 'training': 2},
-'True Noodle': {'noodles': 45, 'creation_items': [2, 1, 1], 'creation_level_bonus': 5, 'dm_item_rewards': [2, 2, 1], 'player_item_rewards': [2, 3, 3], 'training': 3},
-'Nice Noodle': {'noodles': 69, 'creation_items': [2, 2, 1], 'creation_level_bonus': 6, 'dm_item_rewards': [2, 2, 2], 'player_item_rewards': [2, 4, 3], 'training': 4},
-'Ascended Noodle': {'noodles': 100, 'creation_items': [2, 2, 2], 'creation_level_bonus': 7, 'dm_item_rewards': [3, 2, 2], 'player_item_rewards': [3, 4, 4], 'training': 5},
-'Immortal Noodle': {'noodles': 140, 'creation_items': [3, 2, 2], 'creation_level_bonus': 8, 'dm_item_rewards': [3, 3, 2], 'player_item_rewards': [3, 5, 4], 'training': 6},
-'Eternal Noodle': {'noodles': 185, 'creation_items': [3, 3, 2], 'creation_level_bonus': 9, 'dm_item_rewards': [3, 3, 3], 'player_item_rewards': [3, 5, 5], 'training': 7},
-'Infinity Noodle': {'noodles': 235, 'creation_items': [3, 3, 3], 'creation_level_bonus': 10, 'dm_item_rewards': [4, 3, 3], 'player_item_rewards': [4, 6, 5], 'training': 8},
-'Beyond Noodle': {'noodles': 290, 'creation_items': [4, 3, 3], 'creation_level_bonus': 11, 'dm_item_rewards': [4, 4, 3], 'player_item_rewards': [4, 6, 6], 'training': 9},
-'Transcendent Noodle': {'noodles': 350, 'creation_items': [4, 4, 3], 'creation_level_bonus': 12, 'dm_item_rewards': [4, 4, 4], 'player_item_rewards': [4, 7, 6], 'training': 10},
-'Blazing Noodle': {'noodles': 420, 'creation_items': [4, 4, 4], 'creation_level_bonus': 13, 'dm_item_rewards': [5, 4, 4], 'player_item_rewards': [5, 7, 7], 'training': 11},
-'Quantum Noodle': {'noodles': 500, 'creation_items': [5, 4, 4], 'creation_level_bonus': 14, 'dm_item_rewards': [5, 5, 4], 'player_item_rewards': [5, 8, 7], 'training': 12},
-'Divine Noodle': {'noodles': 580, 'creation_items': [5, 5, 4], 'creation_level_bonus': 15, 'dm_item_rewards': [5, 5, 5], 'player_item_rewards': [5, 8, 8], 'training': 13},
-'Infernal Noodle': {'noodles': 666, 'creation_items': [5, 5, 5], 'creation_level_bonus': 16, 'dm_item_rewards': [6, 5, 5], 'player_item_rewards': [6, 9, 8], 'training': 14},
-'Lucky Noodle': {'noodles': 777, 'creation_items': [6, 5, 5], 'creation_level_bonus': 17, 'dm_item_rewards': [6, 6, 5], 'player_item_rewards': [6, 9, 9], 'training': 15},
-'Millenium Noodle': {'noodles': 1000, 'creation_items': [6, 6, 5], 'creation_level_bonus': 18, 'dm_item_rewards': [6, 6, 6], 'player_item_rewards': [6, 10, 9], 'training': 16}}
+noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
+'Fresh Noodle': {'noodles': 3, 'creation_items': [1, 0, 0], 'creation_level_bonus': 1, 'dm_item_rewards': [1, 1, 0], 'player_item_rewards': [1, 2, 1], 'training': 0},
+'Good Noodle': {'noodles': 10, 'creation_items': [1, 1, 0], 'creation_level_bonus': 2, 'dm_item_rewards': [1, 1, 1], 'player_item_rewards': [1, 2, 2], 'training': 1},
+'Elite Noodle': {'noodles': 25, 'creation_items': [1, 1, 1], 'creation_level_bonus': 3, 'dm_item_rewards': [2, 1, 1], 'player_item_rewards': [2, 3, 2], 'training': 2},
+'True Noodle': {'noodles': 45, 'creation_items': [2, 1, 1], 'creation_level_bonus': 4, 'dm_item_rewards': [2, 2, 1], 'player_item_rewards': [2, 3, 3], 'training': 3},
+'Nice Noodle': {'noodles': 69, 'creation_items': [2, 2, 1], 'creation_level_bonus': 5, 'dm_item_rewards': [2, 2, 2], 'player_item_rewards': [2, 4, 3], 'training': 4},
+'Ascended Noodle': {'noodles': 100, 'creation_items': [2, 2, 2], 'creation_level_bonus': 6, 'dm_item_rewards': [3, 2, 2], 'player_item_rewards': [3, 4, 4], 'training': 5},
+'Immortal Noodle': {'noodles': 140, 'creation_items': [3, 2, 2], 'creation_level_bonus': 7, 'dm_item_rewards': [3, 3, 2], 'player_item_rewards': [3, 5, 4], 'training': 6},
+'Eternal Noodle': {'noodles': 185, 'creation_items': [3, 3, 2], 'creation_level_bonus': 8, 'dm_item_rewards': [3, 3, 3], 'player_item_rewards': [3, 5, 5], 'training': 7},
+'Infinity Noodle': {'noodles': 235, 'creation_items': [3, 3, 3], 'creation_level_bonus': 9, 'dm_item_rewards': [4, 3, 3], 'player_item_rewards': [4, 6, 5], 'training': 8},
+'Beyond Noodle': {'noodles': 290, 'creation_items': [4, 3, 3], 'creation_level_bonus': 10, 'dm_item_rewards': [4, 4, 3], 'player_item_rewards': [4, 6, 6], 'training': 9},
+'Transcendent Noodle': {'noodles': 350, 'creation_items': [4, 4, 3], 'creation_level_bonus': 11, 'dm_item_rewards': [4, 4, 4], 'player_item_rewards': [4, 7, 6], 'training': 10},
+'Blazing Noodle': {'noodles': 420, 'creation_items': [4, 4, 4], 'creation_level_bonus': 12, 'dm_item_rewards': [5, 4, 4], 'player_item_rewards': [5, 7, 7], 'training': 11},
+'Quantum Noodle': {'noodles': 500, 'creation_items': [5, 4, 4], 'creation_level_bonus': 13, 'dm_item_rewards': [5, 5, 4], 'player_item_rewards': [5, 8, 7], 'training': 12},
+'Divine Noodle': {'noodles': 580, 'creation_items': [5, 5, 4], 'creation_level_bonus': 14, 'dm_item_rewards': [5, 5, 5], 'player_item_rewards': [5, 8, 8], 'training': 13},
+'Infernal Noodle': {'noodles': 666, 'creation_items': [5, 5, 5], 'creation_level_bonus': 15, 'dm_item_rewards': [6, 5, 5], 'player_item_rewards': [6, 9, 8], 'training': 14},
+'Lucky Noodle': {'noodles': 777, 'creation_items': [6, 5, 5], 'creation_level_bonus': 16, 'dm_item_rewards': [6, 6, 5], 'player_item_rewards': [6, 9, 9], 'training': 15},
+'Millenium Noodle': {'noodles': 1000, 'creation_items': [6, 6, 5], 'creation_level_bonus': 17, 'dm_item_rewards': [6, 6, 6], 'player_item_rewards': [6, 10, 9], 'training': 16}}
+
+tier_reward_dictionary = [[50, 1], [100, 1], [150, 1], [200, 1], [200, 1]]
 
 def admin_or_owner():
     async def predicate(ctx):

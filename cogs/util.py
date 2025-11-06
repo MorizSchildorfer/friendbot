@@ -6,7 +6,7 @@ from cogs.view import AlphaView, ConfirmView
 from discord.utils import get      
 from math import floor
 from discord.ext import commands
-from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, tier_reward_dictionary
+from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack
 import math
 
 noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},

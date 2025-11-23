@@ -873,7 +873,7 @@ class Timer(commands.Cog):
                     
                 if half_reward_time_count < 2:
                     dm_item_limits = [lowerLimit(x) for x in dm_item_limits]
-                    player_item_limits = [lowerLimit(x) for x in dm_item_limits]
+                    player_item_limits = [lowerLimit(x) for x in player_item_limits]
                 used_item_ids = list(map(blocking_type, user_dic["Inventory"]["Add"] + user_dic["Consumables"]["Add"] + user_dic["Magic Items"]))
                 character_add = {"Inventory": [], "Consumables": [], "Magic Items": []}
                 item_list = []

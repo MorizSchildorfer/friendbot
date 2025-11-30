@@ -550,9 +550,7 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     # calculate the CP gained during the game
     cp = ((seconds) // 900) / 4
     cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus + tierOneDouble
-       
-        
-    crossTier = None
+    
     
     # calculate the CP with the bonuses included
     cp *= cp_multiplier
@@ -561,7 +559,7 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     
     #######role = role.lower()
     
-    tier = 5
+    tier = 4
     # calculate the tier of the rewards
     if level < 5:
         tier = 1
@@ -569,22 +567,21 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
         tier = 2
     elif level < 17:
         tier = 3
-    elif level < 20:
-        tier = 4
         
     #unreasonably large number as a cap
-    cpThreshHoldArray = [16, 16+60, 16+60+60, 16+60+60+30, 90000000]
+    cpThreshHoldArray = [16, 16+60, 16+60+60, 90000000]
     # calculate how far into the current level CP the character is after the game
     leftCP = charcp
     gp= 0
     tp = {}
+    reached_tier_four = False
     charLevel = level
     levelCP = (((charLevel-5) * 10) + 16)
     if charLevel < 5:
         levelCP = ((charLevel -1) * 4)
-    while(cp>0):
         
-        # Level 20 characters haves access to exclusive items
+    under_tier_four = levelCP + leftCP < cpThreshHoldArray[2]
+    while(cp>0):
         # create a string representing which tier the character is in in order to create/manipulate the appropriate TP entry in the DB
         tierTP = f"T{tier} TP"
             
@@ -601,6 +598,11 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
         tier += 1
     if gold_modifier!=100:
         gp = min(gp, math.ceil(gold_modifier * gp/100))
+    if under_tier_four and levelCP + leftCP + consideredCP >= cpThreshHoldArray[2]:
+        if "T4 TP" in tp:
+            tp["T4 TP"] += 30
+        else:
+            tp["T4 TP"] = 30
     return [gainedCP, tp, gp]
 
 

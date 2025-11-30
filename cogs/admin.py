@@ -760,7 +760,7 @@ class Admin(commands.Cog, name="Admin"):
                     setData["Attuned"] = ", ".join(attunements)
                 except Exception as e:
                     pass
-            elif 'Attuned' in char  and 'Attunement' in itemRecord:
+            elif 'Attuned' in char  and 'Attunement' in itemRecord and itemRecord["Name"] in char['Attuned']:
                 attunements = char['Attuned'].split(", ")
                 attunements.remove(itemRecord["Name"])
                 setData["Attuned"] = ", ".join(attunements)
@@ -874,7 +874,7 @@ class Admin(commands.Cog, name="Admin"):
             tReaction, tUser = await self.bot.wait_for("reaction_add", check=apiEmbedCheck, timeout=60)
         except asyncio.TimeoutError:
             #stop if no response was given within the timeframe
-            await embedMsg.edit(conten='Timed out! Try using the command again.')
+            await embedMsg.edit(content='Timed out! Try using the command again.')
             return False
         else:
             #stop if the cancel emoji was given

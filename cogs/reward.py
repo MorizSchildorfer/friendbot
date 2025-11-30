@@ -248,7 +248,7 @@ class Reward(commands.Cog):
             totalGold = charDict["GP"] + treasureArray[2]
             
             # Final output plugs in the duration string, treasure string, tp string, and other variables to make a coherent output
-            charEmbed.description = f"A {durationString} game would give **{charDict['Name']}** \n{treasureString}\n**{charDict['Name']}** will be level {resultLevel} with {resultCP} CP with an additional {tpString}and {totalGold} gold total!"
+            charEmbed.description = f"A {durationString} game would give **{charDict['Name']}** \n{treasureString}\n**{charDict['Name']}** will be level {resultLevel} with {resultCP} CP with an additional {tpString} and {totalGold} gold total!"
             charEmbed.clear_fields()
             if charEmbedmsg:
                 await charEmbedmsg.edit(embed=charEmbed)

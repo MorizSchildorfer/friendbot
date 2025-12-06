@@ -1252,7 +1252,7 @@ class Timer(commands.Cog):
             print(player['Member'].display_name, player["Consumables"]["Add"])
             print(player['Member'].display_name, player["Magic Items"])
             if rList != list():
-                rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
+                pass #rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
             # create field entries for every reward entry as appropriate
             if player["State"] == "Full":
                 embed.add_field(name= f"**{player['Member'].display_name}**", value=f"{player['Character']['Name']}\nLevel {player['Character']['Level']}: {player['Character']['Race']} {player['Character']['Class']}{consumablesString}{rewardsString}", inline=False)
@@ -1387,10 +1387,10 @@ Command Checklist
                     i["Name"] = f"Spell Scroll ({spell_result['Name']})"
                 playerDBEntry["Double Items"].append([i["Type"], i["Name"]])
             playerDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
-            playerDBEntry["Consumables"] = player["Consumables"]
-            playerDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
-            playerDBEntry["Inventory"] = player["Inventory"]
-            playerDBEntry["Inventory"]["Add"] = [x["Name"] for x in player["Inventory"]["Add"]]
+            playerDBEntry["Consumables"] = player["Consumables"].copy()
+            #playerDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
+            playerDBEntry["Inventory"] = player["Inventory"].copy()
+            #playerDBEntry["Inventory"]["Add"] = [x["Name"] for x in player["Inventory"]["Add"]]
             playerDBEntry["Status"] = "Alive"
             if player["State"] == "Dead":
                 playerDBEntry["Status"] = "Dead"

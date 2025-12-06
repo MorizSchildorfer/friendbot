@@ -1248,9 +1248,6 @@ class Timer(commands.Cog):
             if player["Brought"] != []:
                 consumablesString = "\nConsumables: " + ', '.join(player["Brought"])
             rList = player["Inventory"]["Add"]+player["Consumables"]["Add"]+player["Magic Items"]
-            print(player['Member'].display_name, player["Inventory"]["Add"])
-            print(player['Member'].display_name, player["Consumables"]["Add"])
-            print(player['Member'].display_name, player["Magic Items"])
             if rList != list():
                 pass #rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
             # create field entries for every reward entry as appropriate

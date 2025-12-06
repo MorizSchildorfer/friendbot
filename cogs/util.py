@@ -581,6 +581,7 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
         levelCP = ((charLevel -1) * 4)
         
     under_tier_four = levelCP + leftCP < cpThreshHoldArray[2]
+    consideredCP = 0
     while(cp>0):
         # create a string representing which tier the character is in in order to create/manipulate the appropriate TP entry in the DB
         tierTP = f"T{tier} TP"

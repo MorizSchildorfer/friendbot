@@ -860,7 +860,7 @@ class Timer(commands.Cog):
                     dm_item_limits = noodle_roles[dmChar["Noodle"]]["dm_item_rewards"]
                     player_item_limits = noodle_roles[dmChar["Noodle"]]["player_item_rewards"]
                 
-                tierNum=5
+                tierNum=4
                 # calculate the tier of the rewards
                 if charLevel < 5:
                     tierNum = 1
@@ -868,8 +868,6 @@ class Timer(commands.Cog):
                     tierNum = 2
                 elif charLevel < 17:
                     tierNum = 3
-                elif charLevel < 20:
-                    tierNum = 4
                     
                 if half_reward_time_count < 2:
                     dm_item_limits = [lowerLimit(x) for x in dm_item_limits]
@@ -1250,6 +1248,9 @@ class Timer(commands.Cog):
             if player["Brought"] != []:
                 consumablesString = "\nConsumables: " + ', '.join(player["Brought"])
             rList = player["Inventory"]["Add"]+player["Consumables"]["Add"]+player["Magic Items"]
+            print(player['Member'].display_name, player["Inventory"]["Add"])
+            print(player['Member'].display_name, player["Consumables"]["Add"])
+            print(player['Member'].display_name, player["Magic Items"])
             if rList != list():
                 rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
             # create field entries for every reward entry as appropriate
@@ -1321,7 +1322,7 @@ Command Checklist
         
         # turn Tier string into tier number
         if role == "Ascended":
-            tierNum = 5
+            tierNum = 4
         elif role == "True":
             tierNum = 4
         elif role == "Elite":
@@ -1501,10 +1502,8 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 dm_tier_num = 2
             elif dm_char_level < 17:
                 dm_tier_num = 3
-            elif dm_char_level < 20:
-                dm_tier_num = 4
             else:
-                dm_tier_num = 5
+                dm_tier_num = 4
                 
             player = dmChar
             rewardList = list(rewardsCollection.find({"Tier": dm_tier_num}))

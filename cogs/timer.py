@@ -1249,7 +1249,7 @@ class Timer(commands.Cog):
                 consumablesString = "\nConsumables: " + ', '.join(player["Brought"])
             rList = player["Inventory"]["Add"]+player["Consumables"]["Add"]+player["Magic Items"]
             if rList != list():
-                pass #rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
+                rewardsString = "\nRewards: " + ', '.join([x["Name"] for x in rList])
             # create field entries for every reward entry as appropriate
             if player["State"] == "Full":
                 embed.add_field(name= f"**{player['Member'].display_name}**", value=f"{player['Character']['Name']}\nLevel {player['Character']['Level']}: {player['Character']['Race']} {player['Character']['Class']}{consumablesString}{rewardsString}", inline=False)
@@ -1385,9 +1385,9 @@ Command Checklist
                 playerDBEntry["Double Items"].append([i["Type"], i["Name"]])
             playerDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
             playerDBEntry["Consumables"] = player["Consumables"].copy()
-            #playerDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
+            playerDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
             playerDBEntry["Inventory"] = player["Inventory"].copy()
-            #playerDBEntry["Inventory"]["Add"] = [x["Name"] for x in player["Inventory"]["Add"]]
+            playerDBEntry["Inventory"]["Add"] = [x["Name"] for x in player["Inventory"]["Add"]]
             playerDBEntry["Status"] = "Alive"
             if player["State"] == "Dead":
                 playerDBEntry["Status"] = "Dead"
@@ -1522,9 +1522,9 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                     i["Name"] = f"Spell Scroll ({spell_result['Name']})"
                 dmDBEntry["Double Items"].append([i["Type"], i["Name"]])
             dmDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
-            dmDBEntry["Consumables"] = player["Consumables"]
+            dmDBEntry["Consumables"] = player["Consumables"].copy()
             dmDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
-            dmDBEntry["Inventory"] = player["Inventory"]
+            dmDBEntry["Inventory"] = player["Inventory"].copy()
             dmDBEntry["Inventory"]["Add"] = [x["Name"] for x in player["Inventory"]["Add"]]
             dmDBEntry["Character ID"] = player["Character"]["_id"]
             dmDBEntry["Character Name"] = player["Character"]["Name"]

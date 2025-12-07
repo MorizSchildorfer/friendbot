@@ -2749,6 +2749,9 @@ class Character(commands.Cog):
             elif charLevel < 21:
                 role = 4
                 color = (roleColors['True Friend'])
+            else:
+                role = 5
+                color = (roleColors['Ascended Friend'])
             spell_list = []
             if "Spellbook" in charDict:
                 spell_list = [spell["Name"] for spell in charDict["Spellbook"]]

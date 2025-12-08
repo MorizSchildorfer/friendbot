@@ -30,6 +30,11 @@ noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_
 
 tier_reward_dictionary = [[50, 1], [100, 1], [150, 1], [200, 1], [200, 1]]
 
+#unreasonably large number as a cap
+cp_thresh_hold_array = [16, 16+60, 16+60+60, 90000000]
+
+cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
+
 def admin_or_owner():
     async def predicate(ctx):
         output = ctx.message.author.id in [220742049631174656, 203948352973438995] or (get(ctx.message.guild.roles, name = "A d m i n") in ctx.message.author.roles)
@@ -568,8 +573,6 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     elif level < 17:
         tier = 3
         
-    #unreasonably large number as a cap
-    cpThreshHoldArray = [16, 16+60, 16+60+60, 90000000]
     # calculate how far into the current level CP the character is after the game
     leftCP = charcp
     gp= 0
@@ -580,16 +583,16 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     if charLevel < 5:
         levelCP = ((charLevel -1) * 4)
         
-    under_tier_four = levelCP + leftCP < cpThreshHoldArray[2]
+    under_tier_four = levelCP + leftCP < cp_thresh_hold_array[2]
     consideredCP = 0
     while(cp>0):
         # create a string representing which tier the character is in in order to create/manipulate the appropriate TP entry in the DB
         tierTP = f"T{tier} TP"
             
-        if levelCP + leftCP + cp > cpThreshHoldArray[tier-1]:
-            consideredCP = cpThreshHoldArray[tier-1] - (levelCP + leftCP)
-            leftCP -= min(leftCP, cpThreshHoldArray[tier-1]-levelCP)
-            levelCP = cpThreshHoldArray[tier-1]
+        if levelCP + leftCP + cp > cp_thresh_hold_array[tier-1]:
+            consideredCP = cp_thresh_hold_array[tier-1] - (levelCP + leftCP)
+            leftCP -= min(leftCP, cp_thresh_hold_array[tier-1]-levelCP)
+            levelCP = cp_thresh_hold_array[tier-1]
         else:
             consideredCP = cp
         if consideredCP > 0:
@@ -599,7 +602,7 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
         tier += 1
     if gold_modifier!=100:
         gp = min(gp, math.ceil(gold_modifier * gp/100))
-    if under_tier_four and levelCP + leftCP + consideredCP >= cpThreshHoldArray[2]:
+    if under_tier_four and levelCP + leftCP + consideredCP >= cp_thresh_hold_array[2]:
         if "T4 TP" in tp:
             tp["T4 TP"] += 30
         else:

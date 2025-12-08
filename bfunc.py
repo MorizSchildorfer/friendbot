@@ -65,8 +65,6 @@ roleArray = ['New', 'Junior', 'Journey', 'Elite', 'True', 'Ascended', '']
 commandPrefix = '$'
 timezoneVar = 'US/Eastern'
 
-tier_reward_dictionary = [[50, 0.5], [100, 0.5], [150, 1], [200, 1], [200, 1]]
-
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
 
 left = '\N{BLACK LEFT-POINTING TRIANGLE}'

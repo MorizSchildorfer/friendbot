@@ -12,8 +12,8 @@ from itertools import product
 from discord.utils import get        
 from datetime import datetime, timezone,timedelta
 from discord.ext import commands
-from bfunc import numberEmojis, gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, cp_bound_array, settingsRecord
-from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, uwuize, confirm, spell_item_search, findNoodleDataFromRoles
+from bfunc import numberEmojis, gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, settingsRecord
+from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, uwuize, confirm, spell_item_search, findNoodleDataFromRoles, cp_bound_array
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
@@ -156,8 +156,7 @@ class Timer(commands.Cog):
         {numberEmojis[1]} Junior Friend (Level 1-4)
         {numberEmojis[2]} Journeyfriend (Level 5-10)
         {numberEmojis[3]} Elite Friend (Level 11-16)
-        {numberEmojis[4]} True Friend (Level 17-19)
-        {numberEmojis[5]} Ascended Friend (Level 17+)\n""", inline=False)
+        {numberEmojis[4]} True Friend (Level 17+)\n""", inline=False)
         # the discord name is used for listing the owner of the timer
         prepEmbed.set_author(name=user, icon_url=author.display_avatar)
         prepEmbed.set_footer(text= "React with ❌ to cancel.")
@@ -484,12 +483,9 @@ class Timer(commands.Cog):
         charLevel = cRecord['Level']
         
         # set up the bounds of which level the character is allowed to be
-        if role == "Ascended":
+        if role == "True":
             validLevelStart = 17
-            validLevelEnd = 20
-        elif role == "True":
-            validLevelStart = 17
-            validLevelEnd = 19
+            validLevelEnd = 99
         elif role == "Elite":
             validLevelStart = 11
             validLevelEnd = 16
@@ -503,7 +499,6 @@ class Timer(commands.Cog):
         elif role == "DM":
             validLevelEnd = 20
         
-        tierNum=5
         # calculate the tier of the rewards
         if charLevel < 5:
             tierNum = 1
@@ -511,7 +506,7 @@ class Timer(commands.Cog):
             tierNum = 2
         elif charLevel < 17:
             tierNum = 3
-        elif charLevel < 20:
+        else:
             tierNum = 4
         
         # block a character with an invalid level for the tier and inform the user

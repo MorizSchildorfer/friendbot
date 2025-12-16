@@ -1337,6 +1337,7 @@ class Admin(commands.Cog, name="Admin"):
     @commands.has_any_role("Bot Friend", "A d m i n")
     async def givealltime(self, ctx, amount : int):
         db.users.update_many({}, {"$inc": {"Time Bank": amount}})
+        await channel.send(f"Increased Time Bank for everyone by {time}")
     
     
     

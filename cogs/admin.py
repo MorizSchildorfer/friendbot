@@ -1333,6 +1333,13 @@ class Admin(commands.Cog, name="Admin"):
         with io.StringIO(str(currentTimers)) as f:
             await channel.send(file=discord.File(f, f"data.csv"))
     
+    @commands.command()
+    @commands.has_any_role("Bot Friend", "A d m i n")
+    async def givealltime(self, ctx, amount : int):
+        db.users.update_many({}, {"$inc": {"Time Bank": amount}})
+    
+    
+    
 async def setup(bot):
     await bot.add_cog(Admin(bot))
 

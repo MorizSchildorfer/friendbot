@@ -263,8 +263,8 @@ class Reward(commands.Cog):
         channel = ctx.channel
         author = ctx.author
 
-        if tier not in ('0', '1','2','3','4', '5') and tier.lower() not in [r.lower() for r in roleArray]:
-            errorMessage = f"**{tier}** is not a valid tier. Please try again with **New** or **0**, **Junior** or **1**, **Journey** or **2**, **Elite** or **3**, **True** or **4**, or **Ascended** or **5**."
+        if tier not in ('0', '1','2','3','4') and tier.lower() not in [r.lower() for r in roleArray]:
+            errorMessage = f"**{tier}** is not a valid tier. Please try again with **New** or **0**, **Junior** or **1**, **Journey** or **2**, **Elite** or **3**, **True** or **4**, or **Ascended**."
             await channel.send(errorMessage)
             return
 
@@ -288,7 +288,7 @@ class Reward(commands.Cog):
         elif tier == "true":
             tierNum = 4
         elif tier == "ascended":
-            tierNum = 5
+            tierNum = 4
         else:
             tierNum = int(tier)
         tierNum = max(tierNum, 1)

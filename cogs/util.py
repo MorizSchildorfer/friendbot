@@ -41,6 +41,11 @@ def admin_or_owner():
         return  output
     return commands.check(predicate)
 
+
+def convert_to_seconds(s):
+    seconds_per_unit = { "m": 60, "h": 3600 }
+    return int(s[:-1]) * seconds_per_unit[s[-1]]
+
 def uwuize(text):
     vowels = ['a','e','i','o','u']
     faces = ['rawr XD', 'OwO', 'owo', 'UwU', 'uwu']
@@ -290,6 +295,13 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
             await msg.edit(embed=embed) 
             await msg.clear_reactions()
 
+#sort elements by either the name, or the first element of the name list in case it is a list
+def sortingEntryAndList(elem):
+    if(isinstance(elem['Name'],list)): 
+        return elem['Name'][0] 
+    else:  
+        return elem['Name']
+
 """
 The purpose of this function is to do a general call to the database
 apiEmbed -> the embed element that the calling function will be using
@@ -297,25 +309,27 @@ apiEmbedmsg -> the message that will contain apiEmbed
 table -> the table in the database that should be searched in, most common tables are RIT, MIT and SHOP
 query -> the word which will be searched for in the "Name" property of elements, adjustments were made so that also a special property "Grouped" also gets searched
 """
-async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, tier=5, exact=False, filter_rit=True):
-    
+async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True, system: str ="5E"):
+    ctx = core.context
     #channel and author of the original message creating this call
     channel = ctx.channel
     author = ctx.author
+    message = core.message
+    embed = core.embed
     
     #do nothing if no table is given
     if table is None:
-       return None, apiEmbed, apiEmbedmsg
+       return None, core
 
     collection = db[table]
     
     #get the entire table if no query is given
     if query is None:
-        return list(collection.find()), apiEmbed, apiEmbedmsg
+        return list(collection.find()), core
 
     #if the query has no text, return nothing
     if query.strip() == "":
-        return None, apiEmbed, apiEmbedmsg
+        return None, core
 
     #restructure the query to be more regEx friendly
     invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "}", "^", ">", "<", "|"]
@@ -323,7 +337,7 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
     for i in invalidChars:
         if i in query:
             await channel.send(f":warning: Please do not use `{i}` in your query. Revise your query and retry the command.\n")
-            return None, apiEmbed, apiEmbedmsg
+            return None, core
          
     query = query.strip()
     query = query.replace('(', '\\(')
@@ -336,39 +350,23 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
                   }
     if exact:
         query_data["$regex"] = f'^{query_data["$regex"]}$'
-        
+    #limit all queries to their system
+    filterDic = {"System" : system}
     #search through the table for an element were the Name or Grouped property contain the query
     if table == "spells":
-        filterDic = {"Name": query_data}
+        filterDic["Name"] = query_data
     else:
-        filterDic = {"$or": [
-                            {
-                              "Name": query_data
-                            },
-                            {
-                              "Grouped": query_data
-                            }
-                        ]
-                    } 
+        filterDic["$or"] = [{"Name": query_data},
+                            {"Grouped": query_data}]
     if table == "rit" or table == "mit":
         filterDic['Tier'] = {'$lt':tier+1}
     
-     
-    # Here lies MSchildorfer's dignity. He copy and pasted with abandon and wondered why
-    #  collection.find(collection.find(filterDic)) does not work for he could not read
-    # https://cdn.discordapp.com/attachments/663504216135958558/735695855667118080/New_Project_-_2020-07-22T231158.186.png
     records = list(collection.find(filterDic))
     
     #turn the query into a regex expression
     r = re.compile(query, re.IGNORECASE)
     #restore the original query
     query = query.replace("\\", "")
-    #sort elements by either the name, or the first element of the name list in case it is a list
-    def sortingEntryAndList(elem):
-        if(isinstance(elem['Name'],list)): 
-            return elem['Name'][0] 
-        else:  
-            return elem['Name']
     
     #create collections to track needed changes to the records
     remove_grouper = [] #track all elements that need to be removes since they act as representative for a group of items
@@ -407,12 +405,11 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
         all_minors = list([record["Name"] for record in filter(lambda record: record["Minor/Major"]== "Minor", records)])
         records = filter(lambda record: record["Minor/Major"]!= "Major" or record["Name"] not in all_minors, records)
 
-    
     #sort all items alphabetically 
     records = sorted(records, key = sortingEntryAndList)    
     #if no elements are left, return nothing
     if records == list():
-        return None, apiEmbed, apiEmbedmsg
+        return None, core
     else:
         #create a string to provide information about the items to the user
         infoString = ""
@@ -432,25 +429,27 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
                     pass
                 else:
                     infoString += f"{alphaEmojis[i]}: {records[i]['Name']}\n"
-            apiEmbed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
+            core.apiEmbed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
             #inform the user of the current information and ask for their selection of an item
             #apiEmbed.add_field(name=f"There seems to be multiple results for \"**{query}**\"! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.", value=infoString, inline=False)
-            if not apiEmbedmsg or apiEmbedmsg == "Fail":
-                apiEmbedmsg = await channel.send(embed=apiEmbed)
+            if not message:
+                message = await channel.send(embed=apiEmbed)
+                core.message = message
             else:
-                await apiEmbedmsg.edit(embed=apiEmbed)
-            choice = await disambiguate(min(len(records), queryLimit), apiEmbedmsg, author)
+                await message.edit(embed=apiEmbed)
+            choice = await disambiguate(min(len(records), queryLimit), message, author)
             
             if choice is None or choice == -1:
-                await apiEmbedmsg.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
+                await message.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
                 ctx.command.reset_cooldown(ctx)
-                return None, apiEmbed, "Fail"
-            apiEmbed.clear_fields()
-            return records[choice], apiEmbed, apiEmbedmsg
+                core.cancel()
+                return None, core
+            embed.clear_fields()
+            return records[choice], core
 
         else:
             #if only 1 item was left, simply return it
-            return records[0], apiEmbed, apiEmbedmsg
+            return records[0], core
 
 async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False, customError=False, authorCheck=None):
     channel = ctx.channel
@@ -610,14 +609,15 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     return [gainedCP, tp, gp]
 
 
-async def spell_item_search(ctx, search_parameter, item_type, charEmbed, charEmbedmsg, msg=""):    
+async def spell_item_search(core: InteractionCore, search_parameter, item_type, system="5E"):    
     spellItem = search_parameter.lower().replace(item_type.lower(), "").replace('(', '').replace(')', '')
-    sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem) 
-    
+    sRecord, core = await callAPI(core, 'spells', spellItem, system=system) 
+    if !core.isActive():
+        return None, None, core
+    error_message = ""
     spell_item_name = ""
     if not sRecord :
-        msg += f'''**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.'''
-        
+        core.addError(f'\n**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.')
     elif sRecord["Level"]==0:
         search_parameter = item_type +" (Cantrip)"
         spell_item_name = f"{item_type} ({sRecord['Name']})"
@@ -626,7 +626,51 @@ async def spell_item_search(ctx, search_parameter, item_type, charEmbed, charEmb
         # change the query to be an accurate representation
         search_parameter = f"{item_type} ({ordinal(sRecord['Level'])} Level)"
         spell_item_name = f"{item_type} ({sRecord['Name']})"
-    return search_parameter, spell_item_name, charEmbed, charEmbedmsg, msg
+    return search_parameter, spell_item_name, core
+
+async def find_reward_item(item: str, system: str, core: InteractionCore):
+    error_message = ""
+    item_type = ""
+    if "spell scroll" in item.lower():
+        item_type = "Spell Scroll"
+    elif "spellwrought tattoo" in item.lower():
+        item_type = "Spellwrought Tattoo"
+    if item_type.lower() == item.lower().strip():
+        core.addError(f"Please be more specific with the type of spell scroll which you're purchasing. You must format {item_type} as follows: \"{item_type} (spell name)\".")
+        return None, core
+    if item_type:
+        item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type, system)
+    reRecord, core = await callAPI(core, 'rit', item, tier = tierNum, filter_rit = True, system = system)
+    
+    if !core.isActive():
+        return None, core
+    elif not reRecord:
+        core.addError(f" {r} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
+    elif 'spell scroll' in item.lower() or "spellwrought tattoo" in item.lower():
+        reRecord['Name'] = spell_item_name
+    return reRecord, core
+
+class InteractionCore:
+    def __init__(self, context, message, embed):
+        self.context = context
+        self.message = message
+        self.embed = embed
+        self.status = "ACTIVE"
+        self.errors = []
+        
+    def isActive():
+        return self.status == "ACTIVE"
+        
+    def cancel():
+        return self.status == "CANCELLED"
+        
+    def hasError():
+        return self.errors == []
+        
+    def addError(error: str):
+        if error:
+            self.errors.append(error)
+
 
 class Util(commands.Cog):
     def __init__ (self, bot):

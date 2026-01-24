@@ -6,7 +6,7 @@ from discord.utils import get
 from discord.ext import commands
 from cogs.admin import liner_dic
 from bfunc import db, commandPrefix,  alphaEmojis, roleArray, traceBack, numberEmojis, settingsRecord
-from cogs.util import callAPI, checkForChar, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles
+from cogs.util import callAPI, checkForChar, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles, convert_to_seconds
 from math import floor
 
 

@@ -1696,15 +1696,13 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         
         charLevel = int(player["Character"]['Level'])
         # calculate the tier of the rewards
-        tierNum = 5
+        tierNum = 4
         if charLevel < 5:
             tierNum = 1
         elif charLevel < 11:
             tierNum = 2
         elif charLevel < 17:
             tierNum = 3
-        elif charLevel < 20:
-            tierNum = 4
 
         item_rewards = []
         if rewardUser == dmChar["Member"]:

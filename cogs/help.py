@@ -238,17 +238,13 @@ class Help(commands.Cog):
         helpEmbedTimerThree.add_field(name=f'▫️ Submitting a Session Log (DM)', value=f'{commandPrefix}session log gameID summary', inline=False)
         helpEmbedTimerThree.add_field(name=f'▫️ Set Gold Modifier (DM)', value=f'{commandPrefix}session setGuild gameID percentage', inline=False)
 
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Approve Guild 2x Rewards (DM)', value=f'{commandPrefix}session approveRewards gameID #guild-channel', inline=False)
+        helpEmbedTimerThree.add_field(name=f'▫️ Approve Guild 2x Rewards (DM)', value=f'{commandPrefix}session approveRewards gameID #guild-channel', inline=False)
 
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Deny Guild 2x Rewards (DM)', value=f'{commandPrefix}session denyRewards gameID #guild-channel', inline=False)
+        helpEmbedTimerThree.add_field(name=f'▫️ Deny Guild 2x Rewards (DM)', value=f'{commandPrefix}session denyRewards gameID #guild-channel', inline=False)
 
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Approve Guild 2x Items (DM)', value=f'{commandPrefix}session approveItems gameID #guild-channel', inline=False)
+        helpEmbedTimerThree.add_field(name=f'▫️ Approve Recruitment Drive (DM)', value=f'{commandPrefix}approveDrive gameID #guild-channel', inline=False)
 
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Deny Guild 2x Items (DM)', value=f'{commandPrefix}session denyItems gameID #guild-channel', inline=False)
-
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Approve Recruitment Drive (DM)', value=f'{commandPrefix}approveDrive gameID #guild-channel', inline=False)
-
-    #    helpEmbedTimerThree.add_field(name=f'▫️ Deny Recruitment Drive (DM)', value=f'{commandPrefix}session denyDrive gameID #guild-channel', inline=False)
+        helpEmbedTimerThree.add_field(name=f'▫️ Deny Recruitment Drive (DM)', value=f'{commandPrefix}session denyDrive gameID #guild-channel', inline=False)
 
         helpEmbedTimerThree.add_field(name=f'▫️ Opting Out of DDMRW (DM)', value=f'{commandPrefix}session ddmrw optout gameID', inline=False)
 

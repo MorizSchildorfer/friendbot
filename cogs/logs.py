@@ -12,10 +12,6 @@ from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
 
-
-
-guild_drive_costs = [4, 4, 6, 9, 13, 13]
-
 async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=None, characterDBentries=None, userDBEntriesDic=None, ):
     logData = db.logdata
     if sessionInfo == None:
@@ -91,13 +87,13 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, guildDBEntriesDic=
         for g in guildDBentries:
             guildDBEntriesDic[g["Name"]] = g
             
-            if g["Reputation"] >= guild_drive_costs[sessionInfo["Tier"]]:
-                g["Reputation"] -= guild_drive_costs[sessionInfo["Tier"]]*guilds[g["Name"]]["Drive"]
+            if g["Reputation"] >= 5:
+                g["Reputation"] -= 5*guilds[g["Name"]]["Drive"]
             else:
                 guilds[g["Name"]]["Drive"] = False
             
-            if g["Reputation"] >= 25:
-                g["Reputation"] -= 25*guilds[g["Name"]]["Rewards"]
+            if g["Reputation"] >= 10:
+                g["Reputation"] -= 10*guilds[g["Name"]]["Rewards"]
             else:
                 guilds[g["Name"]]["Rewards"] = False
     gold_modifier = 100
@@ -463,13 +459,13 @@ class Log(commands.Cog):
         guildDBEntriesDic = {}
         for g in guildDBentries:
             guildDBEntriesDic[g["Name"]] = g
-            if g["Reputation"] >= guild_drive_costs[sessionInfo["Tier"]]:
-                g["Reputation"] -= guild_drive_costs[sessionInfo["Tier"]]*guilds[g["Name"]]["Drive"]
+            if g["Reputation"] >= 5:
+                g["Reputation"] -= 5*guilds[g["Name"]]["Drive"]
             else:
                 guilds[g["Name"]]["Drive"] = False
             
-            if g["Reputation"] >= 25:
-                g["Reputation"] -= 25*guilds[g["Name"]]["Rewards"]
+            if g["Reputation"] >= 10:
+                g["Reputation"] -= 10*guilds[g["Name"]]["Rewards"]
             else:
                 guilds[g["Name"]]["Rewards"] = False
         
@@ -759,7 +755,7 @@ class Log(commands.Cog):
 
                     gain += sparklesGained*int("Guild" in dm and dm["Guild"] == name)
                     
-                    reputationCost = (20*guilds[name]["Rewards"]+guild_drive_costs[sessionInfo["Tier"]]*guilds[name]["Drive"])*guilds[name]["Status"]
+                    reputationCost = (10*guilds[name]["Rewards"]+5*guilds[name]["Drive"])*guilds[name]["Status"]
                     if guilds[name]["Status"]:
                         guildsData.append(UpdateOne({"Name": name},
                                                    {"$inc": {"Games": 1, "Reputation": int(gain- reputationCost), "Total Reputation": gain}}))

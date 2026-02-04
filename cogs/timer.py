@@ -1348,9 +1348,6 @@ Command Checklist
         dbEntry["Tier Bonus"] = tierNum == 0
         if tierNum < 1:
             tierNum = 1
-        rewardsCollection = db.rit
-        rewardList = list(rewardsCollection.find({"Tier": tierNum}))
-        rewardList_lower = list(rewardsCollection.find({"Tier": max(tierNum-1, 1)}))
         starting_time = userInfo["Start"]
         # list of players in this entry
         playerList = []
@@ -1364,20 +1361,6 @@ Command Checklist
             if player["State"] in ["Full", "Partial"]:
                 duration += end - player["Latest Join"]
             playerDBEntry={}
-            randomItems = [random.choice(rewardList).copy(), random.choice(rewardList_lower).copy()]
-            playerDBEntry["Double Items"] = []
-            for i in randomItems:
-                if("Grouped" in i):
-                    i["Name"] = random.choice(i["Name"])
-                elif("Spell Scroll" in i["Name"]):
-                    if("Cantrip" in i["Name"]):
-                        spell_level = 0
-                    else:
-                        spell_level = [int(x) for x in i["Name"] if x.isnumeric()][0]
-                    
-                    spell_result = list(db.spells.aggregate([{ "$match": { "Level": spell_level } }, { "$sample": { "size": 1 } }]))[0]
-                    i["Name"] = f"Spell Scroll ({spell_result['Name']})"
-                playerDBEntry["Double Items"].append([i["Type"], i["Name"]])
             playerDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
             playerDBEntry["Consumables"] = player["Consumables"].copy()
             playerDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
@@ -1392,7 +1375,6 @@ Command Checklist
             if "Guild" in player["Character"]:
                 playerDBEntry["Guild"] = player["Character"]["Guild"]
                 playerDBEntry["2xR"] = True
-                playerDBEntry["2xI"] = True
                 playerDBEntry["Guild Rank"] = player["Character"]["Guild Rank"]
             playerDBEntry["Character CP"] = player["Character"]["CP"]
             playerDBEntry["Mention"] = player["Member"].mention
@@ -1498,24 +1480,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 dm_tier_num = 4
                 
             player = dmChar
-            rewardList = list(rewardsCollection.find({"Tier": dm_tier_num}))
-            rewardList_lower = list(rewardsCollection.find({"Tier": max(dm_tier_num -1,1)}))
-            randomItems = [random.choice(rewardList), random.choice(rewardList_lower)]
             
-            dmDBEntry["Double Items"] = []
-            
-            for i in randomItems:
-                if("Grouped" in i):
-                    i["Name"] = random.choice(i["Name"])
-                elif("Spell Scroll" in i["Name"]):
-                    if("Cantrip" in i["Name"]):
-                        spell_level = 0
-                    else:
-                        spell_level = [int(x) for x in i["Name"] if x.isnumeric()][0]
-                    
-                    spell_result = list(db.spells.aggregate([{ "$match": { "Level": spell_level } }, { "$sample": { "size": 1 } }]))[0]
-                    i["Name"] = f"Spell Scroll ({spell_result['Name']})"
-                dmDBEntry["Double Items"].append([i["Type"], i["Name"]])
             dmDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
             dmDBEntry["Consumables"] = player["Consumables"].copy()
             dmDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
@@ -1527,7 +1492,6 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
             if "Guild" in player["Character"]:
                 dmDBEntry["Guild"] = player["Character"]["Guild"]
                 dmDBEntry["2xR"] = True
-                dmDBEntry["2xI"] = True
                 dmDBEntry["Guild Rank"] = player["Character"]["Guild Rank"]
             dmDBEntry["Character CP"] = player["Character"]["CP"]
             dmDBEntry["DM Double"] = True
@@ -1564,7 +1528,6 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 guildDBEntry = {}
                 guildDBEntry["Status"] = True
                 guildDBEntry["Rewards"] = False
-                guildDBEntry["Items"] = False
                 guildDBEntry["Drive"] = False
                 guildDBEntry["Mention"] = g.mention
                 guildDBEntry["Name"] = gRecord["Name"]

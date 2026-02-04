@@ -48,7 +48,6 @@ async def traceBack (ctx,error,silent=False):
         await ctx.channel.send(f"Uh oh, looks like this is some unknown error I have ran into. {dorfer.mention} has been notified.")
     raise error
 
-        
 def refreshKey (timeStarted):
     if (time.time() - timeStarted > 60 * 59):
             gClient.login()

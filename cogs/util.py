@@ -658,18 +658,29 @@ class InteractionCore:
         self.status = "ACTIVE"
         self.errors = []
         
-    def isActive():
+    def isActive(self):
         return self.status == "ACTIVE"
         
-    def cancel():
+    def cancel(self):
         return self.status == "CANCELLED"
         
-    def hasError():
+    def hasError(self):
         return self.errors == []
         
-    def addError(error: str):
+    def addError(self, error: str):
         if error:
             self.errors.append(error)
+    
+    async def send(self, mainText: str):
+        if self.message:
+            await self.context.channel.send(embed=self.embed, content=mainText)
+        else:
+            self.message = await self.message.edit(embed=self.embed)
+    
+    async def delete(self):
+        if self.message:
+            await self.message.delete()
+            self.message = None
 
 
 class Util(commands.Cog):

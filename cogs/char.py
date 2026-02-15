@@ -13,7 +13,7 @@ from datetime import datetime, timezone, timedelta
 from discord.ext import commands
 from urllib.parse import urlparse 
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search, noodle_roles, findNoodleDataFromRoles, convert_to_seconds
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control
 
          
 class Character(commands.Cog):
@@ -5344,8 +5344,6 @@ class Character(commands.Cog):
                     await channel.send(f"You successfully unattuned from **{mRecord['Name']}**!")
                     
 
-    
-
     async def calcHP (self, ctx, classes, charDict, lvl):
         # classes = sorted(classes, key = lambda i: i['Hit Die Max'],reverse=True) 
         totalHP = 0
@@ -5400,15 +5398,14 @@ class Character(commands.Cog):
         return totalHP
 
     # need a different version for 5R
-    async def pointBuy(self, core, statsArray, rRecord):
+    async def pointBuy(self, core, statsArray, sourceRecord):
         author = core.context.author
         channel = core.context.channel
-        statsBonus = rRecord['Modifiers'].replace(" ", "").split(',')
+        statsBonus = sourceRecord['Modifiers'].replace(" ", "").split(',')
         uniqueArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
         allStatsArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
         
         for s in statsBonus:
-            
             if 'STR' in s:
                 statsArray[0] += int(s[len(s)-1]) if s[len(s)-2] == "+" else int("-" + s[len(s)-1])
                 uniqueArray.remove('STR')
@@ -5461,51 +5458,31 @@ class Character(commands.Cog):
                     statsArray[choice] += anyAmount
         return core, statsArray
 
-    async def chooseSubclass(self, ctx, subclassesList, charClass, charEmbed, charEmbedmsg):
-        author = ctx.author
-        channel = ctx.channel
-        subclassString = ""
+    async def chooseSubclass(self, core: InteractionCore, subclassesList: list, charClass: str):
+        author = core.context.author
+        channel = core.context.channel
+        subclass_string = ""
         for num in range(len(subclassesList)):
-            subclassString += f'{alphaEmojis[num]}: {subclassesList[num]}\n'
-
-        charEmbed.clear_fields()
-        charEmbed.add_field(name=f"The {charClass} class allows you to pick a subclass at this level. React to the choices below to select your subclass.", value=subclassString, inline=False)
-        if charEmbedmsg:
-            await charEmbedmsg.edit(embed=charEmbed)
-        else: 
-            charEmbedmsg = await channel.send(embed=charEmbed)
+            subclass_string += f'{alphaEmojis[num]}: {subclassesList[num]}\n'
+        core.embed.embed.clear_fields()
+        core.embed.add_field(name=f"The {charClass} class allows you to pick a subclass at this level. React to the choices below to select your subclass.", value=subclassString, inline=False)
+        core.send("")
             
-        choice = await disambiguate(len(subclassesList), charEmbedmsg, author)
+        choice = await disambiguate(len(subclassesList), core.message, author)
         if choice is None:
-            await charEmbedmsg.edit(embed=None, content=f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-            return None, None
+            core.cancel()
+            return core, None
         elif choice == -1:
-            await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-            return None, None
-        charEmbed.clear_fields()
+            core.cancel()
+            return core, None
+        core.embed.clear_fields()
         subclass = subclassesList[choice].strip()
+        return core, subclass
 
-        return subclass, charEmbedmsg
-
-    async def chooseFeat(self, ctx, race, charClass, cRecord, featLevels, charEmbed,  charEmbedmsg, charStats, charFeats):
-        statNames = ['STR','DEX','CON','INT','WIS','CHA']
-        author = ctx.author
-        channel = ctx.channel
-
-        def featCharEmbedCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((r.emoji in alphaEmojis[:2]) or (str(r.emoji) == '❌')) and u == author
-        
-        def asiCharEmbedCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((r.emoji in alphaEmojis[:asiIndex]) or (str(r.emoji) == '❌')) and u == author
-
+    async def chooseFeat(self, core: InteractionCore, race, charClass, cRecord, featLevels, charStats, charFeats):
+        stat_names = ['STR','DEX','CON','INT','WIS','CHA']
+        author = core.context.author
+        channel = core.context
 
         featChoices = []
         featsPickedList = []
@@ -5517,79 +5494,42 @@ class Character(commands.Cog):
 
         spellcasting = False
         for f in featLevels:
-            charEmbed.clear_fields()
+            core.embed.clear_fields()
             if f != 'Extra Feat':
                 try:
                     charEmbed.add_field(name=f"Your level allows you to pick an Ability Score Improvement or a feat. Please react with 1 or 2 for your level {f} ASI/feat.", value=f"{alphaEmojis[0]}: Ability Score Improvement\n{alphaEmojis[1]}: Feat\n", inline=False)
-                    if charEmbedmsg:
-                        await charEmbedmsg.edit(embed=charEmbed)
-                    else: 
-                        charEmbedmsg = await channel.send(embed=charEmbed)
+                    core.send()
                     for num in range(0,2): await charEmbedmsg.add_reaction(alphaEmojis[num])
-                    await charEmbedmsg.add_reaction('❌')
-                    charEmbed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
-
-                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=featCharEmbedCheck, timeout=60)
+                    await core.message.add_reaction('❌')
+                    core.embed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
+                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:2]), timeout=60)
                 except asyncio.TimeoutError:
-                    await charEmbedmsg.delete()
-                    await channel.send(f'Feat selection timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                    self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                    return None, None, None
+                    core.cancel()
+                    return core, None, None
                 else:
                     if tReaction.emoji == '❌':
-                        await charEmbedmsg.edit(embed=None, content=f"Feat selection cancelled.  Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                        await charEmbedmsg.clear_reactions()
-                        self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                        return None, None, None
+                        core.cancel()
+                        return core, None, None
 
                 choice = alphaEmojis.index(tReaction.emoji)
-                await charEmbedmsg.clear_reactions()
+                await core.message.clear_reactions()
 
             else:
                 choice = 1
             if choice == 0:
-                charEmbed.clear_fields() 
-                for num in range(0,2):
-                    try:   
-                        statsString = ""
-                        asiString = ""
-                        asiList = []
-                        asiIndex = 0
-                        for n in range(0,6):
-                            if (int(charStats[statNames[n]]) + 1 <= charStats['Max Stats'][statNames[n]]):
-                                statsString += f"{statNames[n]}: **{charStats[statNames[n]]}** "
-                                asiString += f"{alphaEmojis[asiIndex]}: {statNames[n]}\n"
-                                asiList.append(statNames[n])
-                                asiIndex += 1
-                            else:
-                                statsString += f"{statNames[n]}: **{charStats[statNames[n]]}** (MAX) "
-
-                        charEmbed.add_field(name=f"{statsString}\nReact to choose a stat for your ASI:", value=asiString, inline=False)
-                        await charEmbedmsg.edit(embed=charEmbed)
-                        for num in range(0,len(asiList)): 
-                            await charEmbedmsg.add_reaction(alphaEmojis[num])
-                        await charEmbedmsg.add_reaction('❌')
-                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=asiCharEmbedCheck, timeout=60)
-                    except asyncio.TimeoutError:
-                        await charEmbedmsg.delete()
-                        await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                        self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                        return None, None, None
+                core.embed.clear_fields() 
+                prev_selections = ""
+                for num in range(0,2):for n in range(0,6):
+                    options = []
+                    content = prev_selections
+                    if (int(charStats[statNames[n]]) + 1 <= charStats['Max Stats'][statNames[n]]):
+                        conent += f"{statNames[n]}: **{charStats[statNames[n]]}**\n"
+                        options[statNames[n]]
                     else:
-                        if tReaction.emoji == '❌':
-                            await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                            await charEmbedmsg.clear_reactions()
-                            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                            return None, None, None
-                    asi = alphaEmojis.index(tReaction.emoji)
-
-                    charStats[asiList[asi]] = int(charStats[asiList[asi]]) + 1
-                    if ctx.invoked_with == "levelup":
-                         charEmbed.description = f"{race}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
-                    charEmbed.clear_fields()
-                    charEmbed.add_field(name=f"ASI First Stat", value=f"{alphaEmojis[asi]}: {asiList[asi]}", inline=False)
-                    
-                    await charEmbedmsg.clear_reactions()
+                        statsString += f"{statNames[n]}: **{charStats[statNames[n]]}** (MAX)\n"
+                    core, selection = paginate_options(core, self.bot, "ASI", options, content)
+                    charStats[asiList[selection]] = int(charStats[asiList[selection]]) + 1
+                    prev_selections = f"ASI First Stat", value=f"{alphaEmojis[selection]}: {asiList[selection]}"
             elif choice == 1:
                 if featChoices == list():
                     fRecords, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg,'feats')
@@ -5649,7 +5589,6 @@ class Character(commands.Cog):
                                     if int(charStats[stat]) >= statNumber:
                                         meetsRestriction = True
 
-
                             if "Require Spellcasting" in feat:
                                 level_only = False
                                 for c in cRecord:
@@ -5671,7 +5610,6 @@ class Character(commands.Cog):
                                 meetsRestriction = (level_only or meetsRestriction) and charStats["Level"] >= feat['Level Restriction']
                             if meetsRestriction:
                                 featChoices.append(feat)
-
                 else:
                     # Whenever a feat that grants spellcasting gets picked.
                     if spellcasting == True:
@@ -5685,159 +5623,37 @@ class Character(commands.Cog):
                             featChoices.append(f)
                     featChoices.remove(featPicked)
 
-                def featChoiceCheck(r, u):
-                    sameMessage = False
-                    if charEmbedmsg.id == r.message.id:
-                        sameMessage = True
-                    return sameMessage and u == author and (r.emoji == left or r.emoji == right or r.emoji == '❌' or r.emoji == back or r.emoji in alphaEmojis[:alphaIndex])
-
-                page = 0
-                perPage = 24
-                numPages =((len(featChoices) - 1) // perPage) + 1
                 featChoices = sorted(featChoices, key = lambda i: i['Name']) 
-
-                while True:
-                    charEmbed.clear_fields()  
-                    if f == 'Extra Feat':
-                        charEmbed.add_field(name=f"Your race allows you to choose a feat. Please choose your feat from the list below.", value=f"-", inline=False)
-                    else:
-                        charEmbed.add_field(name=f"Please choose your feat from the list below:", value=f"━━━━━━━━━━━━━━━━━━━━", inline=False)
-
-                    pageStart = perPage*page
-                    pageEnd = perPage * (page + 1)
-                    alphaIndex = 0
-                    for i in range(pageStart, pageEnd if pageEnd <= (len(featChoices) - 1) else (len(featChoices)) ):
-                        charEmbed.add_field(name=alphaEmojis[alphaIndex], value=featChoices[i]['Name'], inline=True)
-                        alphaIndex+=1
-                    charEmbed.set_footer(text= f"Page {page+1} of {numPages} -- use {left} or {right} to navigate or ❌ to cancel.")
-                    await charEmbedmsg.edit(embed=charEmbed) 
-                    await charEmbedmsg.add_reaction(left) 
-                    await charEmbedmsg.add_reaction(right)
-                    # await charEmbedmsg.add_reaction(back)
-                    await charEmbedmsg.add_reaction('❌')
-
-                    try:
-                        react, user = await self.bot.wait_for("reaction_add", check=featChoiceCheck, timeout=90.0)
-                    except asyncio.TimeoutError:
-                        await charEmbedmsg.delete()
-                        await channel.send(f"Character creation timed out!")
-                        self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                        return None, None, None
-                    else:
-                        if react.emoji == left:
-                            page -= 1
-                            if page < 0:
-                              page = numPages - 1
-                        elif react.emoji == right:
-                            page += 1
-                            if page > numPages - 1: 
-                              page = 0
-                        elif react.emoji == '❌':
-                            await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                            await charEmbedmsg.clear_reactions()
-                            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                            return None, None, None
-                        elif react.emoji in alphaEmojis:
-                            await charEmbedmsg.clear_reactions()
-                            break
-                        charEmbed.clear_fields()
-                        await charEmbedmsg.clear_reactions()
-                
-                featPicked = featChoices[(page * perPage) + alphaEmojis.index(react.emoji)]
+                title = "Feat Selection"
+                core, choice = await paginate_options(core, self.bot, title, list([feat["Name"] for feat in featChoices]))
+                if !core.isActive():
+                    return core, None, None
+                featPicked = featChoices[choice]
 
                 # If feat picked grants spellcasting
                 if "Spellcasting" in featPicked:
                     spellcasting = True
-
                 featsPickedList.append(featPicked)
-
-                # Special Case of Picked Ritual Caster
-                def ritualFeatEmbedcheck(r, u):
-                    sameMessage = False
-                    if charEmbedmsg.id == r.message.id:
-                        sameMessage = True
-                    return sameMessage and ((r.emoji in alphaEmojis[:6]) or (str(r.emoji) == '❌')) and u == author
-
-                def ritualSpellEmbedCheck(r, u):
-                    sameMessage = False
-                    if charEmbedmsg.id == r.message.id:
-                        sameMessage = True
-
-                    if (r.emoji in alphaEmojis[:alphaIndex]) and u == author:
-                        ritualChoiceList[charEmbedmsg.id].add(r.emoji)
-
-                    return sameMessage and ((len(ritualChoiceList[charEmbedmsg.id]) == 2) or (str(r.emoji) == '❌')) and u == author
-
                 if featPicked['Name'] == "Ritual Caster":
                     ritualClasses = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"]
-                    charEmbed.clear_fields()
-                    charEmbed.set_footer(text=None)
-                    charEmbed.add_field(name="For the **Ritual Caster** feat, please pick the spellcasting class.", value=f"{alphaEmojis[0]}: Bard\n{alphaEmojis[1]}: Cleric\n{alphaEmojis[2]}: Druid\n{alphaEmojis[3]}: Sorcerer\n{alphaEmojis[4]}: Warlock\n{alphaEmojis[5]}: Wizard\n", inline=False)
-
-                    try:
-                        await charEmbedmsg.edit(embed=charEmbed)
-                        await charEmbedmsg.add_reaction('❌')
-                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=ritualFeatEmbedcheck, timeout=60)
-                    except asyncio.TimeoutError:
-                        await charEmbedmsg.delete()
-                        await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                        self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                        return None, None, None
-                    else:
-                        if tReaction.emoji == '❌':
-                            await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                            await charEmbedmsg.clear_reactions()
-                            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                            return None, None, None
-                    await charEmbedmsg.clear_reactions()
-
-                    ritualClass = ritualClasses[alphaEmojis.index(tReaction.emoji)]
+                    core, selection = await paginate_options(core, self.bot, f"Ritual Caster Class Selection}", ritualClasses, content)
+                    ritualClass = ritualClasses[selection]
                     featPicked['Name'] = f"{featPicked['Name']} ({ritualClass})"
                     spellsCollection = db.spells
                     ritualSpellsList = list(spellsCollection.find({"$and": [{"Classes": {"$regex": ritualClass, '$options': 'i' }}, {"Ritual": True}, {"Level": 1}] }))
-
-                    alphaIndex = 0
-                    ritualSpellsString = ""
-                    for r in ritualSpellsList:
-                        ritualSpellsString += f"{alphaEmojis[alphaIndex]}: {r['Name']}\n"
-                        alphaIndex += 1
-
-                    charEmbed.set_field_at(0, name=f"For the **Ritual Caster** feat, please pick the spellcasting class.", value=f"{tReaction.emoji}: {ritualClass}", inline=False)
-                    charEmbed.add_field(name=f"Please pick two {ritualClass} spells from this list to add to your ritual book.", value=ritualSpellsString, inline=False)
-                    ritualChoiceList = {charEmbedmsg.id:set()}
-
                     charStats['Ritual Book'] = []
                     if len(ritualSpellsList) > 2:
-                        try:
-                            await charEmbedmsg.edit(embed=charEmbed)
-                            await charEmbedmsg.add_reaction('❌')
-                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=ritualSpellEmbedCheck, timeout=60)
-                        except asyncio.TimeoutError:
-                            await charEmbedmsg.delete()
-                            await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                            return None, None, None
-                        else:
-                            if tReaction.emoji == '❌':
-                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                await charEmbedmsg.clear_reactions()
-                                self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                                return None, None, None
-                        await charEmbedmsg.clear_reactions()
-                        for r in ritualChoiceList[charEmbedmsg.id]:
-                            rChoice = ritualSpellsList[alphaEmojis.index(r)]
-                            charStats['Ritual Book'].append({'Name':rChoice['Name'], 'School':rChoice['School']})
+                        content = "Please pick the first spell."
+                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritualSpellsList]), content)
+                        rChoice = ritualSpellsList.pop(selection)
+                        charStats['Ritual Book'].append({'Name':rChoice['Name'], 'School':rChoice['School']})
+                        content = "Please pick the second spell."
+                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritualSpellsList]), content)
+                        rChoice = ritualSpellsList.pop(selection)
+                        charStats['Ritual Book'].append({'Name':rChoice['Name'], 'School':rChoice['School']})
                     else:
                         charStats['Ritual Book'].append({'Name':ritualSpellsList[0]['Name'], 'School':ritualSpellsList[0]['School']})
                         charStats['Ritual Book'].append({'Name':ritualSpellsList[1]['Name'], 'School':ritualSpellsList[1]['School']})
-                    
-
-                def slashFeatEmbedcheck(r, u):
-                    sameMessage = False
-                    if charEmbedmsg.id == r.message.id:
-                        sameMessage = True
-                    return sameMessage and ((r.emoji in alphaEmojis[:len(featBonusList)]) or (str(r.emoji) == '❌')) and u == author
-
                 if 'Stat Bonuses' in featPicked:
                     featBonus = featPicked['Stat Bonuses']
                     if '/' in featBonus or 'ANY' in featBonus:
@@ -5845,32 +5661,9 @@ class Character(commands.Cog):
                             featBonusList = featBonus[:len(featBonus) - 3].split('/')
                         elif 'ANY' in featBonus:
                             featBonusList = statNames
-                        featBonusString = ""
-                        for num in range(len(featBonusList)):
-                            featBonusString += f'{alphaEmojis[num]}: {featBonusList[num]}\n'
-
-                        try:
-                            charEmbed.clear_fields()    
-                            charEmbed.set_footer(text= None)
-                            charEmbed.add_field(name=f"The {featPicked['Name']} feat lets you choose between {featBonus}. React with [{alphaEmojis[0]}-{alphaEmojis[len(featBonusList)-1]}] below with the stat(s) you would like to choose.", value=featBonusString, inline=False)
-                            await charEmbedmsg.edit(embed=charEmbed)
-                            for num in range(0,len(featBonusList)): await charEmbedmsg.add_reaction(alphaEmojis[num])
-                            await charEmbedmsg.add_reaction('❌')
-                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=slashFeatEmbedcheck, timeout=60)
-                        except asyncio.TimeoutError:
-                            await charEmbedmsg.delete()
-                            await channel.send(f'Character creation timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                            self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                            return None, None, None
-                        else:
-                            if tReaction.emoji == '❌':
-                                await charEmbedmsg.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
-                                await charEmbedmsg.clear_reactions()
-                                self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
-                                return None, None, None
-                        await charEmbedmsg.clear_reactions()
-                        charStats[featBonusList[alphaEmojis.index(tReaction.emoji)]] = int(charStats[featBonusList[alphaEmojis.index(tReaction.emoji)]]) + int(featBonus[-1:])
-                            
+                        content=f"The {featPicked['Name']} feat lets you choose between {featBonus}. React with [{alphaEmojis[0]}-{alphaEmojis[len(featBonusList)-1]}] below with the stat(s) you would like to choose.", value=featBonusString, inline=False)
+                        core, choice = await paginate_options(core, self.bot, "Feat Stats", featBonusList, content)
+                        charStats[featBonusList[choice]] = int(charStats[featBonusList[choice]]) + int(featBonus[-1:])
                     else:
                         featBonusList = featBonus.split(', ')
                         for fb in featBonusList:

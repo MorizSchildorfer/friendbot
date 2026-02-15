@@ -46,6 +46,14 @@ def convert_to_seconds(s):
     seconds_per_unit = { "m": 60, "h": 3600 }
     return int(s[:-1]) * seconds_per_unit[s[-1]]
 
+def reaction_response_control(message, author, options: list):
+    def predicate(reaction, user):
+        same_message = False
+        if message.id == reaction.message.id:
+            same_message = True
+        return same_message and ((reaction.emoji in options) or (str(r.emoji) == '❌')) and user == author
+    return predicate
+
 def uwuize(text):
     vowels = ['a','e','i','o','u']
     faces = ['rawr XD', 'OwO', 'owo', 'UwU', 'uwu']
@@ -159,7 +167,6 @@ color -> color for the embed, if one is given the embed will use that color
 footer -> custom footer message, is added to page text
 """    
 async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author = None, color= None, content="", footer=""):
-    
     # storage of the elements that will be displayed on a page
     entry_pages =[]
     
@@ -240,12 +247,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         embed.color = color
     if footer:
         embed.set_footer(text=f"{footer}")
-    # check that only original user can use the menu
-    def userCheck(r,u):
-        sameMessage = False
-        if msg.id == r.message.id:
-            sameMessage = True
-        return sameMessage and u == ctx.author and (r.emoji == left or r.emoji == right)
     page = 0
     #add the fields for the page
     for subtitle, section_text, inline in entry_pages[page]:
@@ -265,7 +266,7 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         
         # wait for interaction
         try:
-            hReact, hUser = await bot.wait_for("reaction_add", check=userCheck, timeout=30.0)
+            hReact, hUser = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, [left, right]), timeout=30.0)
         # end if no reaction was given in time
         except asyncio.TimeoutError:
             await msg.edit(content=f"Your user menu has timed out! I'll leave this page open for you. If you need to cycle through the menu again then use the same command!")
@@ -294,6 +295,54 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
                 embed.set_footer(text=f"{footer}\nPage {page+1} of {pages}")
             await msg.edit(embed=embed) 
             await msg.clear_reactions()
+
+
+"""
+
+"""    
+async def paginate_options(core: InteractionCore, bot, title, options: list, content=""):
+    embed = discord.Embed()
+    embed.title = title
+    
+    page = 0
+    per_page = 24
+    num_pages =((len(options) - 1) // per_page) + 1
+    while True:
+        page_start = per_page*page
+        page_end = per_page * (page + 1)
+        alpha_index = 0
+        for i in range(page_start, page_end if page_end <= (len(options) - 1) else (len(featChoices)) ):
+            embed.add_field(name=alphaEmojis[alpha_index], value=options[i], inline=True)
+            alpha_index+=1
+        embed.set_footer(text= f"Page {page+1} of {num_pages} -- use {left} or {right} to navigate or ❌ to cancel.")
+        await core.send("", embed)
+        await core.message.add_reaction(left) 
+        await core.message.add_reaction(right)
+        await core.message.add_reaction('❌')
+
+        try:
+            react, user = await bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:alpha_index].append(left).append(right)), timeout=90.0)
+        except asyncio.TimeoutError:
+            core.cancel()
+            return core, -1 
+        else:
+            await core.message.clear_reactions()
+            if react.emoji == left:
+                page -= 1
+                if page < 0:
+                  page = num_pages - 1
+            elif react.emoji == right:
+                page += 1
+                if page > num_pages - 1: 
+                  page = 0
+            elif react.emoji == '❌':
+                core.cancel()
+                return core, -1
+            elif react.emoji in alphaEmojis:
+                break
+            embed.clear_fields()
+    return core, (page * perPage) + alphaEmojis.index(react.emoji)
+
 
 #sort elements by either the name, or the first element of the name list in case it is a list
 def sortingEntryAndList(elem):
@@ -671,9 +720,12 @@ class InteractionCore:
         if error:
             self.errors.append(error)
     
-    async def send(self, mainText: str):
+    async def send(self, mainText: str, embed = None):
+        embed_to_send = self.embed
+        if embed:
+            embed_to_send = embed
         if self.message:
-            await self.context.channel.send(embed=self.embed, content=mainText)
+            await self.context.channel.send(embed=embed_to_send, content=mainText)
         else:
             self.message = await self.message.edit(embed=self.embed)
     

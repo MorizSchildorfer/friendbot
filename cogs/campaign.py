@@ -85,9 +85,6 @@ class Campaign(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             await ctx.channel.send(msg)
         else:
-            if ctx.channel.mention in currentTimers and "State" in currentTimers[ctx.channel.mention]:
-                currentTimers[ctx.channel.mention]["State"] = "Crashed"
-                await ctx.channel.send(f"This timer has crashed. The DM can use `{commandPrefix}campaign timer resume` to continue the timer.")
             ctx.command.reset_cooldown(ctx)
             await traceBack(ctx,error)
     

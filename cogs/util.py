@@ -35,6 +35,49 @@ cp_thresh_hold_array = [16, 16+60, 16+60+60, 90000000]
 
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
 
+
+class InteractionCore:
+    def __init__(self, context, message, embed, system: str):
+        self.context = context
+        self.message = message
+        self.embed = embed
+        self.status = "ACTIVE"
+        self.system = system
+        self.errors = []
+        
+    def isActive(self):
+        return self.status == "ACTIVE"
+        
+    def cancel(self):
+        return self.status == "CANCELLED"
+        
+    def hasError(self):
+        return len(self.errors) != 0
+        
+    def addError(self, error: str):
+        if error:
+            self.errors.append(error)
+    
+    async def send(self, mainText: str = "", embed = None):
+        embed_to_send = self.embed
+        if embed:
+            embed_to_send = embed
+        if not self.message:
+            self.message = await self.context.channel.send(embed=embed_to_send, content=mainText)
+        else:
+            self.message = await self.message.edit(embed=embed_to_send, content=mainText)
+    
+    async def delete(self):
+        if self.message:
+            await self.message.delete()
+            self.message = None
+    
+    def __str__(self):
+        return "%s(%s)" % (self.__class__.__name__,
+    ", ".join([self.system, self.status, self.errors.__str__()])
+  )
+
+
 def admin_or_owner():
     async def predicate(ctx):
         output = ctx.message.author.id in [220742049631174656, 203948352973438995] or (get(ctx.message.guild.roles, name = "A d m i n") in ctx.message.author.roles)
@@ -51,7 +94,7 @@ def reaction_response_control(message, author, options: list):
         same_message = False
         if message.id == reaction.message.id:
             same_message = True
-        return same_message and ((reaction.emoji in options) or (str(r.emoji) == '❌')) and user == author
+        return same_message and ((reaction.emoji in options) or (str(reaction.emoji) == '❌')) and user == author
     return predicate
 
 def uwuize(text):
@@ -300,28 +343,37 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
 """
 
 """    
-async def paginate_options(core: InteractionCore, bot, title, options: list, content=""):
+async def paginate_options(core: InteractionCore, bot, title, options: list, content: str =""):
     embed = discord.Embed()
     embed.title = title
+    embed.description = content
+    author = core.context.author
     
     page = 0
     per_page = 24
     num_pages =((len(options) - 1) // per_page) + 1
+    need_pages = num_pages > 1
     while True:
         page_start = per_page*page
         page_end = per_page * (page + 1)
         alpha_index = 0
-        for i in range(page_start, page_end if page_end <= (len(options) - 1) else (len(featChoices)) ):
+        range_limit = page_end if page_end <= (len(options) - 1) else (len(options)) 
+        for i in range(page_start, range_limit):
             embed.add_field(name=alphaEmojis[alpha_index], value=options[i], inline=True)
             alpha_index+=1
-        embed.set_footer(text= f"Page {page+1} of {num_pages} -- use {left} or {right} to navigate or ❌ to cancel.")
+        if need_pages:
+            embed.set_footer(text= f"Page {page+1} of {num_pages} -- use {left} or {right} to navigate or ❌ to cancel.")
         await core.send("", embed)
-        await core.message.add_reaction(left) 
-        await core.message.add_reaction(right)
+        emotes = alphaEmojis[:alpha_index]
+        if need_pages:
+            await core.message.add_reaction(left) 
+            await core.message.add_reaction(right)
+            emotes.append(left)
+            emotes.append(right)
         await core.message.add_reaction('❌')
 
         try:
-            react, user = await bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:alpha_index].append(left).append(right)), timeout=90.0)
+            react, user = await bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, emotes), timeout=90.0)
         except asyncio.TimeoutError:
             core.cancel()
             return core, -1 
@@ -341,7 +393,7 @@ async def paginate_options(core: InteractionCore, bot, title, options: list, con
             elif react.emoji in alphaEmojis:
                 break
             embed.clear_fields()
-    return core, (page * perPage) + alphaEmojis.index(react.emoji)
+    return core, (page * per_page) + alphaEmojis.index(react.emoji)
 
 
 #sort elements by either the name, or the first element of the name list in case it is a list
@@ -358,23 +410,25 @@ apiEmbedmsg -> the message that will contain apiEmbed
 table -> the table in the database that should be searched in, most common tables are RIT, MIT and SHOP
 query -> the word which will be searched for in the "Name" property of elements, adjustments were made so that also a special property "Grouped" also gets searched
 """
-async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True, system: str ="5E"):
+async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True):
     ctx = core.context
     #channel and author of the original message creating this call
     channel = ctx.channel
     author = ctx.author
     message = core.message
     embed = core.embed
+    system = core.system
     
     #do nothing if no table is given
     if table is None:
        return None, core
 
     collection = db[table]
+    filterDic = {"System" : system}
     
     #get the entire table if no query is given
     if query is None:
-        return list(collection.find()), core
+        return list(collection.find(filterDic)), core
 
     #if the query has no text, return nothing
     if query.strip() == "":
@@ -400,7 +454,6 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
     if exact:
         query_data["$regex"] = f'^{query_data["$regex"]}$'
     #limit all queries to their system
-    filterDic = {"System" : system}
     #search through the table for an element were the Name or Grouped property contain the query
     if table == "spells":
         filterDic["Name"] = query_data
@@ -409,7 +462,7 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
                             {"Grouped": query_data}]
     if table == "rit" or table == "mit":
         filterDic['Tier'] = {'$lt':tier+1}
-    
+    print(filterDic)
     records = list(collection.find(filterDic))
     
     #turn the query into a regex expression
@@ -661,12 +714,12 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
 async def spell_item_search(core: InteractionCore, search_parameter, item_type, system="5E"):    
     spellItem = search_parameter.lower().replace(item_type.lower(), "").replace('(', '').replace(')', '')
     sRecord, core = await callAPI(core, 'spells', spellItem, system=system) 
-    if !core.isActive():
+    if not core.isActive():
         return None, None, core
     error_message = ""
     spell_item_name = ""
     if not sRecord :
-        core.addError(f'\n**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.')
+        core.addError(f"\n**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
     elif sRecord["Level"]==0:
         search_parameter = item_type +" (Cantrip)"
         spell_item_name = f"{item_type} ({sRecord['Name']})"
@@ -677,9 +730,10 @@ async def spell_item_search(core: InteractionCore, search_parameter, item_type, 
         spell_item_name = f"{item_type} ({sRecord['Name']})"
     return search_parameter, spell_item_name, core
 
-async def find_reward_item(item: str, system: str, core: InteractionCore):
+async def find_reward_item(item: str, core: InteractionCore):
     error_message = ""
     item_type = ""
+    system = core.system
     if "spell scroll" in item.lower():
         item_type = "Spell Scroll"
     elif "spellwrought tattoo" in item.lower():
@@ -689,50 +743,15 @@ async def find_reward_item(item: str, system: str, core: InteractionCore):
         return None, core
     if item_type:
         item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type, system)
-    reRecord, core = await callAPI(core, 'rit', item, tier = tierNum, filter_rit = True, system = system)
+    item_record, core = await callAPI(core, 'rit', item, tier = tierNum, filter_rit = True, system = system)
     
-    if !core.isActive():
+    if not core.isActive():
         return None, core
-    elif not reRecord:
-        core.addError(f" {r} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
+    elif item_record == None:
+        core.addError(f" {item} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
     elif 'spell scroll' in item.lower() or "spellwrought tattoo" in item.lower():
-        reRecord['Name'] = spell_item_name
-    return reRecord, core
-
-class InteractionCore:
-    def __init__(self, context, message, embed):
-        self.context = context
-        self.message = message
-        self.embed = embed
-        self.status = "ACTIVE"
-        self.errors = []
-        
-    def isActive(self):
-        return self.status == "ACTIVE"
-        
-    def cancel(self):
-        return self.status == "CANCELLED"
-        
-    def hasError(self):
-        return self.errors == []
-        
-    def addError(self, error: str):
-        if error:
-            self.errors.append(error)
-    
-    async def send(self, mainText: str, embed = None):
-        embed_to_send = self.embed
-        if embed:
-            embed_to_send = embed
-        if self.message:
-            await self.context.channel.send(embed=embed_to_send, content=mainText)
-        else:
-            self.message = await self.message.edit(embed=self.embed)
-    
-    async def delete(self):
-        if self.message:
-            await self.message.delete()
-            self.message = None
+        item_record['Name'] = spell_item_name
+    return item_record, core
 
 
 class Util(commands.Cog):

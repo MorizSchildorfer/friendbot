@@ -111,9 +111,9 @@ class FriendBot(commands.Bot):
 
 bot = FriendBot()
 connection = MongoClient(mongoConnection, ssl=True) 
-db = connection.dnd
+db = connection.dnd5r
 
-settings = db.settings
+settings = connection.dnd.settings
 
 global settingsRecord
 settingsRecord = list(settings.find())[0]

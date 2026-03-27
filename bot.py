@@ -56,13 +56,10 @@ async def on_command_error(ctx,error):
             await ctx.channel.send(f"Sorry, the command **`{commandPrefix}{commandParent}{ctx.invoked_with}`** is on cooldown for you! Try the command in the next " + "{:.1f}seconds".format(error.retry_after))
         return
 
-
-
     elif isinstance(error, commands.CommandNotFound):
-        try:
-            amount = float(ctx.invoked_with)
+        if (ctx.invoked_with.isnumeric()):
             await ctx.channel.send(f'{sample(liner_dic["Money"], 1)[0]}'.replace("<cashmoney>", f"${ctx.invoked_with}").replace("<user>", ctx.author.display_name))
-        except ValueError:
+        else:
             await ctx.channel.send(f'Sorry, the command **`{commandPrefix}{ctx.invoked_with}`** is not valid, please try again!')
         return 
     else:

@@ -2,7 +2,7 @@ import discord
 import re
 import asyncio
 from discord.ext import commands
-from bfunc import db, roleArray, commandPrefix, tier_reward_dictionary, alphaEmojis, traceback
+from bfunc import db, roleArray, commandPrefix, alphaEmojis, traceback
 from cogs.util import checkForChar, calculateTreasure, timeConversion
 from random import *
 

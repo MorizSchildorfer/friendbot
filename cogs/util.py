@@ -35,9 +35,37 @@ cp_thresh_hold_array = [16, 16+60, 16+60+60, 90000000]
 
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
 
+source_types = ["CREATE", "BUY", "REWARD"]
+
+def determine_tier(level: int):
+    tier = 4
+    if level < 5:
+        tier = 1
+    elif level < 11:
+        tier = 2
+    elif level < 17:
+        tier = 3
+    return tier
+
+def add_to_inventory(inventory: dict, item: str, amount: int, source: str):
+    if item not in inventory:
+        inventory[item] = {source: amount}
+    else:
+        entry = inventory[item]
+        if source in entry:
+            entry[source] += amount
+        else:
+            entry[source] = amount
+
+def show_inventory(inventory: dict) -> list:
+    output = []
+    for name, entry in inventory.items():
+        output.append(f"{name} x{sum([entry[source] for source in source_types if source in entry])}")
+    return output
+
 
 class InteractionCore:
-    def __init__(self, context, message, embed, system: str):
+    def __init__(self, context, message, embed, system: str = None):
         self.context = context
         self.message = message
         self.embed = embed
@@ -238,7 +266,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         
         # separate the text into different line sections until the full text has been split
         while(length>0):
-            
             if length>1000:
                 # get everything to the limit
                 section_text = text[:1000]
@@ -415,7 +442,6 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
     #channel and author of the original message creating this call
     channel = ctx.channel
     author = ctx.author
-    message = core.message
     embed = core.embed
     system = core.system
     
@@ -531,21 +557,17 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
                     pass
                 else:
                     infoString += f"{alphaEmojis[i]}: {records[i]['Name']}\n"
-            core.apiEmbed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
+            core.embed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
             #inform the user of the current information and ask for their selection of an item
-            #apiEmbed.add_field(name=f"There seems to be multiple results for \"**{query}**\"! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.", value=infoString, inline=False)
-            if not message:
-                message = await channel.send(embed=apiEmbed)
-                core.message = message
-            else:
-                await message.edit(embed=apiEmbed)
-            choice = await disambiguate(min(len(records), queryLimit), message, author)
+            await core.send()
+            choice = await disambiguate(min(len(records), queryLimit), core.message, author)
             
             if choice is None or choice == -1:
-                await message.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
+                await core.message.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
                 ctx.command.reset_cooldown(ctx)
                 core.cancel()
                 return None, core
+            core.embed.description = ""
             embed.clear_fields()
             return records[choice], core
 
@@ -553,7 +575,7 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
             #if only 1 item was left, simply return it
             return records[0], core
 
-async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False, customError=False, authorCheck=None):
+async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=False, customError=False, authorCheck=None):
     channel = ctx.channel
     author = ctx.author
     guild = ctx.guild
@@ -593,29 +615,24 @@ async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False,
         if not mod and not customError:
             await channel.send(content=f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
         ctx.command.reset_cooldown(ctx)
-        return None, None
-
+        return None, core
     else:
         if len(charRecords) > 1:
             infoString = ""
-            
             charRecords = sorted(list(charRecords), key = lambda i : i ['Name'])
             for i in range(0, min(len(charRecords), 20)):
-                infoString += f"{alphaEmojis[i]}: {charRecords[i]['Name']} ({guild.get_member(int(charRecords[i]['User ID']))})\n"
-            
-            
+                infoString += f"{alphaEmojis[i]}: {charRecords[i]['System']} {charRecords[i]['Name']} ({guild.get_member(int(charRecords[i]['User ID']))})\n"
             charEmbed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
-            charEmbedmsg = await channel.send(embed=charEmbed)
-            choice = await disambiguate(min(len(charRecords), 20), charEmbedmsg, author)
+            await core.send()
+            choice = await disambiguate(min(len(charRecords), 20), core.message, author)
             
             if choice is None or choice == -1:
-                await charEmbedmsg.edit(embed=None, content=f"Character information cancelled. Try again using the same command!")
+                await core.message.edit(embed=None, content=f"Character information cancelled. Try again using the same command!")
                 ctx.command.reset_cooldown(ctx)
-                return None, None
-            charEmbed.clear_fields()
-            return charRecords[choice], charEmbedmsg
-
-    return charRecords[0], None
+                return None, core
+            core.embed.clear_fields()
+            return charRecords[choice], core
+    return charRecords[0], core
 
 async def checkForGuild(ctx, name, guildEmbed="" ):
     channel = ctx.channel
@@ -730,7 +747,7 @@ async def spell_item_search(core: InteractionCore, search_parameter, item_type, 
         spell_item_name = f"{item_type} ({sRecord['Name']})"
     return search_parameter, spell_item_name, core
 
-async def find_reward_item(item: str, core: InteractionCore):
+async def find_reward_item(core: InteractionCore, item: str, level: int):
     error_message = ""
     item_type = ""
     system = core.system
@@ -741,9 +758,10 @@ async def find_reward_item(item: str, core: InteractionCore):
     if item_type.lower() == item.lower().strip():
         core.addError(f"Please be more specific with the type of spell scroll which you're purchasing. You must format {item_type} as follows: \"{item_type} (spell name)\".")
         return None, core
+    tier = determine_tier(level)
     if item_type:
         item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type, system)
-    item_record, core = await callAPI(core, 'rit', item, tier = tierNum, filter_rit = True, system = system)
+    item_record, core = await callAPI(core, 'rit', item, tier = tier, filter_rit = True)
     
     if not core.isActive():
         return None, core

@@ -1,5 +1,4 @@
 import discord
-import decimal
 import pytz
 import re
 import random
@@ -9,11 +8,9 @@ import io
 import collections
 from discord.utils import get        
 from math import floor
-from datetime import datetime, timezone, timedelta 
 from discord.ext import commands
-from urllib.parse import urlparse 
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, uwuize, confirm, spell_item_search, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, disambiguate, timeConversion, confirm, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier
 
 
 class Character(commands.Cog):
@@ -212,36 +209,37 @@ class Character(commands.Cog):
     def timeTransfer(self, transferInfo: str, level: int, userId: str):
         user_records = self.db.users.find_one({"User ID": userId})
         error_messages = ""
-        cp_transfered = 0
+        cp_transferred = 0
+        cp = 0
         if not user_records:
             error_messages += f":warning: I could not find you in the database!\n"
         elif "Time Bank" not in user_records.keys():
-            error_messages += f":warning: I could not find you in the database!\n"
+            error_messages += f":warning: I could not find you timebank!\n"
         else:
             transferInfo = transferInfo.lower()
             l = list((re.findall('.*?[hm]', transferInfo)))
-            totalTime = 0
+            total_time = 0
             try:
                 for timeItem in l:
-                    totalTime += convert_to_seconds(timeItem)
+                    total_time += convert_to_seconds(timeItem)
             except Exception as e:
                 error_messages += f":warning: I could not find a number in your time amount!\n"
-                totalTime = 0
-            if totalTime > user_records["Time Bank"]:
+                total_time = 0
+            if total_time > user_records["Time Bank"]:
                 error_messages += f":warning: You do not have enough hours to transfer!\n"
             else:
                 if level < 5:
-                    maxCP = 4
+                    max_cp = 4
                 else:
-                    maxCP = 10
-                cp = ((totalTime) // 900) / 4
-                cp_transfered = cp
-                while(cp >= maxCP and level <20):
-                    cp -= maxCP
+                    max_cp = 10
+                cp = (total_time // 900) / 4
+                cp_transferred = cp
+                while(cp >= max_cp and level <20):
+                    cp -= max_cp
                     level += 1
                     if level > 4:
-                        maxCP = 10
-        return level, cp, cp_transfered, error_messages
+                        max_cp = 10
+        return level, cp, cp_transferred, error_messages
     
     # Stats - Point Buy
     def pointBuy(self, statsArray):
@@ -327,9 +325,9 @@ class Character(commands.Cog):
             core.addError(":warning: Your character's name is too long! The limit is 64 characters.)")
 
         # Reserved for regex, lets not use these for character names please
-        invalidChars = ["[", "]", "?", "“","”", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
+        invalid_chars = ["[", "]", "?", "“","”", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
 
-        for i in invalidChars:
+        for i in invalid_chars:
             if i in name:
                 core.addError(f":warning: Your character's name cannot contain `{i}`. Please revise your character name.")
         if core.hasError():
@@ -345,13 +343,12 @@ class Character(commands.Cog):
                 core.addError(f":warning: You already have a character by the name of ***{name}***! Please use a different name.")
         return core
     
-    async def handleClass(self, core: InteractionCore, classString: str, level: int, inventory: str):
+    async def handleClass(self, core: InteractionCore, classString: str, level: int, inventory: dict):
         classString = classString.strip()
         # Check Character's class
         starting_class = None
         classes = {}
-        totalLevel = 0
-        mLevel = 0
+        total_level = 0
         broken = []
         is_multi_class = '/' in classString
         # If there's a /, character is creating a multiclass character
@@ -369,11 +366,10 @@ class Character(commands.Cog):
                 # Todo is there a better way?
                 mClass, core = await callAPI(core, 'classes', class_name)
                 if not mClass:
-                    cRecord = None
                     broken.append(class_name)
                     continue
                 class_name = mClass["Name"]
-                if starting_class == None:
+                if starting_class is None:
                     starting_class = class_name
                 
                 # Check for class duplicates (ex. Paladin 1 / Paladin 2 = Paladin 3)
@@ -381,29 +377,25 @@ class Character(commands.Cog):
                     classes[class_name]["Level"] += int(class_level)
                 else:
                     classes[class_name] = {'Class': mClass, 'Level': int(class_level), 'Subclass': None} 
-                totalLevel += int(class_level)
-                print(class_level)
+                total_level += int(class_level)
         else:
             starting_class = classString
-            singleClass, core = await callAPI(core, 'classes', starting_class)
-            if singleClass:
-                classes[singleClass["Name"]] = {'Class':singleClass, 'Level': int(level), 'Subclass': None}
+            single_class, core = await callAPI(core, 'classes', starting_class)
+            if single_class:
+                classes[single_class["Name"]] = {'Class':single_class, 'Level': int(level), 'Subclass': None}
             else:
                 broken.append(starting_class)
         if len(broken)>0:
             core.addError(f':warning: **{broken}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
-        if is_multi_class and totalLevel != level:
-            print(totalLevel, level)
+        if is_multi_class and total_level != level:
+            print(total_level, level)
             core.addError(':warning: Your classes do not add up to the total level. Please double-check your multiclasses.')
         if not core.hasError():
             is_multi_class = len(classes) > 1
             starting_entry = classes[starting_class]['Class']
             if 'Starting Equipment' in starting_entry:
                 options = []
-                # TODO turn into list of choices
-                # Done?
                 for item in starting_entry['Starting Equipment']:
-                    print(item)
                     choices = {"Choice": True}
                     def amount_text(v):
                         count = 1
@@ -412,7 +404,6 @@ class Character(commands.Cog):
                         return count
                     for seList in item:
                         # Todo: add amounts as well
-                        
                         choice_text = ", ".join([f"{k} x{amount_text(v)}" for k, v in seList.items()])
                         print("choice_text", choice_text)
                         choices[choice_text] = seList
@@ -434,15 +425,15 @@ class Character(commands.Cog):
         return core, classes, starting_class
         
     # Background items: goes through each background and give extra items for inventory.
-    async def selectInventoryChoices(self, core: InteractionCore, startingOptions: dict, inventory: dict):
+    async def selectInventoryChoices(self, core: InteractionCore, startingOptions: list, inventory: dict):
         embed = core.embed
         remaining_options = startingOptions
         
         while len(remaining_options) > 0:
             e = remaining_options.pop()
             for ek, ev in e.items():
-                beTopChoiceList = []
-                beTopChoiceKeys = []
+                choice_values = []
+                choice_keys = []
                 alphaIndexTop = 0
                 beTopChoiceString = ""
                 if type(ev) == dict:
@@ -452,18 +443,18 @@ class Character(commands.Cog):
                             continue
                         if is_choice:
                             print(key, value)
-                            beTopChoiceKeys.append(key)
-                            beTopChoiceList.append(value)
+                            choice_keys.append(key)
+                            choice_values.append(value)
                             beTopChoiceString += f"{alphaEmojis[alphaIndexTop]}: {key}\n"
                             alphaIndexTop += 1
                         else:
                             remaining_options.append({key: value})
                 else:
-                    beTopChoiceKeys.append(ek)
-                    beTopChoiceList.append(ev)
-                if len(beTopChoiceList) > 0:
+                    choice_keys.append(ek)
+                    choice_values.append(ev)
+                if len(choice_values) > 0:
                     # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
-                    if len(beTopChoiceList) > 1:
+                    if len(choice_values) > 1:
                         embed.add_field(name=f"{ek} lets you choose one.", value=beTopChoiceString, inline=False)
                         await core.send()
                         await core.message.add_reaction('❌')
@@ -477,15 +468,15 @@ class Character(commands.Cog):
                             if tReaction.emoji == '❌':
                                 core.cancel()
                                 return core, inventory
-                        beTopValues = beTopChoiceList[alphaEmojis.index(tReaction.emoji)]
-                        beTopKey = beTopChoiceKeys[alphaEmojis.index(tReaction.emoji)]
+                        top_values = choice_values[alphaEmojis.index(tReaction.emoji)]
+                        top_key = choice_keys[alphaEmojis.index(tReaction.emoji)]
                     else:
-                        beTopValues = beTopChoiceList[0]
-                        beTopKey = beTopChoiceKeys[0]
+                        top_values = choice_values[0]
+                        top_key = choice_keys[0]
                     
-                    if type(beTopValues) == int:
-                        if '[' in beTopKey and ']' in beTopKey:
-                            iType = beTopKey.split('[')
+                    if type(top_values) == int:
+                        if '[' in top_key and ']' in top_key:
+                            iType = top_key.split('[')
                             invCollection = db.shop
                             if 'Instrument' in iType[1]:
                                 found_options = list(invCollection.find({"System": core.system, "Type": {'$all': [re.compile(f".*{iType[1].replace(']','')}.*")]}}))
@@ -496,17 +487,15 @@ class Character(commands.Cog):
                             next_options = {"Choice": True}
                             for item in found_options:
                                 next_options[item["Name"]] = 1
-                            for i in range(0,int(beTopValues)):
-                                # infinite loop?
-                                # print({beTopKey: next_options})
-                                remaining_options.append({beTopKey: next_options})
+                            for i in range(0,int(top_values)):
+                                remaining_options.append({top_key: next_options})
                         else:
-                            add_to_inventory(inventory, beTopKey, beTopValues, "CREATE")
-                    elif 'Pack' in beTopKey:
-                        remaining_options.append({beTopKey: beTopValues})
+                            add_to_inventory(inventory, top_key, top_values, "CREATE")
+                    elif 'Pack' in top_key:
+                        remaining_options.append({top_key: top_values})
                     else:
-                        print({beTopKey: beTopValues})
-                        remaining_options.append({beTopKey: beTopValues})
+                        print({top_key: top_values})
+                        remaining_options.append({top_key: top_values})
                     embed.clear_fields()
         return core, inventory
     
@@ -568,12 +557,12 @@ class Character(commands.Cog):
                 core.addError(f":warning: In order to multiclass to or from **{class_name}** you need at least **{entry['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!")
         return core
     
-    def determine_special_bonuses(self, system:str, subclasses, charDict):
+    def determine_special_bonuses(self, system:str, subclasses):
         #Special stat bonuses (Barbarian cap / giant soul sorc)
-        specialCollection = db.special
-        specialRecords = list(specialCollection.find({"System": system}))
+        special_records = list(db.special.find({"System": system}))
         special_stats = ""
-        for s in specialRecords:
+        stat_bonuses = {}
+        for s in special_records:
             if 'Bonus Level' in s:
                 for c in subclasses:
                     if s['Bonus Level'] <= c['Level'] and s['Name'] in f"{c['Name']} ({c['Subclass']})":
@@ -581,13 +570,9 @@ class Character(commands.Cog):
                             statSplit = s['Stat Bonuses'].split('MAX ')[1].split(', ')
                             for stat in statSplit:
                                 maxSplit = stat.split(' +')
-                                charDict[maxSplit[0]] += int(maxSplit[1])
-                                charDict['Max Stats'][maxSplit[0]] += int(maxSplit[1]) 
-                            special_stats = f"Level {s['Bonus Level']} {c['Name']} stat bonus unlocked! {s['Stat Bonuses']}"
-        for sk in charDict['Max Stats'].keys():
-            if charDict[sk] > charDict['Max Stats'][sk]:
-                charDict[sk] = charDict['Max Stats'][sk]
-        return charDict, special_stats
+                                stat_bonuses[maxSplit[0]] += int(maxSplit[1])
+                            special_stats += f"Level {s['Bonus Level']} {c['Name']} stat bonus unlocked! {s['Stat Bonuses']}\n"
+        return stat_bonuses, special_stats
     
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
@@ -598,7 +583,7 @@ class Character(commands.Cog):
         if system not in ["5E", "5R"]:
             await ctx.channel.send(content=f":warning: Unknown System: {system}. Options: 5E, or 5R")
             self.bot.get_command(command_name).reset_cooldown(ctx)
-            return
+            return None
         
         name = name.strip()
         channel = ctx.channel
@@ -609,17 +594,14 @@ class Character(commands.Cog):
                 and await self.checkParameter(ctx, "race", race)
                 and await self.checkParameter(ctx, "class", characterClass)
                 and await self.checkParameter(ctx, "background", bg)):
-            return
+            return None
         author = ctx.author
         roles = [r for r in author.roles]
-        guild = ctx.guild
         charEmbed = discord.Embed()
         charEmbed.set_author(name=author.display_name, icon_url=author.display_avatar)
         charEmbed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
-        charEmbedmsg = None
-        statNames = ['STR','DEX','CON','INT','WIS','CHA']
         lvl = int(level)
-        charDict = {
+        char_dict = {
           'System': system,
           'User ID': str(author.id),
           'Name': name,
@@ -641,11 +623,10 @@ class Character(commands.Cog):
           'Feats': {},
           'Inventory': {},
           'Predecessor': {},
-          'Games': 0,
-          'Feats': []
+          'Games': 0
         }
         inventory = {}
-        core = InteractionCore(ctx, charEmbedmsg, charEmbed, system)
+        core = InteractionCore(ctx, None, charEmbed, system)
         core = self.nameVerification(core, name, author)
         role_limit = self.getLeveLimit(list([role.name for role in roles]))
         if lvl > role_limit:
@@ -653,14 +634,14 @@ class Character(commands.Cog):
         
         # Checks CP
         cp = 0
-        cpTransfered = 0
+        cp_transferred = 0
         time_transfer_success = False
         if timeTransfer:
-            lvl, cp, cp_transfered, error_messages = self.timeTransfer(timeTransfer, lvl, str(author.id))
+            lvl, cp, cp_transferred, error_messages = self.timeTransfer(timeTransfer, lvl, str(author.id))
             core.addError(error_messages)
-            time_transfer_success = error_messages ==""
+            time_transfer_success = error_messages == ""
         
-        charDict['CP'] = cp
+        char_dict['CP'] = cp
         
         levelCP = (((lvl-5) * 10) + 16)
         if lvl < 5:
@@ -668,19 +649,19 @@ class Character(commands.Cog):
         cp_tp_gp_array = calculateTreasure(1, 0, (levelCP+cp)*3600)
         totalGP = cp_tp_gp_array[2]
         tp_bank = cp_tp_gp_array[1]
-        charDict["GP"] += totalGP
+        char_dict["GP"] += totalGP
         if lvl > 20:
             lvl = 20
-            charDict["Level"] = 20
-        point_buy_error = self.pointBuy([int(sStr), int(sDex), int(sCon), int(sInt), int(sWis), int(sCha)])
+            char_dict["Level"] = 20
+        point_buy_error = self.pointBuy([sStr, sDex, sCon, sInt, sWis, sCha])
         core.addError(point_buy_error)
         
         # Reward Items
         if consumes.strip() != "":
             rewardItems = consumes.strip().split(',')
             core, magic_items, consumables, inventory = await self.determineRewardItems(core, rewardItems, lvl)
-            charDict["Magic Items"] = magic_items
-            charDict["Consumables"] = consumables
+            char_dict["Magic Items"] = magic_items
+            char_dict["Consumables"] = consumables
                       
         # check race
         race_record, core = await callAPI(core, 'races', race)
@@ -689,64 +670,65 @@ class Character(commands.Cog):
         if not race_record:
             core.addError(f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
         else:
-            charDict['Race'] = race_record['Name']
+            char_dict['Race'] = race_record['Name']
             if("Extra Feat") in race_record:
-                core, featsChosen, statsFeats = await self.chooseFeat(core, charDict["Race"], {}, ["Extra Feat"], charDict, charDict["Feats"])
+                core, featsChosen, statsFeats = await self.chooseFeat(core, char_dict["Race"], {}, ["Extra Feat"], char_dict, char_dict["Feats"])
 
                 if not core.isActive():
                     return core, None
 
                 #TODO: maybe dont change the dict directly?
-                charDict['Feats'].extend(list(featsChosen.keys()))
+                char_dict['Feats'].extend(list(featsChosen.keys()))
                 for key, value in statsFeats.items():
-                    charDict[key] = value
+                    char_dict[key] = value
 
         core, classes, starting_class = await self.handleClass(core, characterClass, lvl, inventory)
-        charDict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
+        char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
+        char_dict["Starting Class"] = starting_class
         # check bg and gp
         bRecord, core = await callAPI(core, 'backgrounds', bg)
         if not bRecord:
             core.addError(f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n')
         if not core.hasError():
-            charDict['Background'] = bRecord['Name']
+            char_dict['Background'] = bRecord['Name']
             backgroundGp = bRecord["GP"]
-            charDict["GP"] += backgroundGp
+            char_dict["GP"] += backgroundGp
             core, inventory = await self.selectInventoryChoices(core, bRecord["Equipment"], inventory)
-            charDict["Feats"] = [bRecord["Feat"]]
+            char_dict["Feats"] = [bRecord["Feat"]]
             
         # Stats - Point Buy
         if not core.hasError() and False:
-            core, statsArray = await self.startingStatModification(core, [charDict["STR"], charDict["DEX"], charDict["CON"], charDict["INT"], charDict["WIS"], charDict["CHA"]], bRecord)
+            core, statsArray = await self.startingStatModification(core, [char_dict["STR"], char_dict["DEX"], char_dict["CON"], char_dict["INT"], char_dict["WIS"], char_dict["CHA"]], bRecord)
             if not statsArray:
-                return
-            charDict["STR"] = statsArray[0]
-            charDict["DEX"] = statsArray[1]
-            charDict["CON"] = statsArray[2]
-            charDict["INT"] = statsArray[3]
-            charDict["WIS"] = statsArray[4]
-            charDict["CHA"] = statsArray[5]
+                return None
+            char_dict["STR"] = statsArray[0]
+            char_dict["DEX"] = statsArray[1]
+            char_dict["CON"] = statsArray[2]
+            char_dict["INT"] = statsArray[3]
+            char_dict["WIS"] = statsArray[4]
+            char_dict["CHA"] = statsArray[5]
         
         #Stats - Feats
         if not core.hasError():
-            core, charDict = await self.selectClassFeats(core, classes, charDict)
+            core, char_dict = await self.selectClassFeats(core, classes, char_dict)
         
         if "Wizard" in classes:
-            charDict['Free Spells'] = [6,0,0,0,0,0,0,0,0]
+            char_dict['Free Spells'] = [6,0,0,0,0,0,0,0,0]
             fsIndex = 0
             for i in range (2, int(classes["Wizard"]['Level']) + 1 ):
                 if i % 2 != 0:
                     fsIndex += 1
-                charDict['Free Spells'][fsIndex] += 2
+                char_dict['Free Spells'][fsIndex] += 2
                 
         #HP
-        hpRecords = []
+        hp_records = []
         for class_name, entry in classes.items():
-            hpRecords.append({'Level':entry['Level'], 'Subclass': entry['Subclass'], 'Name': class_name, 'Hit Die Max': entry['Class']['Hit Die Max'], 'Hit Die Average':entry['Class']['Hit Die Average']})
+            hp_records.append({'Level':entry['Level'], 'Subclass': entry['Subclass'], 'Name': class_name, 'Hit Die Max': entry['Class']['Hit Die Max'], 'Hit Die Average':entry['Class']['Hit Die Average']})
 
         # Multiclass Requirements
         if len(classes) > 1:
             # TODO: pass a new dictionary
-            core = self.check_multiclass(core, classes, charDict)
+            core = self.check_multiclass(core, classes, char_dict)
         if not core.isActive() or core.hasError():
             await core.delete()
             if not core.isActive():
@@ -755,51 +737,53 @@ class Character(commands.Cog):
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
             self.bot.get_command(command_name).reset_cooldown(ctx)
-            return 
+            return None
         
-        if 'Max Stats' not in charDict:
-            charDict['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
+        if 'Max Stats' not in char_dict:
+            char_dict['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
         
         subclasses = list([{'Name': name, 'Subclass':entry["Subclass"], 'Level': entry["Level"]} for name, entry in classes.items() if "Subclass" in entry])
-        charDict, special_stats = self.determine_special_bonuses(system, subclasses, charDict)
+        stat_bonuses, special_stats = self.determine_special_bonuses(system, subclasses, char_dict)
         
-        if hpRecords:
-            charDict['HP'] = await self.calcHP(ctx, hpRecords, charDict, lvl)
+        if hp_records:
+            hp: int = self.calculate_base_hp(hp_records, char_dict, lvl)
+            hp += self.calculate_bonus_hp(char_dict, lvl)
+            char_dict['HP'] = hp
         
-        level = charDict['Level']
+        level = char_dict['Level']
         if level == 20:
             tier = 5
         else:
             tier = determine_tier(level)
         core.embed.clear_fields()    
-        core.embed.title = f"{charDict['Name']} (Lv {level}): {charDict['CP']}/{cp_bound_array[tier-1][1]} CP"
-        class_summary = format_classes(charDict["Class"])
-        core.embed.description = f"**Race**: {charDict['Race']}\n**Class**: {class_summary}\n**Background**: {charDict['Background']}\n**Max HP**: {charDict['HP']}\n**GP**: {charDict['GP']} " + (time_transfer_success * ("\n**Transfered**"))
+        core.embed.title = f"{char_dict['Name']} (Lv {level}): {char_dict['CP']}/{cp_bound_array[tier-1][1]} CP"
+        class_summary = self.format_classes(char_dict["Class"])
+        core.embed.description = f"**Race**: {char_dict['Race']}\n**Class**: {class_summary}\n**Background**: {char_dict['Background']}\n**Max HP**: {char_dict['HP']}\n**GP**: {char_dict['GP']} " + (time_transfer_success * ("\n**Transfered**"))
 
         for x in range(1,6):
             tier_key = f'T{x} TP'
             if tier_key in tp_bank:
-                charDict[tier_key] = tp_bank[tier_key]
-                core.embed.add_field(name=f':warning: Unused T{x} TP', value=charDict[f'T{x} TP'], inline=True)
-        if len(charDict['Magic Items']) != 0:
-            core.embed.add_field(name='Magic Items', value=", ".join(show_inventory(charDict['Magic Items'])), inline=False)
-        if len(charDict['Consumables']) != 0:
-            core.embed.add_field(name='Consumables', value=", ".join(show_inventory(['Consumables'])), inline=False)
-        core.embed.add_field(name='Feats', value=", ".join(charDict['Feats']), inline=True)
-        core.embed.add_field(name='Stats', value=f"**STR**: {charDict['STR']} **DEX**: {charDict['DEX']} **CON**: {charDict['CON']} **INT**: {charDict['INT']} **WIS**: {charDict['WIS']} **CHA**: {charDict['CHA']}", inline=False)
+                char_dict[tier_key] = tp_bank[tier_key]
+                core.embed.add_field(name=f':warning: Unused T{x} TP', value=char_dict[f'T{x} TP'], inline=True)
+        if len(char_dict['Magic Items']) != 0:
+            core.embed.add_field(name='Magic Items', value=", ".join(show_inventory(char_dict['Magic Items'])), inline=False)
+        if len(char_dict['Consumables']) != 0:
+            core.embed.add_field(name='Consumables', value=", ".join(show_inventory(char_dict['Consumables'])), inline=False)
+        core.embed.add_field(name='Feats', value=", ".join(char_dict['Feats']), inline=True)
+        core.embed.add_field(name='Stats', value=f"**STR**: {char_dict['STR']} **DEX**: {char_dict['DEX']} **CON**: {char_dict['CON']} **INT**: {char_dict['INT']} **WIS**: {char_dict['WIS']} **CHA**: {char_dict['CHA']}", inline=False)
 
-        if 'Wizard' in charDict['Class']:
+        if 'Wizard' in char_dict['Class']:
             core.embed.add_field(name='Spellbook (Wizard)', value=f"At 1st level, you have a spellbook containing six 1st-level Wizard spells of your choice (+2 free spells for each wizard level). Please use the `{commandPrefix}shop copy` command." , inline=False)
             fsString = ""
             fsIndex = 0
-            for el in charDict['Free Spells']:
+            for el in char_dict['Free Spells']:
                 if el > 0:
                     fsString += f"Level {fsIndex+1}: {el} free spells\n"
                 fsIndex += 1
 
             if fsString:
                 core.embed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
-        charDict["Inventory"] = inventory
+        char_dict["Inventory"] = inventory
         if len(inventory) > 0:
             inventory_string = "\n".join(show_inventory(inventory))
             core.embed.add_field(name='Starting Equipment', value=inventory_string, inline=False)
@@ -815,7 +799,7 @@ class Character(commands.Cog):
             await core.delete()
             await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
             self.bot.get_command(command_name).reset_cooldown(ctx)
-            return
+            return None
         else:
             await  core.message.clear_reactions()
             if tReaction.emoji == '❌':
@@ -823,30 +807,27 @@ class Character(commands.Cog):
                 await core.message.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
                 self.bot.get_command(command_name).reset_cooldown(ctx)
-                return
+                return None
 
-        statsCollection = db.stats
-        statsRecord  = statsCollection.find_one({'Life': 1, 'System': system})
-        stat_increase = {}
-        stat_increase[f"Background.{charDict['Background']}"] = 1
-        stat_increase[f"Race.{charDict['Race']}"] = 1
-        for feat in charDict["Feats"]:
+        stats_collection = db.stats
+        stat_increase = {f"Background.{char_dict['Background']}": 1, f"Race.{char_dict['Race']}": 1}
+        for feat in char_dict["Feats"]:
             stat_increase[f"Feats.{feat}"] = 1
-            
         try:
-            db.players.insert_one(charDict)
+            db.players.insert_one(char_dict)
             if time_transfer_success:
                 db.users.update_one({"User ID": str(author.id)}, {"$inc" : {"Time Bank": -cpTransfered *3600}})
-                await self.levelCheck(ctx, charDict["Level"], charDict["Name"])
-            statsCollection.update_one({'Life':1, 'System': system}, {"$inc": stat_increase}, upsert=True)
+                await self.levelCheck(ctx, char_dict["Level"], char_dict["Name"])
+            stats_collection.update_one({'Life':1, 'System': system}, {"$inc": stat_increase}, upsert=True)
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
             await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
         else:
             core.embed.set_footer(text= None)
-            await core.send(f"Congratulations! :tada: You have created ***{charDict['Name']}***!")
+            await core.send(f"Congratulations! :tada: You have created ***{char_dict['Name']}***!")
             await core.message.clear_reactions()
         self.bot.get_command(command_name).reset_cooldown(ctx)
+        return None
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
@@ -1558,7 +1539,7 @@ class Character(commands.Cog):
             if charDict[sk] > charDict['Max Stats'][sk]:
                 charDict[sk] = charDict['Max Stats'][sk]
         if hpRecords:
-            charDict['HP'] = await characterCog.calcHP(ctx,hpRecords,charDict,lvl)
+            charDict['HP'] = await characterCog.calculate_base_hp(ctx, hpRecords, charDict, lvl)
 
         
         charEmbed.clear_fields()    
@@ -1953,7 +1934,7 @@ class Character(commands.Cog):
             if charDict[sk] > charDict['Max Stats'][sk]:
                 charDict[sk] = charDict['Max Stats'][sk]
         if hpRecords:
-            charDict['HP'] = await characterCog.calcHP(ctx,hpRecords,charDict,lvl)
+            charDict['HP'] = await characterCog.calculate_base_hp(ctx, hpRecords, charDict, lvl)
 
         tierNum = 5
         # calculate the tier of the rewards
@@ -3789,7 +3770,7 @@ class Character(commands.Cog):
                             maxStatStr += f"\n{infoRecords['Name']}'s {sk} will not increase because their maximum is {data['Max Stats'][sk]}."
                 infoRecords["Class"] = data["Class"]
                 infoRecords['CON'] = charStats['CON']
-                charHP = await characterCog.calcHP(ctx, subclasses, infoRecords, int(newCharLevel))
+                charHP = await characterCog.calculate_base_hp(ctx, subclasses, infoRecords, int(newCharLevel))
                 data['HP'] = charHP
                 tierNum += int(newCharLevel in [5, 11, 17, 20])
                 levelUpEmbed.title = f'{charName} has leveled up to {newCharLevel}!\nCurrent CP: {totalCP}/{cp_bound_array[tierNum-1][1]} CP'
@@ -4168,51 +4149,39 @@ class Character(commands.Cog):
                     await channel.send(f"You successfully unattuned from **{mRecord['Name']}**!")
                     
 
-    async def calcHP (self, ctx, classes, charDict, lvl):
-        # classes = sorted(classes, key = lambda i: i['Hit Die Max'],reverse=True) 
-        totalHP = 0
-        totalHP += classes[0]['Hit Die Max']
-        currentLevel = 1
-        charDict = charDict.copy()
+    def calculate_base_hp (self, classes, charDict, lvl):
+        totalHP = classes[charDict['Starting Class']]['Hit Die Max']
         for c in classes:
-            classLevel = int(c['Level'])
-            while currentLevel < classLevel:
-                totalHP += c['Hit Die Average']
-                currentLevel += 1
-            currentLevel = 0
+            level = int(c['Level'])
+            totalHP += c['Hit Die Average'] * level
 
         totalHP += ((int(charDict['CON']) - 10) // 2 ) * lvl
-        
-        specialCollection = db.special
-        specialRecords = list(specialCollection.find())
-
-        for s in specialRecords:
-            if s['Type'] == "Race" or s['Type'] == "Feats" or s['Type'] == "Magic Items":
-                if s['Name'] in charDict[s['Type']]:
-                    if 'HP' in s:
-                        if 'Half Level' in s:
-                            totalHP += s['HP'] * floor(lvl/2)
-                        else:
-                            totalHP += s['HP'] * lvl
-            elif s['Type'] == "Class":
-                for multi in charDict['Class'].split("/"):
-                    multi = multi.strip()
-                    multi_split = list(multi.split(" "))
-                    class_level = lvl
-                    class_name = multi_split[0]
-                    if len(multi_split) > 2:
-                        try:
-                            class_level=int(multi_split.pop(1))
-                        except Exception as e:
-                            continue
-                    class_name = " ".join(multi_split)
-                    if class_name == s["Name"]:
-                        if 'HP' in s:
-                            if 'Half Level' in s:
-                                totalHP += s['HP'] * floor(class_level/2)
-                            else:
-                                totalHP += s['HP'] * class_level
         return totalHP
+
+    def calculate_bonus_hp(self, char_dict: dict, system: str):
+        total_hp = 0
+        specialRecords = list(db.special.find({"System": system}))
+        lvl = char_dict['Level']
+        # todo maybe filter in query
+        for s in specialRecords:
+            if 'HP' not in s:
+                continue
+            if s['Type'] == "Race" or s['Type'] == "Feats" or s['Type'] == "Magic Items":
+                if s['Name'] in char_dict[s['Type']]:
+                    if 'Half Level' in s:
+                        total_hp += s['HP'] * floor(lvl/2)
+                    else:
+                        total_hp += s['HP'] * lvl
+            elif s['Type'] == "Class":
+                for key, value in char_dict['Class'].items():
+                    class_level = value['Level']
+                    class_name = f"{key} ({value['Subclass']})"
+                    if class_name == s["Name"]:
+                        if 'Half Level' in s:
+                            total_hp += s['HP'] * floor(class_level/2)
+                        else:
+                            total_hp += s['HP'] * class_level
+        return total_hp
 
     # need a different version for 5R? Passing a diffent record in should be enough
     async def startingStatModification(self, core, statsArray, sourceRecord):

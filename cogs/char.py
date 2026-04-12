@@ -2052,161 +2052,120 @@ class Character(commands.Cog):
     async def inventory(self,ctx, char, mod_override=""):
         author = ctx.author
         guild = ctx.guild
-        roleColors = {r.name:r.colour for r in guild.roles}
         charEmbed = discord.Embed()
+
         contents = []
         mod= False
         if mod_override:
             mod = "Mod Friend" in [role.name for role in author.roles]
-        charDict, charEmbedmsg = await checkForChar(ctx, char, charEmbed, mod=mod)
-        if charDict:
-            footer = f"To view your character's info, type the following command: {commandPrefix}info {charDict['Name']}"
-            charLevel = char_dict['Level']
-            if charLevel == 20:
-                tier = 5
-            else:
-                tier = determine_tier(charLevel)
-            if tier == 1:
-                charEmbed.colour = (roleColors['Junior Friend'])
-            elif tier == 2:
-                charEmbed.colour = (roleColors['Journeyfriend'])
-            elif tier == 3:
-                charEmbed.colour = (roleColors['Elite Friend'])
-            elif tier == 4:
-                charEmbed.colour = (roleColors['True Friend'])
-            else:
-                charEmbed.colour = (roleColors['Ascended Friend'])
-            spell_list = []
-            if "Spellbook" in charDict:
-                spell_list = [spell["Name"] for spell in charDict["Spellbook"]]
-            if "Ritual Book" in charDict:
-                spell_list += [spell["Name"] for spell in charDict["Ritual Book"]]
-            if spell_list:
-                spell_dict = {x["Name"] : x for x in db.spells.find({"Name": {"$in": spell_list}})}
-                # Show Spellbook in inventory
-                if "Spellbook" in charDict:
-                    spellbook_string = ""
-                    spell_levels = {x: [] for x in range(0,10)}
-                    for spell in charDict["Spellbook"]:
-                        spell_levels[spell_dict[spell["Name"]]["Level"]].append(spell_dict[spell["Name"]])
-                    for level, spells in spell_levels.items():
-                        if spells:
-                            spellbook_string+= f"**Level {level}**\n"
-                            for spell in sorted(spells, key=lambda s: s["Name"]):
-                                spellbook_string += f"• {spell['Name']} ({spell['School']})\n"
-                    contents.append(("Spellbook", spellbook_string, False))
-                if 'Ritual Book' in charDict:
-                    ritualbook_string = ""
-                    spell_levels = {x: [] for x in range(0,10)}
-                    for spell in charDict["Ritual Book"]:
-                        spell_levels[spell_dict[spell["Name"]]["Level"]].append(spell_dict[spell["Name"]])
-                    for level, spells in spell_levels.items():
-                        if spells:
-                            ritualbook_string+= f"**Level {level}**\n"
-                            for spell in sorted(spells, key=lambda s: s["Name"]):
-                                ritualbook_string += f"• {spell['Name']} ({spell['School']})\n"
-                    contents.append(("Ritual Book", ritualbook_string, False))
 
-            # Show Consumables in inventory.
-            consumesString = ""
-            consumesCount = collections.Counter(charDict['Consumables'].split(', '))
-            for k, v in consumesCount.items():
-                if v == 1:
-                    consumesString += f"• {k}\n"
-                else:
-                    consumesString += f"• {k} x{v}\n"
-
-
-            contents.append(("Consumables", consumesString, False))
-            
-            # Show Magic items in inventory.
-
-            miString = ""
-            miArray = collections.Counter(charDict['Magic Items'].split(', '))
-
-            for m,v in miArray.items():
-                if "Predecessor" in charDict and m in charDict["Predecessor"]:
-                    upgrade_names = charDict['Predecessor'][m]["Names"]
-                    stage = charDict['Predecessor'][m]["Stage"]
-                    m = m + f" ({upgrade_names[stage]})"
-                if v == 1:
-                    miString += f"• {m}\n"
-                else:
-                    miString += f"• {m} x{v}\n"
-            contents.append((f"Magic Items", miString, False))
-
-            charDictAuthor = guild.get_member(int(charDict['User ID']))
-            
-            if charDict['Inventory'] != 'None':
-                typeDict = {}
-                invCollection = db.shop
-                namingDict = {}
-                searchList = []
-                keys = charDict['Inventory'].keys()
-                for dbEntry in keys:
-                    searchTerm = dbEntry
-                    if(searchTerm.startswith("Silvered ")):
-                        searchTerm=searchTerm.replace("Silvered ", "", 1)
-                    if(searchTerm.startswith("Adamantine ")):
-                        searchTerm= searchTerm.replace("Adamantine ", "", 1)
-                    if(searchTerm in namingDict):
-                        namingDict[searchTerm].append(dbEntry)
-                    else:
-                        namingDict[searchTerm] = [dbEntry]
-                    searchList.append(searchTerm)
-                charInv = list(invCollection.find({"Name": {'$in': searchList}}))
-                for i in charInv:
-                    iType = i['Type'].split('(')
-                    if len(iType) == 1:
-                        iType.append("")
-                    else:
-                        iType[1] = '(' + iType[1]
-                
-                    iType[0] = iType[0].strip()
-
-                    if isinstance(i['Name'], str):
-                        for entry in namingDict[i['Name']]:
-                            amt = charDict['Inventory'][entry]
-                            if amt == 1:
-                                amt = ""
-                            else:
-                                amt = f"x{amt}"
-                            
-                            if iType[0] not in typeDict:
-                                typeDict[iType[0]] = [f"• {entry} {iType[1]} {amt}\n"]
-                            else:
-                                typeDict[iType[0]].append(f"• {entry} {iType[1]} {amt}\n")
-                    else:
-                        for k,v in charDict['Inventory'].items():
-                            if k in i['Name']:
-                                amt = v
-                                if amt == 1:
-                                    amt = ""
-                                else:
-                                    amt = f"x{amt}"
-                                
-                                if iType[0] not in typeDict:
-                                    typeDict[iType[0]] = [f"• {k} {iType[1]} {amt}\n"]
-                                else:
-                                    typeDict[iType[0]].append(f"• {k} {iType[1]} {amt}\n")
-
-                for k, v in typeDict.items():
-                    v.sort()
-                    vString = ''.join(v)
-                    contents.append((f"{k}", vString, False))
-                        
-
-            if "Collectibles" in charDict:
-                vString = ""
-                for k, v in charDict["Collectibles"].items():
-                    vString += f'• {k} x{v}\n'
-                
-                contents.append((f"Collectibles", vString, False))
-            
-            await paginate(ctx, self.bot, f"{charDict['Name']} (Lv {charLevel}): Inventory", contents, msg=charEmbedmsg, separator="\n", author = charDictAuthor, color= color, footer=footer)
-
-
+        core = InteractionCore(ctx, None, char_embed)
+        char_dict, core = await checkForChar(core, char, authorCheck=authorCheck, mod=mod)
+        if not core.isActive():
+            await core.send("Character search cancelled")
             self.bot.get_command('inv').reset_cooldown(ctx)
+            return
+        if not core.hasError():
+            char_embed.clear_fields()
+            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            await core.send()
+            self.bot.get_command('inv').reset_cooldown(ctx)
+            return
+        if not char_dict:
+            self.bot.get_command('inv').reset_cooldown(ctx)
+            return
+        footer = f"To view your character's info, type the following command: {commandPrefix}info {char_dict['Name']}"
+        char_level = char_dict['Level']
+        if char_level == 20:
+            tier = 5
+        else:
+            tier = determine_tier(char_level)
+        charEmbed.colour = self.determine_color(guild, tier)
+        spell_list = []
+        if "Spellbook" in char_dict:
+            spell_list = [spell["Name"] for spell in char_dict["Spellbook"]]
+        if "Ritual Book" in char_dict:
+            spell_list += [spell["Name"] for spell in char_dict["Ritual Book"]]
+        if spell_list:
+            spell_dict = {x["Name"] : x for x in db.spells.find({"Name": {"$in": spell_list}})}
+            # Show Spellbook in inventory
+            if "Spellbook" in char_dict:
+                spellbook_string = ""
+                spell_levels = {x: [] for x in range(0,10)}
+                for spell in char_dict["Spellbook"]:
+                    spell_levels[spell_dict[spell["Name"]]["Level"]].append(spell_dict[spell["Name"]])
+                for level, spells in spell_levels.items():
+                    if spells:
+                        spellbook_string+= f"**Level {level}**\n"
+                        for spell in sorted(spells, key=lambda s: s["Name"]):
+                            spellbook_string += f"• {spell['Name']} ({spell['School']})\n"
+                contents.append(("Spellbook", spellbook_string, False))
+            if 'Ritual Book' in char_dict:
+                ritual_book_string = ""
+                spell_levels = {x: [] for x in range(0,10)}
+                for spell in char_dict["Ritual Book"]:
+                    spell_levels[spell_dict[spell["Name"]]["Level"]].append(spell_dict[spell["Name"]])
+                for level, spells in spell_levels.items():
+                    if spells:
+                        ritual_book_string+= f"**Level {level}**\n"
+                        for spell in sorted(spells, key=lambda s: s["Name"]):
+                            ritual_book_string += f"• {spell['Name']} ({spell['School']})\n"
+                contents.append(("Ritual Book", ritual_book_string, False))
+
+        # Show Consumables in inventory.
+        consumables = char_dict["Consumables"]
+        if len(consumables) > 0:
+            consumables_string = "\n".join(show_inventory(consumables))
+            contents.append(("Consumables", consumables_string, False))
+
+        # Show Magic items in inventory.
+        magic_items = char_dict["Magic Items"]
+        if len(magic_items) > 0:
+            contents.append((f"Magic Items", "\n".join(show_inventory(magic_items)), False))
+
+        member = guild.get_member(int(char_dict['User ID']))
+        inventory  = char_dict['Inventory']
+        if inventory:
+            types = {}
+            search_names = list(inventory.keys())
+            db_entries: dict = list(db.shop.find({"System": char_dict['System'], "Name": {'$in': search_names}}))
+            for entry in db_entries:
+                type = entry['Type']
+                sub_entries = {}
+                types[type] = sub_entries
+                item_names = []
+                if isinstance(entry['Name'], str):
+                    item_names.append(entry['Name'])
+                else:
+                    for name in entry['Name']:
+                        item_names.append(name)
+                for name in item_names:
+                    if name in inventory:
+                        sub_entries[name] = inventory[name]
+            for k, v in types.items():
+                output = '\n'.join(show_inventory(v).sorted())
+                contents.append((f"{k}", output, False))
+
+        if "Collectibles" in char_dict:
+            collectibles = char_dict["Collectibles"]
+            if len(collectibles) > 0:
+                collectibles_string = "\n".join(collectibles)
+                contents.append(("Collectibles", collectibles_string, False))
+        await paginate(ctx, self.bot, f"{char_dict['Name']} (Lv {char_level}): Inventory", contents, msg=core.message, separator="\n", author = member, color= color, footer=footer)
+        self.bot.get_command('inv').reset_cooldown(ctx)
+
+    def determine_color(self, guild, tier):
+        role_colors = {r.name: r.colour for r in guild.roles}
+        if tier == 1:
+            return (role_colors['Junior Friend'])
+        elif tier == 2:
+            return (role_colors['Journeyfriend'])
+        elif tier == 3:
+            return (role_colors['Elite Friend'])
+        elif tier == 4:
+            return (role_colors['True Friend'])
+        else:
+            return (role_colors['Ascended Friend'])
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
@@ -2299,7 +2258,6 @@ class Character(commands.Cog):
     async def apply(self,ctx, char, cons="", mits=""):
         channel = ctx.channel
         guild = ctx.guild
-        roleColors = {r.name:r.colour for r in guild.roles}
         charEmbed = discord.Embed()
         charDict, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
         if charDict:
@@ -2324,17 +2282,8 @@ class Character(commands.Cog):
                 tier = 5
             else:
                 tier = determine_tier(charLevel)
-            if tier == 1:
-                charEmbed.colour = (roleColors['Junior Friend'])
-            elif tier == 2:
-                charEmbed.colour = (roleColors['Journeyfriend'])
-            elif tier == 3:
-                charEmbed.colour = (roleColors['Elite Friend'])
-            elif tier == 4:
-                charEmbed.colour = (roleColors['True Friend'])
-            else:
-                charEmbed.colour = (roleColors['Ascended Friend'])
-            
+            charEmbed.colour = self.determine_color(guild, tier)
+
             if 'Guild' in charDict:
                 description += f"{charDict['Guild']}: Rank {charDict['Guild Rank']}"
             else:
@@ -2537,7 +2486,6 @@ class Character(commands.Cog):
     async def info(self,ctx, char, mod_override = ""):
         author = ctx.author
         guild = ctx.guild
-        roleColors = {r.name:r.colour for r in guild.roles}
         char_embed = discord.Embed()
         core = InteractionCore(ctx, None, char_embed)
         mod= False
@@ -2548,7 +2496,15 @@ class Character(commands.Cog):
                 authorCheck = ctx.message.mentions[0]
                 mod = False
         char_dict, core = await checkForChar(core, char, authorCheck = authorCheck, mod=mod)
-        if not char_dict:
+        if not core.isActive():
+            await core.send("Character search cancelled")
+            self.bot.get_command('info').reset_cooldown(ctx)
+            return
+        if not core.hasError():
+            char_embed.clear_fields()
+            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            await core.send()
+            self.bot.get_command('info').reset_cooldown(ctx)
             return
         footer = f"To view your character's inventory, type the following command: {commandPrefix}inv {char_dict['Name']}"
         
@@ -2578,29 +2534,20 @@ class Character(commands.Cog):
         if 'Event Token' in char_dict and char_dict['Event Token'] > 0:
             description +=  f"• Event Tokens: {char_dict['Event Token']}\n"
         description += f":moneybag: {char_dict['GP']} GP\n"
-        charLevel = char_dict['Level']
-        if charLevel == 20:
+        char_level = char_dict['Level']
+        if char_level == 20:
             tier = 5
         else:
-            tier = determine_tier(charLevel)
-        if tier == 1:
-            char_embed.colour = (roleColors['Junior Friend'])
-        elif tier == 2:
-            char_embed.colour = (roleColors['Journeyfriend'])
-        elif tier == 3:
-            char_embed.colour = (roleColors['Elite Friend'])
-        elif tier == 4:
-            char_embed.colour = (roleColors['True Friend'])
-        else:
-            char_embed.colour = (roleColors['Ascended Friend'])
+            tier = determine_tier(char_level)
+        char_embed.colour = self.determine_color(guild, tier)
 
-        cpSplit = char_dict['CP']
-        if charLevel < 20 and cpSplit >= cp_bound_array[tier-1][0]:
+        cp = char_dict['CP']
+        if char_level < 20 and cp >= cp_bound_array[tier-1][0]:
             footer += f'\nYou need to level up! Use the following command before playing in another quest to do so: {commandPrefix}levelup {char_dict["Name"]}'
 
         if 'Death' in char_dict:
-            statusEmoji = "⚰️"
-            description += f"{statusEmoji} Status: **DEAD** -  decide their fate with the following command: {commandPrefix}death" 
+            status_emoji = "⚰️"
+            description += f"{status_emoji} Status: **DEAD** -  decide their fate with the following command: {commandPrefix}death"
             char_embed.colour = discord.Colour(0xbb0a1e)
 
         member = guild.get_member(int(char_dict['User ID']))
@@ -2609,7 +2556,7 @@ class Character(commands.Cog):
         char_embed.clear_fields()
         
         paused = "Paused" in char_dict and char_dict["Paused"]
-        char_embed.title = f"{char_dict['System']} {'[PAUSED] '*paused}{char_dict['Name']} (Lv {charLevel}) - {char_dict['CP']}/{cp_bound_array[tier-1][1]} CP"
+        char_embed.title = f"{char_dict['System']} {'[PAUSED] '*paused}{char_dict['Name']} (Lv {char_level}) - {char_dict['CP']}/{cp_bound_array[tier-1][1]} CP"
         tpString = ""
         for i in range (1,6):
             if f"T{i} TP" in char_dict:
@@ -2648,24 +2595,19 @@ class Character(commands.Cog):
     @commands.command(aliases=['img'])
     @is_log_channel()
     async def image(self,ctx, char, url):
-
         channel = ctx.channel
         charEmbed = discord.Embed()
-
         infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
-
         if infoRecords:
             charID = infoRecords['_id']
             data = {
                 'Image': url
             }
-
             try:
                 r = requests.head(url)
             except:
                 await ctx.channel.send(content=f'It looks like the URL is either invalid or contains a broken image. Please follow this format:\n```yaml\n{commandPrefix}image "character name" URL```\n') 
                 return
-              
             try:
                 db.players.update_one({'_id': charID}, {"$set": data})
             except Exception as e:
@@ -2688,8 +2630,6 @@ class Character(commands.Cog):
     
     async def pauseKernel(self,ctx,char, target = False):
         channel = ctx.channel
-        author = ctx.author
-        guild = ctx.guild
         charEmbed = discord.Embed()
 
         infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
@@ -2701,18 +2641,16 @@ class Character(commands.Cog):
                 playersCollection.update_one({'_id': charID}, {"$set": {"Paused": target}})
             except Exception as e:
                 print ('MONGO ERROR: ' + str(e))
-                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+                await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
                 await ctx.channel.send(content=f'I have {(not target)*"un"}paused the progress for ***{char}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
     
     
     async def reflavorKernel(self,ctx, char, rtype, new_flavor):
-        if( len(new_flavor) > 20):
+        if len(new_flavor) > 20:
             await ctx.channel.send(content=f'The new {rtype.lower()} must be between 1 and 20 symbols.')
             return
         channel = ctx.channel
-        author = ctx.author
-        guild = ctx.guild
         charEmbed = discord.Embed()
 
         infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
@@ -2723,9 +2661,9 @@ class Character(commands.Cog):
                 db.players.update_one({'_id': charID}, {"$set": {'Reflavor.'+rtype: new_flavor}})
             except Exception as e:
                 print ('MONGO ERROR: ' + str(e))
-                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try reflavoring your character again.")
+                await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try reflavoring your character again.")
             else:
-                await ctx.channel.send(content=f'I have updated the {rtype} for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
+                await channel.send(content=f'I have updated the {rtype} for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
     
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
@@ -2755,11 +2693,7 @@ class Character(commands.Cog):
         if( len(new_align) > 20 or len(new_align) <1):
             await ctx.channel.send(content=f'The new alignment must be between 1 and 20 symbols.')
             return
-
-    
         channel = ctx.channel
-        author = ctx.author
-        guild = ctx.guild
         charEmbed = discord.Embed()
 
         infoRecords, charEmbedmsg = await checkForChar(ctx, char, charEmbed)
@@ -2775,9 +2709,9 @@ class Character(commands.Cog):
                 playersCollection.update_one({'_id': charID}, {"$set": data})
             except Exception as e:
                 print ('MONGO ERROR: ' + str(e))
-                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+                await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
-                await ctx.channel.send(content=f'I have updated the alignment for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
+                await channel.send(content=f'I have updated the alignment for ***{infoRecords["Name"]}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
     
     
     @commands.cooldown(1, 5, type=commands.BucketType.member)
@@ -2786,7 +2720,6 @@ class Character(commands.Cog):
     async def rename(self,ctx, char, new_name = ""):
         channel = ctx.channel
         author = ctx.author
-        guild = ctx.guild
         msg = self.name_check(new_name, author)
         if msg:
             await channel.send(msg)
@@ -2817,7 +2750,7 @@ class Character(commands.Cog):
                 playersCollection.update_one({'_id': charID}, {"$set": data})
             except Exception as e:
                 print ('MONGO ERROR: ' + str(e))
-                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+                await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
             else:
                 await ctx.channel.send(content=f'I have updated the name for ***{char}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
             
@@ -2828,7 +2761,6 @@ class Character(commands.Cog):
     async def alias(self,ctx, char, new_name = ""):
         channel = ctx.channel
         author = ctx.author
-        guild = ctx.guild
         msg = self.name_check(new_name, author)
         if msg:
             await channel.send(msg)
@@ -2855,7 +2787,7 @@ class Character(commands.Cog):
             
     def name_check(self, name, author):
         msg = ""
-        # Name should be less then 65 chars
+        # Name should be less than 65 chars
         if len(name) > 64:
             msg += ":warning: Your character's name is too long! The limit is 64 characters.\n"
 
@@ -2865,13 +2797,6 @@ class Character(commands.Cog):
         for i in invalidChars:
             if i in name:
                 msg += f":warning: Your character's name cannot contain `{i}`. Please revise your character name.\n"
-        # if msg == "":
-            # playersCollection = db.players
-            # userRecords = list(playersCollection.find({"User ID": str(author.id), "Name": name }))
-
-            # if userRecords != list():
-                # msg += f":warning: You already have a character by the name of ***{name}***! Please use a different name.\n"
-        
         return msg
     
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)

@@ -63,15 +63,17 @@ def show_inventory(inventory: dict) -> list:
         output.append(f"{name} x{sum([entry[source] for source in source_types if source in entry])}")
     return output
 
+def sum_sources(entry: dict) -> int:
+    return sum([entry[source] for source in source_types if source in entry])
 
 class InteractionCore:
     def __init__(self, context, message, embed, system: str = None):
         self.context = context
         self.message = message
         self.embed = embed
-        self.status = "ACTIVE"
-        self.system = system
-        self.errors = []
+        self.status: str = "ACTIVE"
+        self.system: str = system
+        self.errors: list = []
         
     def isActive(self):
         return self.status == "ACTIVE"
@@ -79,21 +81,21 @@ class InteractionCore:
     def cancel(self):
         return self.status == "CANCELLED"
         
-    def hasError(self):
+    def hasError(self) -> bool:
         return len(self.errors) != 0
         
     def addError(self, error: str):
         if error:
             self.errors.append(error)
     
-    async def send(self, mainText: str = "", embed = None):
+    async def send(self, main_text: str = "", embed = None):
         embed_to_send = self.embed
         if embed:
             embed_to_send = embed
         if not self.message:
-            self.message = await self.context.channel.send(embed=embed_to_send, content=mainText)
+            self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
         else:
-            self.message = await self.message.edit(embed=embed_to_send, content=mainText)
+            self.message = await self.message.edit(embed=embed_to_send, content=main_text)
     
     async def delete(self):
         if self.message:
@@ -575,17 +577,17 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
             #if only 1 item was left, simply return it
             return records[0], core
 
-async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=False, customError=False, authorCheck=None):
-    channel = ctx.channel
-    author = ctx.author
-    guild = ctx.guild
-    if authorOverride != None:
+async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=False, authorCheck=None):
+    author = core.context.author
+    guild = core.context.guild
+    system = core.system
+    if authorOverride is not None:
         author = authorOverride
-        mod=False
+        mod = False
     search_author = author
-    if authorCheck != None:
+    if authorCheck is not None:
         search_author = authorCheck
-        mod=False
+        mod = False
     playersCollection = db.players
 
     query = char.strip()
@@ -604,35 +606,33 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=Fal
                               "Nickname": query_data
                             }
                         ]
-                    } 
+                    }
+    if system is not None:
+        filterDic["System"] = system
     if mod == True:
-        charRecords = list(playersCollection.find(filterDic)) 
+        char_records = list(playersCollection.find(filterDic))
     else:
         filterDic["User ID"] = str(search_author.id)
-        charRecords = list(playersCollection.find(filterDic))
+        char_records = list(playersCollection.find(filterDic))
 
-    if charRecords == list():
-        if not mod and not customError:
-            await channel.send(content=f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
-        ctx.command.reset_cooldown(ctx)
+    if char_records == list():
+        core.addError(f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
         return None, core
     else:
-        if len(charRecords) > 1:
-            infoString = ""
-            charRecords = sorted(list(charRecords), key = lambda i : i ['Name'])
-            for i in range(0, min(len(charRecords), 20)):
-                infoString += f"{alphaEmojis[i]}: {charRecords[i]['System']} {charRecords[i]['Name']} ({guild.get_member(int(charRecords[i]['User ID']))})\n"
-            charEmbed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
+        if len(char_records) > 1:
+            info_string = ""
+            char_records = sorted(list(char_records), key = lambda i : i ['Name'])
+            for i in range(0, min(len(char_records), 20)):
+                info_string += f"{alphaEmojis[i]}: {char_records[i]['System']} {char_records[i]['Name']} ({guild.get_member(int(char_records[i]['User ID']))})\n"
+            charEmbed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=info_string, inline=False)
             await core.send()
-            choice = await disambiguate(min(len(charRecords), 20), core.message, author)
-            
+            choice = await disambiguate(min(len(char_records), 20), core.message, author)
             if choice is None or choice == -1:
-                await core.message.edit(embed=None, content=f"Character information cancelled. Try again using the same command!")
-                ctx.command.reset_cooldown(ctx)
+                core.cancel()
                 return None, core
             core.embed.clear_fields()
-            return charRecords[choice], core
-    return charRecords[0], core
+            return char_records[choice], core
+    return char_records[0], core
 
 async def checkForGuild(ctx, name, guildEmbed="" ):
     channel = ctx.channel

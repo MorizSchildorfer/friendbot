@@ -1002,7 +1002,7 @@ Command Checklist
 
             except asyncio.TimeoutError:
                 try:
-                    stampEmbedmsg = await self.stamp(ctx, startTime, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                    stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
                 except discord.errors.DiscordServerError:
                     print("discord server error recorded")
                     pass

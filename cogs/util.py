@@ -6,7 +6,7 @@ from cogs.view import AlphaView, ConfirmView
 from discord.utils import get      
 from math import floor
 from discord.ext import commands
-from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack
+from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, bot
 import math
 
 noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
@@ -125,11 +125,11 @@ async def texttest(msg, author):
 async def disambiguate(options: int, msg, author, cancel=True, emojies = alphaEmojis):
     reaction_response_control(msg, author, emojies[:options])
     try:
-        reaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
+        reaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
     except asyncio.TimeoutError:
         return None
     else:
-        await charEmbedmsg.clear_reactions()
+        await msg.clear_reactions()
         if reaction.emoji == '❌':
             return -1
     return emojies.index(reaction.emoji)
@@ -140,7 +140,7 @@ def reaction_response_control(message, author, options: list, cancel=True):
         same_message = False
         if message.id == reaction.message.id:
             same_message = True
-        return same_message and ((reaction.emoji in options) or (cancel and str(r.emoji) == '❌')) and user == author
+        return same_message and ((reaction.emoji in options) or (cancel and str(reaction.emoji) == '❌')) and user == author
     return predicate
 
 

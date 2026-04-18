@@ -122,12 +122,27 @@ async def texttest(msg, author):
     await msg.edit(view = None)
     return view.value
 
-async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
-    view = AlphaView(options, author, emojies, cancel)
-    msg = await msg.edit(view = view)
-    await view.wait()
-    await msg.edit(view = None)
-    return view.state
+async def disambiguate(options: int, msg, author, cancel=True, emojies = alphaEmojis):
+    reaction_response_control(msg, author, emojies[:options])
+    try:
+        reaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
+    except asyncio.TimeoutError:
+        return None
+    else:
+        await charEmbedmsg.clear_reactions()
+        if reaction.emoji == '❌':
+            return -1
+    return emojies.index(reaction.emoji)
+
+
+def reaction_response_control(message, author, options: list, cancel=True):
+    def predicate(reaction, user):
+        same_message = False
+        if message.id == reaction.message.id:
+            same_message = True
+        return same_message and ((reaction.emoji in options) or (cancel and str(r.emoji) == '❌')) and user == author
+    return predicate
+
 
 def timeConversion (time,hmformat=False):
     hours = time//3600

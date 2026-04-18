@@ -1001,7 +1001,11 @@ Command Checklist
                 
 
             except asyncio.TimeoutError:
-                stampEmbedmsg = await ctx.invoke(self.timer.get_command('stamp'), stamp=startTime, game=game, author=author, start=startTimes, dmChar=dmChar, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                try:
+                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                except discord.errors.DiscordServerError:
+                    print("discord server error recorded")
+                    pass
             else:
                 pass
             if startTimes["Paused"] and time.time()-60 - startTimes["Last Pause"] > 1800 * (startTimes["Pause Type"]+1):

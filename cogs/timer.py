@@ -1809,7 +1809,11 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                                 stampEmbedmsg = await self.stamp(ctx, userInfo, author=author, embed=stampEmbed, embedMsg=stampEmbedmsg)
 
             except asyncio.TimeoutError:
-                stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                try:
+                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                except discord.errors.DiscordServerError:
+                    print("discord server error recorded")
+                    pass
             else:
                 pass
             if userInfo["Paused"] and time.time()-60 - userInfo["Last Pause"] > 1800 * (userInfo["Pause Type"]+1):

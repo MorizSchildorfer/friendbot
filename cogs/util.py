@@ -107,13 +107,11 @@ class InteractionCore:
     ", ".join([self.system, self.status, self.errors.__str__()])
   )
 
-
 def admin_or_owner():
     async def predicate(ctx):
         output = ctx.message.author.id in [220742049631174656, 203948352973438995] or (get(ctx.message.guild.roles, name = "A d m i n") in ctx.message.author.roles)
         return  output
     return commands.check(predicate)
-
 
 def convert_to_seconds(s):
     seconds_per_unit = { "m": 60, "h": 3600 }
@@ -184,14 +182,13 @@ async def noodleCheck(ctx, dmID):
     if dmUser:
         dmEntry = db.users.find_one({"User ID" : str(dmID)})
         noodles = dmEntry["Noodles"]
-        noodleString = ""
         noodle_name, noodle_data, _ =  findNoodleDataFromRoles(dmUser.roles)
         # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
         next_name, next_data = findNoodleData(noodles)
         if noodle_name != next_name:
             noodleRole = get(guild.roles, name = next_name)
             await dmUser.add_roles(noodleRole, reason=f"Hosted {noodles} sessions. This user has {next_data['noodles']}+ Noodles.")
-            if noodle_name != None:
+            if noodle_name is not None:
                 await dmUser.remove_roles(get(guild.roles, name = noodle_name))
 
 async def confirm(msg, author):
@@ -369,9 +366,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
             await msg.clear_reactions()
 
 
-"""
-
-"""    
 async def paginate_options(core: InteractionCore, bot, title, options: list, content: str =""):
     embed = discord.Embed()
     embed.title = title
@@ -543,7 +537,7 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
     else:
         #create a string to provide information about the items to the user
         infoString = ""
-        if (len(records) > 1):
+        if len(records) > 1:
             #sort items by tier if the magic item tables were requested
             if table == 'mit' or table == 'rit':
                 records = sorted(records, key = lambda i : i ['Tier'])
@@ -673,33 +667,20 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     # calculate the CP gained during the game
     cp = ((seconds) // 900) / 4
     cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus + tierOneDouble
-    
-    
     # calculate the CP with the bonuses included
     cp *= cp_multiplier
     
     gainedCP = cp
-    
-    #######role = role.lower()
-    
-    tier = 4
-    # calculate the tier of the rewards
-    if level < 5:
-        tier = 1
-    elif level < 11:
-        tier = 2
-    elif level < 17:
-        tier = 3
+
+    tier = determine_tier(level)
         
     # calculate how far into the current level CP the character is after the game
     leftCP = charcp
     gp= 0
     tp = {}
-    reached_tier_four = False
-    charLevel = level
-    levelCP = (((charLevel-5) * 10) + 16)
-    if charLevel < 5:
-        levelCP = ((charLevel -1) * 4)
+    levelCP = ((level-5) * 10) + 16
+    if level < 5:
+        levelCP = (level -1) * 4
         
     under_tier_four = levelCP + leftCP < cp_thresh_hold_array[2]
     consideredCP = 0
@@ -733,7 +714,6 @@ async def spell_item_search(core: InteractionCore, search_parameter, item_type, 
     sRecord, core = await callAPI(core, 'spells', spellItem, system=system) 
     if not core.isActive():
         return None, None, core
-    error_message = ""
     spell_item_name = ""
     if not sRecord :
         core.addError(f"\n**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
@@ -748,7 +728,6 @@ async def spell_item_search(core: InteractionCore, search_parameter, item_type, 
     return search_parameter, spell_item_name, core
 
 async def find_reward_item(core: InteractionCore, item: str, level: int):
-    error_message = ""
     item_type = ""
     system = core.system
     if "spell scroll" in item.lower():

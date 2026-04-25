@@ -19,34 +19,38 @@ def search_magic_item(search: str, items: dict) -> list:
             results.append(key)
     return results
 
+
+def is_log_channel():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
+    return commands.check(predicate)
+
+
+def is_log_channel_or_game():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
+                ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Game Rooms"])
+    return commands.check(predicate)
+
+
+def stats_special():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
+                ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"] or
+                ctx.channel.id == 564994370416410624)
+    return commands.check(predicate)
+
+
 class Character(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
-        
-    def is_log_channel():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
-        return commands.check(predicate)
-   
-    def is_log_channel_or_game():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or 
-                    ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Game Rooms"])
-        return commands.check(predicate) 
-        
-    def stats_special():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or 
-                    ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"] or
-                    ctx.channel.id == 564994370416410624)
-        return commands.check(predicate) 
-        
+
     @commands.group(aliases=['rf'], case_insensitive=True)
     async def reflavor(self, ctx):	
         pass
@@ -141,8 +145,8 @@ class Character(commands.Cog):
             items = list(db.races.find(
                {},
             ))
-            raceEmbed = discord.Embed()
-            raceEmbed.title = f"All Valid Races:\n"
+            race_embed = discord.Embed()
+            race_embed.title = f"All Valid Races:\n"
             def group_sort(x):
                 if "Grouped" in x:
                     return x["Grouped"]
@@ -166,15 +170,15 @@ class Character(commands.Cog):
             if collector_string:
                 out_strings.append(collector_string)
             for i in out_strings:
-                raceEmbed.add_field(name=i[0], value= i, inline = True)
-            await ctx.channel.send(embed=raceEmbed)
+                race_embed.add_field(name=i[0], value= i, inline = True)
+            await ctx.channel.send(embed=race_embed)
     
         except Exception as e:
             traceback.print_exc()  
 
 
     def getLeveLimit(self, roles):
-        roleCreationDict = {
+        role_creation_dict = {
             'D&D Friend': 2,
             'Journeyfriend': 3,
             'Elite Friend': 3,
@@ -184,9 +188,9 @@ class Character(commands.Cog):
         # Check if level or roles are vaild
         # A set that filters valid levels depending on user's roles
         role_limit = 1
-        for d in roleCreationDict.keys():
+        for d in role_creation_dict.keys():
             if d in roles:
-                role_limit = max(role_limit, roleCreationDict[d])
+                role_limit = max(role_limit, role_creation_dict[d])
 
         # If roles are present, add base levels + 1 for extra levels for these special roles.
         if ("Nitro Booster" in roles):
@@ -268,7 +272,6 @@ class Character(commands.Cog):
     async def determineRewardItems(self, core: InteractionCore, rewardItems: list[str], level: int):
         context = core.context
         allRewardItems = []
-        system = core.system
         for r in rewardItems:
             item_record, core = await find_reward_item(core, r, level)
             if not core.isActive():
@@ -527,30 +530,36 @@ class Character(commands.Cog):
 
     def check_multiclass(self, core, classes: dict, stats: dict):
         for class_name, entry in classes.items():
-            reqFufillList = []
-            statReq = entry['Class']['Multiclass'].split(' ')
-            requirements = entry['Class']['Multiclass']
-            if requirements != 'None':
-                if '/' in requirements:
-                    stat_requirements = statReq[0].split('/')
-                    issues = []
-                    for s in stat_requirements:
-                        if int(stats[s]) < int(statReq[1]):
-                          issues.append(f"{s} {stats[s]}")
-                    if len(issues) == len(stat_requirements):
-                        reqFufillList.append("or".join(issues))
-                elif '+' in requirements:
-                    statReq[0] = statReq[0].split('+')
-                    for s in statReq[0]:
-                        if int(stats[s]) < int(statReq[1]):
-                          reqFufillList.append(f"{s} {stats[s]}")
-                else:
-                    if int(stats[statReq[0]]) < int(statReq[1]):
-                        reqFufillList.append(f'{statReq[0]} {stats[statReq[0]]}')
-            if len(reqFufillList) > 0:
-                core.addError(f":warning: In order to multiclass to or from **{class_name}** you need at least **{entry['Class']['Multiclass']}**. Your character only has **{' and '.join(reqFufillList)}**!")
+            failed_requirement = self.check_multiclass_requirement(entry, stats)
+            if req_fulfill_list is not None:
+                req_fulfill_list.append(failed_requirement)
+            if len(req_fulfill_list) > 0:
+                core.addError(f":warning: In order to multiclass to or from **{class_name}** you need at least **{entry['Class']['Multiclass']}**. Your character only has **{' and '.join(req_fulfill_list)}**!")
         return core
-    
+
+    def check_multiclass_requirement(self, entry, stats):
+        stat_req = entry['Class']['Multiclass'].split(' ')
+        requirements = entry['Class']['Multiclass']
+        failed_requirement = None
+        if requirements != 'None':
+            if '/' in requirements:
+                stat_requirements = stat_req[0].split('/')
+                issues = []
+                for s in stat_requirements:
+                    if int(stats[s]) < int(stat_req[1]):
+                        issues.append(f"{s} {stats[s]}")
+                if len(issues) == len(stat_requirements):
+                    failed_requirement = "or".join(issues)
+            elif '+' in requirements:
+                stat_req[0] = stat_req[0].split('+')
+                for s in stat_req[0]:
+                    if int(stats[s]) < int(stat_req[1]):
+                        failed_requirement = f"{s} {stats[s]}"
+            else:
+                if int(stats[stat_req[0]]) < int(stat_req[1]):
+                    failed_requirement = f'{stat_req[0]} {stats[stat_req[0]]}'
+        return failed_requirement
+
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command(aliases=['cn'])
@@ -809,7 +818,6 @@ class Character(commands.Cog):
     @commands.command(aliases=['rs'])
     async def respec(self,ctx, name, newname, race, cclass, bg, sStr:int, sDex:int, sCon:int, sInt:int, sWis:int, sCha:int):
         newname = newname.strip()
-        characterCog = self.bot.get_cog('Character')
         author = ctx.author
         guild = ctx.guild
         channel = ctx.channel
@@ -932,11 +940,8 @@ class Character(commands.Cog):
             self.bot.get_command('respec').reset_cooldown(ctx)
             return
 
-
-        allMagicItemsString = []
-
         # Because we are respeccing we are also adding extra TP based on CP.
-        # no needed to to bankTP2 now because limit is lvl 4 to respec
+        # no needed to bankTP2 now because limit is lvl 4 to respec
         extraCp = charDict['CP']
         charLevel = charDict['Level']
         if "Respecc" in charDict:
@@ -952,11 +957,6 @@ class Character(commands.Cog):
             charDict['CP'] = extraCp
             lvl = charLevel
         # TODO split the create main code
-        def charCreateCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
         if not charEmbedmsg:
             charEmbedmsg = await channel.send(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
         else:
@@ -978,10 +978,7 @@ class Character(commands.Cog):
                 await charEmbedmsg.clear_reactions()
                 self.bot.get_command('respec').reset_cooldown(ctx)
                 return
-
-
         try:
-            
             if len(guild_name)>0:
                 guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": guild_name, '$options': 'i' }}))
                 # If there is only one of user's character in the guild remove the role.
@@ -1108,111 +1105,6 @@ class Character(commands.Cog):
             
         self.bot.get_command('applyTime').reset_cooldown(ctx)
         return
-        
-    @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
-    @commands.command()
-    async def trickortreat(self, ctx, char):
-        channel = ctx.channel
-        author = ctx.author
-        shopEmbed = discord.Embed()
-        
-        # Check if character exists
-        charRecords, shopEmbedmsg = await checkForChar(ctx, char, shopEmbed)
-
-        if charRecords:
-            def unfold(el):
-                subel1, subel2, count  = el
-                if not subel2:
-                    subel2 = subel1
-                return [(subel2, subel1)]*count
-            pool = [("Bag of Disappointment", None, 1), 
-                    ("Dread Helm", "Wearable Jack-o-lantern", 1),
-                    ("Pipe of Smoke Monsters", None, 1),
-                    ("Instrument of Illusions", None, 1),
-                    ("Common Glamerweave", None, 1),
-                    ("Cloak of Many Fashions", "Cloak of Many Costumes", 1),
-                    ("Wand of Scowls", None, 1),
-                    ("Wand of Pyrotechnics", None, 1),
-                    ("Wildspace Orrery", "Projection Machine", 1),
-                    ("Talking Doll", None, 1),
-                    ("Potion of Diminution", None, 1),
-                    ("Bottle of Boundless Coffee", "Bottle of Boundless Cider", 1),
-                    ("Arcanaloth's Music Box","Haunted Music Box", 1),
-                    ("Medal of the Meat Pie", "Basket full of candy", 1),
-                    ("Soul Coin", None, 1),
-                    ]
-            outcomes = []
-            for el in pool:
-                outcomes += unfold(el)
-            selection = random.randrange(len(outcomes)) 
-            show_name, selected_item = outcomes[selection]
-            amount = 0
-            if "Event Token" in charRecords:
-                amount = charRecords["Event Token"]
-            if amount <= 0:
-                shopEmbed.description = f"You would have received {show_name} ({selected_item})"
-                shopEmbedmsg = await channel.send(embed=shopEmbed)
-                ctx.command.reset_cooldown(ctx)
-                return
-            bRecord = db.rit.find_one({"Name" : {"$regex" : f"^{selected_item.strip()}$", "$options": "i"}}) 
-            text_string = f"{show_name}"
-            if show_name != selected_item:
-                text_string = f"{show_name} ({selected_item})"
-                
-            out_text = f"You reach into the gift box and find a(n) **{text_string}**\n\n*{amount-1} rolls remaining*"
-            
-            shopEmbed.description = out_text
-            if bRecord:
-                
-                if shopEmbedmsg:
-                    await shopEmbedmsg.edit(embed=shopEmbed)
-                else:
-                    shopEmbedmsg = await channel.send(embed=shopEmbed)
-                if bRecord["Type"] != "Inventory":
-                    if charRecords[bRecord["Type"]] != "None":
-                        charRecords[bRecord["Type"]] += ', ' + selected_item
-                    else:
-                        charRecords[bRecord["Type"]] = selected_item
-                else:
-                    if charRecords['Inventory'] == "None":
-                        charRecords['Inventory'] = {f"{selected_item}" : 1}
-                    else:
-                        if bRecord['Name'] not in charRecords['Inventory']:
-                            charRecords['Inventory'][f"{selected_item}"] = 1 
-                        else:
-                            charRecords['Inventory'][f"{selected_item}"] += 1 
-                try:
-                    playersCollection = db.players
-                    playersCollection.update_one({'_id': charRecords['_id']}, {"$set": {bRecord["Type"]:charRecords[bRecord["Type"]]}, "$inc": {"Event Token": -1}})
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    shopEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
-                else:
-                    shopEmbed.description = out_text
-                    await shopEmbedmsg.edit(embed=shopEmbed)
-
-            else:
-                try:
-                    playersCollection = db.players
-                    playersCollection.update_one({'_id': charRecords['_id']}, {"$inc": {f"Collectibles.{selected_item}": 1, "Event Token": -1}})
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    shopEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
-                else:
-                    shopEmbed.description = out_text
-                    await channel.send(embed=shopEmbed)
-        ctx.command.reset_cooldown(ctx)
-
-    @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
-    @commands.command()
-    async def mit(self, ctx,):
-        channel = ctx.channel
-        
-        export = list(db['mit'].find())
-        with io.StringIO(f"{export}") as f:
-            await channel.send(file=discord.File(f, f"mit.json"))
-                
-        ctx.command.reset_cooldown(ctx)
 
     @commands.cooldown(1, 5, type=commands.BucketType.user)
     @commands.command()
@@ -1234,7 +1126,6 @@ class Character(commands.Cog):
                 await channel.send(file=discord.File(f, f"{charRecords['Name']}.json"))
                 
         ctx.command.reset_cooldown(ctx)
-
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
@@ -1285,7 +1176,6 @@ class Character(commands.Cog):
                         playersCollection = db.players
                         
                         deadCollection = db.dead
-                        usersCollection = db.users
                         if "Guild" in charDict:
                             guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": charDict['Guild'], '$options': 'i' }}))
                             # If there is only one of user's character in the guild remove the role.
@@ -1341,16 +1231,12 @@ class Character(commands.Cog):
             charLevel = charDict['Level']
             if charLevel < 5:
                 gpNeeded = 100
-                tierNum = 1
             elif charLevel < 11:
                 gpNeeded = 500
-                tierNum = 2
             elif charLevel < 17:
                 gpNeeded = 750
-                tierNum = 3
             elif charLevel < 21:
                 gpNeeded = 1000
-                tierNum = 4
 
             charEmbed.title = f"Character Death - {charDict['Name']}"
             charEmbed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
@@ -1457,7 +1343,6 @@ class Character(commands.Cog):
                         else: 
                             charEmbedmsg = await channel.send(embed=None, content=surviveString)
         self.bot.get_command('death').reset_cooldown(ctx)
-
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()
@@ -1570,15 +1455,15 @@ class Character(commands.Cog):
     def determine_color(self, guild, tier):
         role_colors = {r.name: r.colour for r in guild.roles}
         if tier == 1:
-            return (role_colors['Junior Friend'])
+            return role_colors['Junior Friend']
         elif tier == 2:
-            return (role_colors['Journeyfriend'])
+            return role_colors['Journeyfriend']
         elif tier == 3:
-            return (role_colors['Elite Friend'])
+            return role_colors['Elite Friend']
         elif tier == 4:
-            return (role_colors['True Friend'])
+            return role_colors['True Friend']
         else:
-            return (role_colors['Ascended Friend'])
+            return role_colors['Ascended Friend']
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
@@ -1663,7 +1548,6 @@ class Character(commands.Cog):
         
         contents.append((f"Characters", charString, False))
         await paginate(ctx, self.bot, f"{search_author.display_name}" , contents, separator="\n", author = search_author)
-   
             
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()
@@ -1970,12 +1854,12 @@ class Character(commands.Cog):
         
         paused = "Paused" in char_dict and char_dict["Paused"]
         char_embed.title = f"{char_dict['System']} {'[PAUSED] '*paused}{char_dict['Name']} (Lv {char_level}) - {char_dict['CP']}/{cp_bound_array[tier-1][1]} CP"
-        tpString = ""
+        tp_string = ""
         for i in range (1,6):
             if f"T{i} TP" in char_dict:
-                tpString += f"• Tier {i} TP: {char_dict[f'T{i} TP']} \n"
-        if tpString:
-            char_embed.add_field(name='TP', value=f"{tpString}", inline=True)
+                tp_string += f"• Tier {i} TP: {char_dict[f'T{i} TP']} \n"
+        if tp_string:
+            char_embed.add_field(name='TP', value=f"{tp_string}", inline=True)
         if 'Guild' in char_dict:
             char_embed.add_field(name='Guild', value=f"{char_dict['Guild']}: Rank {char_dict['Guild Rank']}", inline=True)
         char_embed.add_field(name='Feats', value=", ".join(char_dict['Feats']), inline=False)
@@ -2103,7 +1987,7 @@ class Character(commands.Cog):
     @is_log_channel()
     @commands.command()
     async def align(self,ctx, char, *, new_align):
-        if( len(new_align) > 20 or len(new_align) <1):
+        if len(new_align) > 20 or len(new_align) <1:
             await ctx.channel.send(content=f'The new alignment must be between 1 and 20 symbols.')
             return
         channel = ctx.channel
@@ -2218,468 +2102,241 @@ class Character(commands.Cog):
     async def levelup(self,ctx, char):
         channel = ctx.channel
         author = ctx.author
-        guild = ctx.guild
-        levelUpEmbed = discord.Embed ()
-        characterCog = self.bot.get_cog('Character')
-        infoRecords, levelUpEmbedmsg = await checkForChar(ctx, char, levelUpEmbed)
-        charClassChoice = ""
-        if infoRecords:
-            charID = infoRecords['_id']
-            charDict = {}
-            charName = infoRecords['Name']
-            charClass = infoRecords['Class']
-            cpSplit= infoRecords['CP']
-            charLevel = infoRecords['Level']
-            charStats = {'STR':infoRecords['STR'], 
-                        'DEX':infoRecords['DEX'], 
-                        'CON':infoRecords['CON'], 
-                        'INT':infoRecords['INT'], 
-                        'WIS':infoRecords['WIS'], 
-                        'CHA':infoRecords['CHA']}
-            charHP = infoRecords['HP']
-            charFeats = infoRecords['Feats']
-            freeSpells = [0] * 9
-            
-            tierNum=5
-            # calculate the tier of the rewards
-            if charLevel < 5:
-                tierNum = 1
-            elif charLevel < 11:
-                tierNum = 2
-            elif charLevel < 17:
-                tierNum = 3
-            elif charLevel < 20:
-                tierNum = 4
-                
-            if 'Free Spells' in infoRecords:
-                freeSpells = infoRecords['Free Spells']
+        level_up_embed = discord.Embed()
+        core = InteractionCore(ctx, None, level_up_embed)
+        char_dict, core = await checkForChar(core, char)
+        if not core.isActive():
+            await core.send("Character search cancelled")
+            return None
+        if not core.hasError():
+            char_embed.clear_fields()
+            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            await core.send()
+            return None
+        core.system = char_dict["System"]
+        char_id = char_dict['_id']
+        char_name = char_dict['Name']
+        char_class = char_dict['Class']
+        cp = char_dict['CP']
+        char_level = char_dict['Level']
+        stats = char_dict['Stats']
+        free_spells = None
+        if char_level == 20:
+            tier = 5
+        else:
+            tier = determine_tier(char_level)
+        if 'Free Spells' in char_dict:
+            free_spells = char_dict['Free Spells']
 
-            if 'Death' in infoRecords.keys():
-                await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{infoRecords["Name"]}"```')
+        if 'Death' in char_dict.keys():
+            await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{char_dict["Name"]}"```')
+            self.bot.get_command('levelup').reset_cooldown(ctx)
+            return None
+
+        if char_level > 19:
+            await channel.send(f"***{char_dict['Name']}*** is level 20 and cannot level up anymore.")
+            self.bot.get_command('levelup').reset_cooldown(ctx)
+            return None
+
+        elif cp < cp_bound_array[tier-1][0]:
+            await channel.send(f'***{char_name}*** is not ready to level up. They currently have **{cp}/{cp_bound_array[tier_num-1][1]}** CP.')
+            self.bot.get_command('levelup').reset_cooldown(ctx)
+            return None
+
+        class_records, core = await callAPI(core,'classes')
+        class_records = sorted(class_records, key=lambda k: k['Name'])
+        remaining_cp = cp - cp_bound_array[tier-1][0]
+        next_level = char_level  + 1
+        level_up_embed.clear_fields()
+        level_up_embed.title = f"{char_name}: Level Up! {char_level} → {next_level}"
+        level_up_embed.description = f"{char_dict['Race']}: {self.format_classes(char_class)}\n**STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}"
+        class_options = {}
+
+        # Multiclass Requirements
+        starting_class = char_dict["Starting Class"]
+        records_dict = {}
+        for cRecord in class_records:
+            records_dict[cRecord['Name']] = cRecord
+            if check_multiclass_requirement(cRecord, stats) is not None:
+                continue
+            class_options[cRecord['Name']] = cRecord
+
+        base_class = records_dict[starting_class]
+        # New Multiclass
+        multi_class_blocker = None
+        new_class_options = {name: entry for name, entry in class_options.items() if name not in char_class}
+        if starting_class not in class_options:
+            multi_class_blocker = f"You cannot multiclass right now because your base class, **{starting_class}**, requires at least **{base_class['Multiclass']}**.\nCurrent stats: **STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}\n"
+        elif len(new_class_options) < 1:
+            multi_class_blocker = "There are no classes available to multiclass into. \n"
+
+        if multi_class_blocker is not None:
+            level_up_embed.add_field(name=f"""~~Would you like to choose a new multiclass?~~\nPlease react with "No" to proceed.""", value=f'{multi_error}✅: ~~Yes~~\n\n🚫: No\n\n❌: Cancel')
+        else:
+            level_up_embed.add_field(name="Would you like to choose a new multiclass?", value='✅: Yes\n\n🚫: No\n\n❌: Cancel')
+        await core.send()
+        emoji_options = ['🚫', '❌']
+        if multi_class_blocker is not None:
+            emoji_options.append('✅')
+            await core.message.add_reaction('✅')
+        await core.message.add_reaction('🚫')
+        await core.message.add_reaction('❌')
+        #todo wait check
+        try:
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, core.context.author, emoji_options), timeout=60)
+        except asyncio.TimeoutError:
+            await core.send(content=f'Level up timed out. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
+            self.bot.get_command('levelup').reset_cooldown(ctx)
+            return None
+        else:
+            await core.message.clear_reactions()
+            level_up_embed.clear_fields()
+            if tReaction.emoji == '❌':
+                await core.send(content=f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
                 self.bot.get_command('levelup').reset_cooldown(ctx)
-                return
-
-            if charLevel > 19:
-                await channel.send(f"***{infoRecords['Name']}*** is level 20 and cannot level up anymore.")
-                self.bot.get_command('levelup').reset_cooldown(ctx)
-                return
-                
-
-            elif cpSplit < cp_bound_array[tierNum-1][0]:
-                await channel.send(f'***{charName}*** is not ready to level up. They currently have **{cpSplit}/{cp_bound_array[tierNum-1][1]}** CP.')
-                self.bot.get_command('levelup').reset_cooldown(ctx)
-                return
-            else:
-                cRecords, levelUpEmbed, levelUpEmbedmsg = await callAPI(ctx, levelUpEmbed, levelUpEmbedmsg,'classes')
-                classRecords = sorted(cRecords, key=lambda k: k['Name']) 
-                leftCP = cpSplit - cp_bound_array[tierNum-1][0]
-                newCharLevel = charLevel  + 1
-                totalCP = leftCP
-                subclasses = []
-                class_name = charClass
-                if '/' in charClass:
-                    tempClassList = charClass.split(' / ')
-                    for t in tempClassList:
-                        temp = t.split(' ')
-                        tempSub = ""
-                        if '(' and ')' in t:
-                            tempSub = t[t.find("(")+1:t.find(")")]
-                        class_name = temp[0]
-                        subclasses.append({'Name':class_name, 'Subclass':tempSub, 'Level':int(temp[1])})
+                return None
+            elif tReaction.emoji == '✅':
+                level_up_embed.add_field(name="Pick a new class that you would like to multiclass into.", value=chooseClassString)
+                if len(new_class_options) == 1:
+                    choice = 0
                 else:
-                    tempSub = ""
-                    if '(' and ')' in charClass:
-                        tempSub = charClass[charClass.find("(")+1:charClass.find(")")]
-                        class_name = charClass[0:charClass.find("(")].strip()
-                    subclasses.append({'Name':class_name, 'Subclass':tempSub, 'Level':charLevel})
-
-                for c in classRecords:
-                    for s in subclasses:
-                        if c['Name'] in s['Name']:
-                            s['Hit Die Max'] = c['Hit Die Max']
-                            s['Hit Die Average'] = c['Hit Die Average']
-                            if "Spellcasting" in c:
-                                s["Spellcasting"] = c["Spellcasting"]
-
-                
-                def multiclassEmbedCheck(r, u):
-                        sameMessage = False
-                        if levelUpEmbedmsg.id == r.message.id:
-                            sameMessage = True
-                        return sameMessage and ((str(r.emoji) == '✅' and multi_error == "") or (str(r.emoji) == '🚫') or (str(r.emoji) == '❌')) and u == author
-                def alphaEmbedCheck(r, u):
-                        sameMessage = False
-                        if levelUpEmbedmsg.id == r.message.id:
-                            sameMessage = True
-                        return sameMessage and ((r.emoji in alphaEmojis[:alphaIndex]) or (str(r.emoji) == '❌')) and u == author
-
-
-                levelUpEmbed.clear_fields()
-                levelUpEmbed.title = f"{charName}: Level Up! {charLevel} → {newCharLevel}"
-                levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}"
-                chooseClassString = ""
-                alphaIndex = 0
-                classes = []
-                lvlClass = charClass
-
-                # Multiclass Requirements
-                failMulticlassList = []
-                baseClass = {'Name': ''}
-                
-                for cRecord in classRecords:
-                    if cRecord['Name'] in charClass:
-                        baseClass = cRecord
-
-                    statReq = cRecord['Multiclass'].split(' ')
-                    if cRecord['Multiclass'] != 'None':
-                        if '/' not in cRecord['Multiclass'] and '+' not in cRecord['Multiclass']:
-                            if int(infoRecords[statReq[0]]) < int(statReq[1]):
-                                failMulticlassList.append(cRecord['Name'])
-                                continue
-                        elif '/' in cRecord['Multiclass']:
-                            statReq[0] = statReq[0].split('/')
-                            reqFufill = False
-                            for s in statReq[0]:
-                                if int(infoRecords[s]) >= int(statReq[1]):
-                                    reqFufill = True
-                            if not reqFufill:
-                                failMulticlassList.append(cRecord['Name'])
-                                continue
-
-                        elif '+' in cRecord['Multiclass']:
-                            statReq[0] = statReq[0].split('+')
-                            reqFufill = True
-                            for s in statReq[0]:
-                                if int(infoRecords[s]) < int(statReq[1]):
-                                    reqFufill = False
-                                    break
-                            if not reqFufill:
-                                failMulticlassList.append(cRecord['Name'])
-                                continue
-
-
-                        if cRecord['Name'] not in failMulticlassList and cRecord['Name'] != baseClass['Name']:
-                            chooseClassString += f"{alphaEmojis[alphaIndex]}: {cRecord['Name']}\n"
-                            alphaIndex += 1
-                            classes.append(cRecord['Name'])
-                multi_error = ""
-                # New Multiclass
-                if baseClass['Name'] in failMulticlassList:
-                    multi_error = f"You cannot multiclass right now because your base class, **{baseClass['Name']}**, requires at least **{baseClass['Multiclass']}**.\nCurrent stats: **STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}\n"
-                elif chooseClassString == "":
-                    multi_error = "There are no classes available to multiclass into. \n"
-                    
-                if multi_error != "":
-                    levelUpEmbed.add_field(name=f"""~~Would you like to choose a new multiclass?~~\nPlease react with "No" to proceed.""", value=f'{multi_error}✅: ~~Yes~~\n\n🚫: No\n\n❌: Cancel')
-
-                else:
-                    levelUpEmbed.add_field(name="Would you like to choose a new multiclass?", value='✅: Yes\n\n🚫: No\n\n❌: Cancel')
-                
-                if not levelUpEmbedmsg:
-                    levelUpEmbedmsg = await channel.send(embed=levelUpEmbed)
-                else:
-                    await levelUpEmbedmsg.edit(embed=levelUpEmbed)
-                if multi_error == "":
-                    await levelUpEmbedmsg.add_reaction('✅')
-                await levelUpEmbedmsg.add_reaction('🚫')
-                await levelUpEmbedmsg.add_reaction('❌')
-                try:
-                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=multiclassEmbedCheck, timeout=60)
-                except asyncio.TimeoutError:
-                    await levelUpEmbedmsg.delete()
-                    await channel.send(f'Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
-                    self.bot.get_command('levelup').reset_cooldown(ctx)
-                    return
-                else:
-                    await levelUpEmbedmsg.clear_reactions()
-                    if tReaction.emoji == '❌':
-                        await levelUpEmbedmsg.edit(embed=None, content=f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
-                        await levelUpEmbedmsg.clear_reactions()
+                    option_text = ""
+                    alpha_index = 0
+                    for name, entry in new_class_options.keys():
+                        option_text += f"{alphaEmojis[alpha_index]}: {name} Level 1\n"
+                        alpha_index += 1
+                    level_up_embed.clear_fields()
+                    level_up_embed.add_field(name=f"Which class would you like to level up?", value=option_text,
+                                             inline=False)
+                    choice = await disambiguate(len(new_class_options), core.message, author)
+                    if choice is None:
+                        await core.send(
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
-                        return
-                    elif tReaction.emoji == '✅':
-                        levelUpEmbed.clear_fields()
-                        
-                        levelUpEmbed.add_field(name="Pick a new class that you would like to multiclass into.", value=chooseClassString)
-
-                        await levelUpEmbedmsg.edit(embed=levelUpEmbed)
-                        await levelUpEmbedmsg.add_reaction('❌')
-                        try:
-                            tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                        except asyncio.TimeoutError:
-                            await levelUpEmbedmsg.delete()
-                            await channel.send(f'Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
-                            self.bot.get_command('levelup').reset_cooldown(ctx)
-                            return
-                        else:
-                            await levelUpEmbedmsg.clear_reactions()
-                            if tReaction.emoji == '❌':
-                                await levelUpEmbedmsg.edit(embed=None, content=f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
-                                await levelUpEmbedmsg.clear_reactions()
-                                self.bot.get_command('levelup').reset_cooldown(ctx)
-                                return
-
-                            if '/' not in charClass:
-                                if '(' in charClass and ')' in charClass:
-                                    charClass = charClass.replace('(', f"{charLevel} (")
-                                else:
-                                    charClass += ' ' + str(charLevel)
-                                
-                            charClassChoice = classes[alphaEmojis.index(tReaction.emoji)]
-                            charClass += f' / {charClassChoice} 1'
-                            lvlClass = charClassChoice
-                            for c in classRecords:
-                                if c['Name'] in charClassChoice:
-                                    subclass_entry_add = {'Name': charClassChoice, 'Subclass': '', 'Level': 1, 'Hit Die Max': c['Hit Die Max'], 'Hit Die Average': c['Hit Die Average']}
-                                    if "Spellcasting" in c:
-                                        subclass_entry_add["Spellcasting"] = c["Spellcasting"]
-
-                                    subclasses.append(subclass_entry_add)
-
-                            if "Wizard" in charClassChoice:
-                                freeSpells[0] += 6
-                                infoRecords["Free Spells"] = freeSpells
-
-                            levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
-                            levelUpEmbed.clear_fields()
-                    elif tReaction.emoji == '🚫':
-                        if '/' not in charClass:
-                            lvlClass = class_name
-                            subclasses[0]['Level'] += 1
-                            if 'Wizard' in charClass: 
-                                fsLvl = (subclasses[0]['Level'] - 1) // 2
-                                if fsLvl > 8:
-                                    fsLvl = 8
-
-                                freeSpells[fsLvl] += 2
-                        else:
-                            multiclassLevelString = ""
-                            alphaIndex = 0
-                            for sc in subclasses:
-                                multiclassLevelString += f"{alphaEmojis[alphaIndex]}: {sc['Name']} Level {sc['Level']}\n"
-                                alphaIndex += 1
-                            levelUpEmbed.clear_fields()
-                            levelUpEmbed.add_field(name=f"What class would you like to level up?", value=multiclassLevelString, inline=False)
-                            await levelUpEmbedmsg.edit(embed=levelUpEmbed)
-                            await levelUpEmbedmsg.add_reaction('❌')
-                            try:
-                                tReaction, tUser = await self.bot.wait_for("reaction_add", check=alphaEmbedCheck, timeout=60)
-                            except asyncio.TimeoutError:
-                                await levelUpEmbedmsg.delete()
-                                await channel.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-                                self.bot.get_command('levelup').reset_cooldown(ctx)
-                                return
-                            else:
-                                if tReaction.emoji == '❌':
-                                    await levelUpEmbedmsg.edit(embed=None, content=f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
-                                    await levelUpEmbedmsg.clear_reactions()
-                                    self.bot.get_command('levelup').reset_cooldown(ctx)
-                                    return
-                            await levelUpEmbedmsg.clear_reactions()
-                            levelUpEmbed.clear_fields()
-                            choiceLevelClass = multiclassLevelString.split('\n')[alphaEmojis.index(tReaction.emoji)]
-
-                            for s in subclasses:
-                                if s['Name'] in choiceLevelClass:
-                                    lvlClass = s['Name']
-                                    s['Level'] += 1
-                                    if 'Wizard' in s['Name']:
-                                        fsLvl = (s['Level'] - 1) // 2
-                                        if fsLvl > 8:
-                                            fsLvl = 8
-                                        freeSpells[fsLvl] += 2
-                                    break
-
-                            charClass = charClass.replace(f"{lvlClass} {subclasses[alphaEmojis.index(tReaction.emoji)]['Level'] - 1}", f"{lvlClass} {subclasses[alphaEmojis.index(tReaction.emoji)]['Level']}")
-                            levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
-                # Choosing a subclass
-                subclassCheckClass = subclasses[[s['Name'] for s in subclasses].index(lvlClass)]
-
-                for s in classRecords:
-                    if s['Name'] == subclassCheckClass['Name'] and int(s['Subclass Level']) == subclassCheckClass['Level']:
-                        subclassesList = s['Subclasses'].split(', ')
-                        subclassChoice, levelUpEmbedmsg = await characterCog.choose_subclass(ctx, subclassesList, s['Name'], levelUpEmbed, levelUpEmbedmsg)
-                        if not subclassChoice:
-                            return
-                        
-                        if '/' not in charClass:
-                            levelUpEmbed.description = levelUpEmbed.description.replace(s['Name'], f"{s['Name']} ({subclassChoice})") 
-                            charClass = charClass.replace(s['Name'], f"{s['Name']} ({subclassChoice})" )
-                        else:
-                            levelUpEmbed.description = levelUpEmbed.description.replace(f"{s['Name']} {subclassCheckClass['Level']}", f"{s['Name']} {subclassCheckClass['Level']} ({subclassChoice})" ) 
-                            charClass = charClass.replace(f"{s['Name']} {subclassCheckClass['Level']}", f"{s['Name']} {subclassCheckClass['Level']} ({subclassChoice})" )
-
-                        for sub in subclasses:
-                            if sub['Name'] == subclassCheckClass['Name']:
-                                sub['Subclass'] = subclassChoice
-                
-                # Feat 
-                featLevels = []
-                for c in subclasses:
-                    if (int(c['Level']) in (4,8,12,16,19) or ('Fighter' in c['Name'] and int(c['Level']) in (6,14)) or ('Rogue' in c['Name'] and int(c['Level']) == 10)) and lvlClass in c['Name']:
-                        featLevels.append(int(c['Level']))
-                
-                statsFeats = {}
-                infoRecords['Level'] += 1
-                charFeatsGained = ""
-                charFeatsGainedStr = ""
-                if featLevels != list():
-                    featsChosen, statsFeats, charEmbedmsg = await characterCog.choose_feat(ctx, infoRecords['Race'], charClass, subclasses, featLevels, levelUpEmbed, levelUpEmbedmsg, infoRecords, charFeats)
-                    
-                    if not featsChosen and not statsFeats and not charEmbedmsg:
-                        return
-
-                    charStats = statsFeats 
-                    
-                    levelUpEmbed.description = f"{infoRecords['Race']}: {charClass}\n**STR**:{charStats['STR']} **DEX**:{charStats['DEX']} **CON**:{charStats['CON']} **INT**:{charStats['INT']} **WIS**:{charStats['WIS']} **CHA**:{charStats['CHA']}"
-                    if featsChosen != list():
-                        charFeatsGained = featsChosen
-
-                if charFeatsGained != "":
-                    charFeatsGainedStr = f"Feats Gained: **{charFeatsGained}**"
-
-                data = {
-                      'Class': charClass,
-                      'Level': int(newCharLevel),
-                      'CP': totalCP,
-                      'STR': int(charStats['STR']),
-                      'DEX': int(charStats['DEX']),
-                      'CON': int(charStats['CON']),
-                      'INT': int(charStats['INT']),
-                      'WIS': int(charStats['WIS']),
-                      'CHA': int(charStats['CHA']),
-                }
-                if statsFeats and "Ritual Book" in statsFeats:
-                    data["Ritual Book"] = statsFeats["Ritual Book"] 
-                if 'Free Spells' in infoRecords:
-                    if freeSpells != ([0] * 9):
-                        data['Free Spells'] = freeSpells
-
-                if charFeatsGained != "":
-                    if infoRecords['Feats'] == 'None':
-                        data['Feats'] = charFeatsGained
-                        infoRecords['Feats'] = charFeatsGained
-                    elif infoRecords['Feats'] != None:
-                        data['Feats'] = charFeats + ", " + charFeatsGained
-                        infoRecords['Feats'] = charFeats + ", " + charFeatsGained
-
-                statsCollection = db.stats
-                statsRecord  = statsCollection.find_one({'Life': 1})
-                
-                if charFeatsGained != "":
-                    feat_split = charFeatsGained.split(", ")
-                    for feat_key in feat_split:
-                        if not feat_key in statsRecord['Feats']:
-                            statsRecord['Feats'][feat_key] = 1
-                        else:
-                            statsRecord['Feats'][feat_key] += 1
-
-                            
-                subclassCheckClass['Name'] = subclassCheckClass['Name'].split(' (')[0]
-                if subclassCheckClass['Subclass'] != "" :
-                    if subclassCheckClass['Subclass']  in statsRecord['Class'][subclassCheckClass['Name']]:
-                        statsRecord['Class'][subclassCheckClass['Name']][subclassCheckClass['Subclass']] += 1
-                    else:
-                        statsRecord['Class'][subclassCheckClass['Name']][subclassCheckClass['Subclass']] = 1
-                else:
-                    if subclassCheckClass['Name'] in statsRecord['Class']:
-                        statsRecord['Class'][subclassCheckClass['Name']]['Count'] += 1
-                    else:
-                        statsRecord['Class'][subclassCheckClass['Name']] = {'Count': 1}
-
-                if 'Max Stats' not in infoRecords:
-                    infoRecords['Max Stats'] = {'STR':20, 'DEX':20, 'CON':20, 'INT':20, 'WIS':20, 'CHA':20}
-                
-                data['Max Stats'] = infoRecords['Max Stats']
-
-                #Special stat bonuses (Barbarian cap / giant soul sorc)
-                specialCollection = db.special
-                specialRecords = list(specialCollection.find())
-                specialStatStr = ""
-                for s in specialRecords:
-                    if 'Bonus Level' in s:
-                        for c in subclasses:
-                            if s['Bonus Level'] == c['Level'] and s['Name'] in f"{c['Name']} ({c['Subclass']})":
-                                if 'MAX' in s['Stat Bonuses']:
-                                    statSplit = s['Stat Bonuses'].split('MAX ')[1].split(', ')
-                                    for stat in statSplit:
-                                        maxSplit = stat.split(' +')
-                                        data[maxSplit[0]] += int(maxSplit[1])
-                                        charStats[maxSplit[0]] += int(maxSplit[1])
-                                        data['Max Stats'][maxSplit[0]] += int(maxSplit[1]) 
-
-                                    specialStatStr = f"Level {s['Bonus Level']} {c['Name']} stat bonus unlocked! {s['Stat Bonuses']}"
-
-
-                maxStatStr = ""
-                for sk in data['Max Stats'].keys():
-                    if charStats[sk] > data['Max Stats'][sk]:
-                        data[sk] = charStats[sk] = data['Max Stats'][sk]
-                        if charFeatsGained != "":
-                            maxStatStr += f"\n{infoRecords['Name']}'s {sk} will not increase because their maximum is {data['Max Stats'][sk]}."
-                infoRecords["Class"] = data["Class"]
-                infoRecords['CON'] = charStats['CON']
-                charHP = await characterCog.calculate_base_hp(ctx, subclasses, infoRecords, int(newCharLevel))
-                data['HP'] = charHP
-                tierNum += int(newCharLevel in [5, 11, 17, 20])
-                levelUpEmbed.title = f'{charName} has leveled up to {newCharLevel}!\nCurrent CP: {totalCP}/{cp_bound_array[tierNum-1][1]} CP'
-                levelUpEmbed.description = f"{infoRecords['Race']} {charClass}\n**STR**: {charStats['STR']} **DEX**: {charStats['DEX']} **CON**: {charStats['CON']} **INT**: {charStats['INT']} **WIS**: {charStats['WIS']} **CHA**: {charStats['CHA']}" + f"\n{charFeatsGainedStr}{maxStatStr}\n{specialStatStr}"
-                if charClassChoice != "":
-                    levelUpEmbed.description += f"{charName} has multiclassed into **{charClassChoice}!**"
-                levelUpEmbed.set_footer(text= None)
-                levelUpEmbed.clear_fields()
-
-                def charCreateCheck(r, u):
-                    sameMessage = False
-                    if levelUpEmbedmsg.id == r.message.id:
-                        sameMessage = True
-                    return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
-
-                if not levelUpEmbedmsg:
-                   levelUpEmbedmsg = await channel.send(embed=levelUpEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-                else:
-                    await levelUpEmbedmsg.edit(embed=levelUpEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-
-                await levelUpEmbedmsg.add_reaction('✅')
-                await levelUpEmbedmsg.add_reaction('❌')
-                try:
-                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=charCreateCheck , timeout=60)
-                except asyncio.TimeoutError:
-                    await levelUpEmbedmsg.delete()
-                    await channel.send(f'Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
-                    self.bot.get_command('levelup').reset_cooldown(ctx)
-                    return
-                else:
-                    await levelUpEmbedmsg.clear_reactions()
-                    if tReaction.emoji == '❌':
-                        await levelUpEmbedmsg.edit(embed=None, content=f"Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
-                        await levelUpEmbedmsg.clear_reactions()
+                        return None
+                    elif choice == -1:
+                        await core.send(
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
-                        return
+                        return None
+                    await core.message.clear_reactions()
+                choice_level_class = list(new_class_options.keys())[choice]
+                select_class = {"Subclass": None, "Level": 1}
+                char_class[choice_level_class] = select_class
+                if "Wizard" == choice_level_class:
+                    free_spells[0] += 6
+                    char_dict["Free Spells"] = free_spells
+            elif tReaction.emoji == '🚫':
+                choice_level_class = char_class.keys()[0]
+                if len(char_class) > 1:
+                    option_text = ""
+                    alpha_index = 0
+                    for name, entry in char_class.keys():
+                        option_text += f"{alphaEmojis[alpha_index]}: {name} Level {entry['Level']}\n"
+                        alpha_index += 1
+                    level_up_embed.clear_fields()
+                    level_up_embed.add_field(name=f"Which class would you like to level up?", value=option_text, inline=False)
+                    choice = await disambiguate(len(char_class), core.message, author)
+                    if choice is None:
+                        await core.send(
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        self.bot.get_command('levelup').reset_cooldown(ctx)
+                        return None
+                    elif choice == -1:
+                        await core.send(
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        self.bot.get_command('levelup').reset_cooldown(ctx)
+                        return None
+                    await core.message.clear_reactions()
+                    choice_level_class = char_class.keys()[choice]
+                select_class = char_class[choice_level_class]
+                select_class['Level'] += 1
+        level_up_embed.clear_fields()
+        level_up_embed.description = f"{char_dict['Race']}: {char_class}\n**STR**:{stats['STR']} **DEX**:{stats['DEX']} **CON**:{stats['CON']} **INT**:{stats['INT']} **WIS**:{stats['WIS']} **CHA**:{stats['CHA']}"
+        if 'Wizard' == choice_level_class:
+            fs_lvl = (select_class['Level'] - 1) // 2
+            if fs_lvl > 8:
+                fs_lvl = 8
+            free_spells[fs_lvl] += 2
+        selected_record = records_dict[choice_level_class]
+        if selected_record['Subclass Level'] == select_class['Level']:
+            subclasses = selected_record['Class']['Subclasses']
+            core, subclass = await self.choose_subclass(core, subclasses, selected_record['Name'])
+            if not subclass:
+                return None
+            select_class['Subclass'] = subclass
 
-                try:
-                    playersCollection = db.players
-                    playersCollection.update_one({'_id': charID}, {"$set": data})
-                    statsCollection.update_one({'Life':1}, {"$set": statsRecord}, upsert=True)
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+        char_dict['Level'] = next_level
+        char_class[choice_level_class] = select_class
+        # Feat
+        feat_levels = []
+        if select_class['Level'] in (4, 8, 12, 16, 19) or ('Fighter' == select_class['Name'] and select_class['Level'] in (6, 14)) or ('Rogue' == select_class['Name'] and select_class['Level']) == 10:
+            feat_levels.append(int(select_class['Level']))
+        char_feats_gained_str = ''
+        if feat_levels != list():
+            core, feats_picked, char_dict = await self.choose_feat(core, char_class, feat_levels, char_dict)
+            if featsChosen != list():
+                char_feats_gained_str = f"Feats Gained: **{charFeatsGained}**"
 
+        if free_spells is not None:
+            char_dict['Free Spells'] = free_spells
 
-                roleName = await self.levelCheck(ctx, newCharLevel, charName)
-                levelUpEmbed.clear_fields()
-                await levelUpEmbedmsg.edit(content=f":arrow_up:   __**L E V E L   U P!**__\n\n:warning:   **Don't forget to spend your TP!** Use one of the following commands to do so:\n```yaml\n$tp find \"{charName}\" \"magic item\"\n$tp craft \"{charName}\" \"magic item\"\n$tp meme \"{charName}\" \"magic item\"```", embed=levelUpEmbed)
-                
-                if roleName != "":
-                    levelUpEmbed.title = f":tada: {roleName} role acquired! :tada:\n" + levelUpEmbed.title
-                    await levelUpEmbedmsg.edit(embed=levelUpEmbed)
-                    await levelUpEmbedmsg.add_reaction('🎉')
-                    await levelUpEmbedmsg.add_reaction('🎊')
-                    await levelUpEmbedmsg.add_reaction('🥳')
-                    await levelUpEmbedmsg.add_reaction('🍾')
-                    await levelUpEmbedmsg.add_reaction('🥂')
+        tier += int(next_level in [5, 11, 17, 20])
+        level_up_embed.title = f'{char_name} has leveled up to {next_level}!\nCurrent CP: {remaining_cp}/{cp_bound_array[tier-1][1]} CP'
+        level_up_embed.description = f"{char_dict['Race']} {char_class}\n**STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}"
+        level_up_embed.description += f"\n{char_feats_gained_str}"
+        level_up_embed.description += f"\n{char_name} has put a level into **{choice_level_class}!** (Level {select_class['Level']-1} -> {select_class['Level']})"
+        level_up_embed.set_footer(text= None)
+        level_up_embed.clear_fields()
+
+        core.embed.set_footer(text=None)
+        await core.send(
+            "**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
+
+        # TODO refactor this behavior
+        await core.message.add_reaction('✅')
+        await core.message.add_reaction('❌')
+        try:
+            tReaction, _ = await self.bot.wait_for("reaction_add",
+                                                       check=reaction_response_control(core.message, author,
+                                                                                       ['✅', '❌']), timeout=60)
+        except asyncio.TimeoutError:
+            await core.delete()
+            await channel.send(
+                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
+        else:
+            await  core.message.clear_reactions()
+            if tReaction.emoji == '❌':
+                core.cancel()
+                await core.message.edit(embed=None,
+                                        content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                await  core.message.clear_reactions()
+                self.bot.get_command(command_name).reset_cooldown(ctx)
+                return None
+
+        try:
+            db.players.update_one({'_id': char_id}, {"$set": data})
+        except Exception as e:
+            print ('MONGO ERROR: ' + str(e))
+            await core.send(content="Uh oh, looks like something went wrong while saving your data")
+
+        role_name = await self.levelCheck(ctx, next_level, char_name)
+        level_up_embed.clear_fields()
+        await levelUpEmbedmsg.edit(content=f":arrow_up:   __**L E V E L   U P!**__\n\n:warning:   **Don't forget to spend your TP!** Use one of the following commands to do so:\n```yaml\n$tp find \"{char_name}\" \"magic item\"\n$tp craft \"{char_name}\" \"magic item\"\n$tp meme \"{char_name}\" \"magic item\"```", embed=level_up_embed)
+
+        if role_name != "":
+            level_up_embed.title = f":tada: {role_name} role acquired! :tada:\n" + level_up_embed.title
+            await levelUpEmbedmsg.edit(embed=level_up_embed)
+            await levelUpEmbedmsg.add_reaction('🎉')
+            await levelUpEmbedmsg.add_reaction('🎊')
+            await levelUpEmbedmsg.add_reaction('🥳')
+            await levelUpEmbedmsg.add_reaction('🍾')
+            await levelUpEmbedmsg.add_reaction('🥂')
 
         self.bot.get_command('levelup').reset_cooldown(ctx)
+        return None
     
     async def levelCheck(self, ctx, level, charName):
         author = ctx.author
@@ -2693,42 +2350,36 @@ class Character(commands.Cog):
         if 'Journeyfriend' not in roles and 'Junior Friend' in roles and level > 4:
             roleName = 'Journeyfriend' 
             roleRemoveStr = 'Junior Friend'
-            levelRole = get(guild.roles, name = roleName)
-            roleRemove = get(guild.roles, name = roleRemoveStr)
+            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 2'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 2'))
-            await author.add_roles(levelRole, reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 5!")
-            await author.remove_roles(roleRemove)
         if 'Elite Friend' not in roles and 'Journeyfriend' in roles and level > 10:
             roleName = 'Elite Friend'
             roleRemoveStr = 'Journeyfriend'
-            levelRole = get(guild.roles, name = roleName)
-            roleRemove = get(guild.roles, name = roleRemoveStr)
+            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 3'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 3'))
-            await author.add_roles(levelRole, reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 11!")
-            await author.remove_roles(roleRemove)
         if 'True Friend' not in roles and 'Elite Friend' in roles and level > 16:
             roleName = 'True Friend'
             roleRemoveStr = 'Elite Friend'
-            levelRole = get(guild.roles, name = roleName)
-            roleRemove = get(guild.roles, name = roleRemoveStr)
+            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 4'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 4'))
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 5'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 5'))
-            
-            await author.add_roles(levelRole, reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 17!")
-            await author.remove_roles(roleRemove)
         if 'Ascended Friend' not in roles and 'True Friend' in roles and level > 19:
             roleName = 'Ascended Friend'
             roleRemoveStr = 'True Friend'
-            levelRole = get(guild.roles, name = roleName)
-            roleRemove = get(guild.roles, name = roleRemoveStr)
-            await author.add_roles(levelRole, reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 20!")
-            await author.remove_roles(roleRemove)
+            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
         return roleName
-    
+
+    async def upgrade_role(self, author, charName, guild, roleName, roleRemoveStr):
+        levelRole = get(guild.roles, name=roleName)
+        roleRemove = get(guild.roles, name=roleRemoveStr)
+        await author.add_roles(levelRole,
+                               reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 20!")
+        await author.remove_roles(roleRemove)
+
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
     @commands.command(aliases=['att'])
@@ -2838,14 +2489,14 @@ class Character(commands.Cog):
             item_name = matches[selected]
         return core, item_name
 
-    def calculate_base_hp (self, classes, charDict, lvl):
-        totalHP = classes[charDict['Starting Class']]['Hit Die Max']
+    def calculate_base_hp (self, classes, char_dict, lvl):
+        total_hp = classes[char_dict['Starting Class']]['Hit Die Max']
         for c in classes:
             level = int(c['Level'])
-            totalHP += c['Hit Die Average'] * level
+            total_hp += c['Hit Die Average'] * level
 
-        totalHP += ((int(charDict['CON']) - 10) // 2 ) * lvl
-        return totalHP
+        total_hp += ((int(char_dict['CON']) - 10) // 2) * lvl
+        return total_hp
 
     def calculate_bonus_hp(self, level: int, con: int, stat_bonuses: dict, max_stat_bonuses: dict, stat_setters: dict):
         hp_bonus, _ = self.determine_stat(0, "HP", max_stat_bonuses, stat_bonuses, stat_setters)
@@ -2915,31 +2566,31 @@ class Character(commands.Cog):
 
         #TODO switch to giving the stats dict
     # need a different version for 5R? Passing a different record in should be enough
-    async def starting_stat_modification(self, core, statsArray, sourceRecord):
+    async def starting_stat_modification(self, core, stats_array, source_record):
         author = core.context.author
         channel = core.context.channel
-        statsBonus = sourceRecord['Modifiers'].replace(" ", "").split(',')
+        statsBonus = source_record['Modifiers'].replace(" ", "").split(',')
         uniqueArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
         allStatsArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
         
         for bonus in statsBonus:
             if 'STR' in bonus:
-                statsArray[0] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[0] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('STR')
             elif 'DEX' in bonus:
-                statsArray[1] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[1] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('DEX')
             elif 'CON' in bonus:
-                statsArray[2] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[2] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('CON')
             elif 'INT' in bonus:
-                statsArray[3] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[3] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('INT')
             elif 'WIS' in bonus:
-                statsArray[4] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[4] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('WIS')
             elif 'CHA' in bonus:
-                statsArray[5] += int(bonus[len(bonus)-1]) if bonus[len(bonus)-2] == "+" else int("-" + bonus[len(bonus)-1])
+                stats_array[5] += int(bonus[len(bonus) - 1]) if bonus[len(bonus) - 2] == "+" else int("-" + bonus[len(bonus) - 1])
                 uniqueArray.remove('CHA')
 
             elif 'AOU' in bonus or 'ANY' in bonus:
@@ -2954,11 +2605,8 @@ class Character(commands.Cog):
                     uniqueStatStr += f'{alphaEmojis[u]}: {uniqueArray[u]}\n'
                     uniqueReacts.append(alphaEmojis[u])
 
-                core.embed.add_field(name=f"{sourceRecord['Name']} lets you choose **1** extra stat to increase by {anyAmount}. React below with the stat you would like to choose.", value=uniqueStatStr, inline=False)
-                if core.message:
-                    await core.message.edit(embed=core.embed)
-                else: 
-                    core.message = await channel.send(embed=charEmbed)
+                core.embed.add_field(name=f"{source_record['Name']} lets you choose **1** extra stat to increase by {anyAmount}. React below with the stat you would like to choose.", value=uniqueStatStr, inline=False)
+                await core.send(embed=charEmbed)
                 
                 choice = await disambiguate(len(uniqueArray), core.message, author)
                 if choice is None:
@@ -2970,15 +2618,15 @@ class Character(commands.Cog):
 
                 core.embed.clear_fields()
                 if 'AOU' in bonus:
-                    statsArray[allStatsArray.index(uniqueArray.pop(choice))] += anyAmount
+                    stats_array[allStatsArray.index(uniqueArray.pop(choice))] += anyAmount
                 else:
-                    statsArray[choice] += anyAmount
-        return core, {"STR": statsArray[0],
-            "DEX": statsArray[1],
-            "CON": statsArray[2],
-            "INT": statsArray[3],
-            "WIS": statsArray[4],
-            "CHA": statsArray[5]}
+                    stats_array[choice] += anyAmount
+        return core, {"STR": stats_array[0],
+            "DEX": stats_array[1],
+            "CON": stats_array[2],
+            "INT": stats_array[3],
+            "WIS": stats_array[4],
+            "CHA": stats_array[5]}
 
     async def choose_subclass(self, core: InteractionCore, subclasses: list, charClass: str):
         author = core.context.author
@@ -3071,7 +2719,7 @@ class Character(commands.Cog):
                         continue
                     if "Epic Boon" in feat and epic_boons_count >= epic_boons_limit and level < 19:
                         continue
-                    meetsRestriction = False
+                    meets_restriction = False
                     level_only = True
                     if 'Feat Restriction' not in feat and 'Race Restriction' not in feat and 'Class Restriction' not in feat and 'Stat Restriction' not in feat and 'Race Unavailable' not in feat and 'Require Spellcasting' not in feat and 'Level Restriction' not in feat:
                         featChoices.append(feat)
@@ -3081,23 +2729,23 @@ class Character(commands.Cog):
                             level_only = False
                             for f in restrictions:
                                 if f in char_feats or f in feats_picked:
-                                    meetsRestriction = True   
+                                    meets_restriction = True
                         if 'Race Restriction' in feat:
                             restrictions = [x.strip() for x in feat['Race Restriction'].split(', ')]
                             level_only = False
                             for f in restrictions:
                                 if f in race:
-                                    meetsRestriction = True
+                                    meets_restriction = True
                         if 'Race Unavailable' in feat:
                             level_only = False
                             if race not in feat['Race Unavailable']:
-                                meetsRestriction = True
+                                meets_restriction = True
                         if 'Class Restriction' in feat:
                             restrictions = [x.strip() for x in feat['Class Restriction'].split(', ')]
                             level_only = False
                             for name, entry in classes.items():
                                 if name in restrictions or entry["Class"]['Subclass'] in restrictions:
-                                    meetsRestriction = True
+                                    meets_restriction = True
                         if 'Stat Restriction' in feat:
                             level_only = False
                             s = feat['Stat Restriction']
@@ -3109,15 +2757,15 @@ class Character(commands.Cog):
 
                             for stat in checkStat:
                                 if int(char_stats[stat]) >= statNumber:
-                                    meetsRestriction = True
+                                    meets_restriction = True
 
                         if "Require Spellcasting" in feat:
                             level_only = False
-                            meetsRestriction = spellcasting
+                            meets_restriction = spellcasting
                             
                         if 'Level Restriction' in feat:
-                            meetsRestriction = (level_only or meetsRestriction) and level >= feat['Level Restriction']
-                        if meetsRestriction:
+                            meets_restriction = (level_only or meets_restriction) and level >= feat['Level Restriction']
+                        if meets_restriction:
                             featChoices.append(feat)
                     
                 featChoices = sorted(featChoices, key = lambda i: i['Name']) 
@@ -3153,25 +2801,25 @@ class Character(commands.Cog):
                     else:
                         ritual_book.append({'Name':ritua_spells[0]['Name'], 'School':ritua_spells[0]['School']})
                         ritual_book.append({'Name':ritua_spells[1]['Name'], 'School':ritua_spells[1]['School']})
+                    char_dict["Ritual Book"] = ritual_book
                 if 'Stat Bonuses' in featPicked:
-                    featBonus = featPicked['Stat Bonuses']
-                    if '/' in featBonus or 'ANY' in featBonus:
-                        if '/' in featBonus:
-                            featBonusList = featBonus[:len(featBonus) - 3].split('/')
-                        elif 'ANY' in featBonus:
-                            featBonusList = statNames
-                        content=f"The {featPicked['Name']} feat lets you choose between {featBonus}. React with [{alphaEmojis[0]}-{alphaEmojis[len(featBonusList)-1]}] below with the stat(s) you would like to choose."
-                        core, choice = await paginate_options(core, self.bot, "Feat Stats", featBonusList, content)
+                    feat_bonus = featPicked['Stat Bonuses']
+                    if '/' in feat_bonus or 'ANY' in feat_bonus:
+                        if '/' in feat_bonus:
+                            feat_bonus_list = feat_bonus[:len(feat_bonus) - 3].split('/')
+                        elif 'ANY' in feat_bonus:
+                            feat_bonus_list = statNames
+                        content=f"The {featPicked['Name']} feat lets you choose between {feat_bonus}. React with [{alphaEmojis[0]}-{alphaEmojis[len(feat_bonus_list)-1]}] below with the stat(s) you would like to choose."
+                        core, choice = await paginate_options(core, self.bot, "Feat Stats", feat_bonus_list, content)
                         if not core.isActive():
                             return core, None, None
-                        char_stats[featBonusList[choice]] = int(char_stats[featBonusList[choice]]) + int(featBonus[-1:])
+                        char_stats[feat_bonus_list[choice]] = int(char_stats[feat_bonus_list[choice]]) + int(feat_bonus[-1:])
                     else:
-                        featBonusList = featBonus.split(', ')
-                        for fb in featBonusList:
+                        feat_bonus_list = feat_bonus.split(', ')
+                        for fb in feat_bonus_list:
                             char_stats[fb[:3]] = int(char_stats[fb[:3]]) + int(fb[-1:])
         char_dict['Feats'].extend(list(feats_picked.keys()))
         return core, feats_picked, char_dict
-    
 
 async def setup(bot):
     await bot.add_cog(Character(bot))

@@ -563,7 +563,7 @@ class Character(commands.Cog):
     @is_log_channel()
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @commands.command(aliases=['cn'])
-    async def create(self, ctx, system, name, level: int, race, characterClass, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", timeTransfer = None):
+    async def create(self, ctx, system, name, level: int, race, character_class, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int, consumes="", timeTransfer = None):
         system = system.strip().upper()
         command_name = ctx.command.name
         if system not in ["5E", "5R"]:
@@ -573,12 +573,12 @@ class Character(commands.Cog):
         
         name = name.strip()
         channel = ctx.channel
-        print(system, name, level, race, characterClass, bg, sStr, sDex, sCon, sInt, sWis, sCha)
+        print(system, name, level, race, character_class, bg, sStr, sDex, sCon, sInt, sWis, sCha)
         # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
         if not (await self.check_parameter(ctx, "name", name)
                 and await self.check_parameter(ctx, "level", level)
                 and await self.check_parameter(ctx, "race", race)
-                and await self.check_parameter(ctx, "class", characterClass)
+                and await self.check_parameter(ctx, "class", character_class)
                 and await self.check_parameter(ctx, "background", bg)):
             return None
         author = ctx.author
@@ -669,7 +669,7 @@ class Character(commands.Cog):
                 #TODO: maybe dont change the dict directly?
                 char_dict['Feats'].extend(list(featsChosen.keys()))
 
-        core, classes, starting_class = await self.handle_class(core, characterClass, lvl, inventory)
+        core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
         char_dict["Starting Class"] = starting_class
         # check bg and gp
@@ -801,7 +801,7 @@ class Character(commands.Cog):
             db.players.insert_one(char_dict)
             if time_transfer_success:
                 db.users.update_one({"User ID": str(author.id)}, {"$inc" : {"Time Bank": -cpTransfered *3600}})
-                await self.levelCheck(ctx, char_dict["Level"], char_dict["Name"])
+                await self.level_check(ctx, char_dict["Level"], char_dict["Name"])
             stats_collection.update_one({'Life':1, 'System': system}, {"$inc": stat_increase}, upsert=True)
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
@@ -816,231 +816,153 @@ class Character(commands.Cog):
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
     @commands.command(aliases=['rs'])
-    async def respec(self,ctx, name, newname, race, cclass, bg, sStr:int, sDex:int, sCon:int, sInt:int, sWis:int, sCha:int):
-        newname = newname.strip()
-        author = ctx.author
-        guild = ctx.guild
+    async def respec(self, ctx, name, new_name, race, character_class, bg, sStr : int, sDex :int, sCon:int, sInt:int, sWis:int, sCha :int):
+        new_name = new_name.strip()
+        command_name = ctx.command.name
+
+        name = name.strip()
         channel = ctx.channel
-        charEmbed = discord.Embed ()
-        charEmbed.set_author(name=ctx.author.display_name, icon_url=ctx.author.display_avatar)
-        charEmbed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
-
-        charDict, charEmbedmsg = await checkForChar(ctx, name, charEmbed)
-
-        if not charDict:
-            return
-
-        # Reset  values here
-        charNoneKeyList = ['Magic Items', 'Inventory', 'Current Item', 'Consumables']
-
-        charRemoveKeyList = ['Predecessor','Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'Attuned', 'Spellbook', 'Guild', 'Guild Rank', 'Grouped', 'Item Spend']
+        print(system, name, race, character_class, bg, sStr, sDex, sCon, sInt, sWis, sCha)
+        # Prevents name, new_name, race, class, background from being blank. Resets infinite cooldown and prompts
+        if not (await self.check_parameter(ctx, "name", name)
+                and await self.check_parameter(ctx, "new name", new_name)
+                and await self.check_parameter(ctx, "race", race)
+                and await self.check_parameter(ctx, "class", character_class)
+                and await self.check_parameter(ctx, "background", bg)):
+            return None
+        author = ctx.author
+        roles = [r for r in author.roles]
+        char_embed = discord.Embed()
+        char_embed.set_author(name=author.display_name, icon_url=author.display_avatar)
+        char_embed.set_footer(text="React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
+        stats = {
+            'STR': sStr,
+            'DEX': sDex,
+            'CON': sCon,
+            'INT': sInt,
+            'WIS': sWis,
+            'CHA': sCha}
+        core = InteractionCore(ctx, None, char_embed)
+        char_dict, core = await checkForChar(core, name)
+        if not core.isActive():
+            await core.send("Character search cancelled")
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
+        if not core.hasError():
+            char_embed.clear_fields()
+            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            await core.send()
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
+        if not char_dict:
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
+        core.system = char_dict["System"]
+        char_remove_key_list = ['Image', 'T1 TP', 'T2 TP', 'T3 TP', 'T4 TP', 'Spellbook', 'Guild', 'Guild Rank']
         
         guild_name = ""
         
-        if "Guild" in charDict:
-            guild_name = charDict["Guild"]
-        
-        m_save = charDict['Magic Items'].split(", ")
-        # i_save = list(charDict['Inventory'].keys())
-        check_list = m_save #+i_save
-        
-        searched_items = list(db.rit.find({"Name" : {"$in": check_list}}))
-        searched_items_names = []
-        
-        for element in searched_items:
-            if "Grouped" in element:
-                searched_items_names += element["Name"]
-            else:
-                searched_items_names.append(element["Name"])
-        
-        m_saved_list = []
-        for m_item in m_save:
-            if m_item in searched_items_names:
-                m_saved_list.append(m_item)
-                
-        for c in charNoneKeyList:
-            charDict[c] = "None"
+        if "Guild" in char_dict:
+            guild_name = char_dict["Guild"]
 
-        for c in charRemoveKeyList:
-            if c in charDict:
-                del charDict[c]
-        name = charDict["Name"]
-        charDict["Magic Items"] = ", ".join(m_saved_list) + ("None" * (len(m_saved_list) == 0))
-        charDict["Inventory"] = {}
-        
-        # for i_item in i_saved_list:
-            # charDict["Inventory"][i_item[0]] = i_item[1]
-        charDict["Predecessor"]= {}
-        
-        charID = charDict['_id']
-        charDict['STR'] = int(sStr)
-        charDict['DEX'] = int(sDex)
-        charDict['CON'] = int(sCon)
-        charDict['INT'] = int(sInt)
-        charDict['WIS'] = int(sWis)
-        charDict['CHA'] = int(sCha)
-        charDict['GP'] = 0
+        for c in char_remove_key_list:
+            if c in char_dict:
+                del char_dict[c]
+        name = char_dict["Name"]
+        for key, value in char_dict["Magic Items"]:
+            del value["BUY"]
+        for key, value in char_dict["Inventory"]:
+            del value["BUY"]
 
-        lvl = charDict['Level']
+        charID = char_dict['_id']
+        char_dict['GP'] = 0
+
+        lvl = char_dict['Level']
         msg = ""
 
-        if 'Death' in charDict.keys():
-            await channel.send(content=f"You cannot respec a dead character. Use the following command to decide their fate:\n```yaml\n$death \"{charRecords['Name']}\"```")
-            return
+        if 'Death' in char_dict.keys():
+            await core.send(f"You cannot respec a dead character. Use the following command to decide their fate:\n```yaml\n$death \"{char_dict['Name']}\"```")
+            return None
         
         # level check
-        if lvl > 4 and "Respecc" not in charDict:
+        if lvl > 4 and "Respecc" not in char_dict:
             msg += "• Your character's level is way too high to respec.\n"
-            await ctx.channel.send(msg)
+            await core.send(msg)
             self.bot.get_command('respec').reset_cooldown(ctx) 
-            return
-        
-        # new name should be less then 64 chars
-        if len(newname) > 64:
-            msg += ":warning: Your character's new name is too long! The limit is 64 characters.\n"
-        # Reserved for regex, lets not use these for character names please
-        invalidChars = ["[", "]", "?", "“","”", '"', "\\", "*", "$", "{", "+", "}", "^", ">", "<", "|"]
-        for i in invalidChars:
-            if i in newname:
-                msg += f":warning: Your character's name cannot contain `{i}`. Please revise your character name.\n"
-
-
-        # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
-        if not newname:
-            await channel.send(content=":warning: The new name of your character cannot be blank! Please try again.\n")
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return
-        
-        
-        query = newname
-        query = query.replace('(', '\\(')
-        query = query.replace(')', '\\)')
-        query = query.replace('.', '\\.')
-        playersCollection = db.players
-        userRecords = list(playersCollection.find({"User ID": str(author.id), "Name": {"$regex": f"^{query}$", '$options': 'i' }}))
-
-        if userRecords != list() and newname.lower() != name.lower():
-            msg += f":warning: You already have a character by the name ***{newname}***. Please use a different name.\n"
-
-        oldName = charDict['Name']
-        charDict['Name'] = newname
-
-        if not race:
-            await channel.send(content=":warning: The race of your character cannot be blank! Please try again.\n")
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return
-
-        if not cclass:
-            await channel.send(content=":warning: The class of your character cannot be blank! Please try again.\n")
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return
-        
-        if not bg:
-            await channel.send(content=":warning: The background of your character cannot be blank! Please try again.\n")
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return
+            return None
+        if char_dict['Name'] != new_name:
+            core = self.nameVerification(core, name, author)
+        char_dict['Name'] = new_name
 
         # Because we are respeccing we are also adding extra TP based on CP.
         # no needed to bankTP2 now because limit is lvl 4 to respec
-        extraCp = charDict['CP']
-        charLevel = charDict['Level']
-        if "Respecc" in charDict:
-            maxCP = 10
-            if charLevel < 5:
-                maxCP = 4
-            while(extraCp >= maxCP and charLevel <20):
-                extraCp -= maxCP
-                charLevel += 1
-                if charLevel > 4:
-                    maxCP = 10
-            charDict["Level"] = charLevel
-            charDict['CP'] = extraCp
-            lvl = charLevel
+        extraCp = char_dict['CP']
+        charLevel = char_dict['Level']
+        maxCP = 10
+        if charLevel < 5:
+            maxCP = 4
+        while extraCp >= maxCP and charLevel <20:
+            extraCp -= maxCP
+            charLevel += 1
+            if charLevel > 4:
+                maxCP = 10
+        char_dict["Level"] = charLevel
+        char_dict['CP'] = extraCp
+        lvl = charLevel
         # TODO split the create main code
-        if not charEmbedmsg:
-            charEmbedmsg = await channel.send(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
-        else:
-            await charEmbedmsg.edit(embed=charEmbed, content="**Double-check** your character information.\nIf this is correct please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel. ")
+        core.embed.set_footer(text=None)
+        await core.send(
+            "**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
 
-        await charEmbedmsg.add_reaction('✅')
-        await charEmbedmsg.add_reaction('❌')
+        await core.message.add_reaction('✅')
+        await core.message.add_reaction('❌')
         try:
-            tReaction, tUser = await self.bot.wait_for("reaction_add", check=charCreateCheck , timeout=60)
+            tReaction, tUser = await self.bot.wait_for("reaction_add",
+                                                       check=reaction_response_control(core.message, author,
+                                                                                       ['✅', '❌']), timeout=60)
         except asyncio.TimeoutError:
-            await charEmbedmsg.delete()
-            await channel.send(f'Character respec cancelled. Use the following command to try again:\n```yaml\n{commandPrefix}respec "character name" "new character name" level "race" "class" "background" STR DEX CON INT WIS CHA```')
-            self.bot.get_command('respec').reset_cooldown(ctx)
-            return
+            await core.delete()
+            await channel.send(
+                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
         else:
-            await charEmbedmsg.clear_reactions()
+            await  core.message.clear_reactions()
             if tReaction.emoji == '❌':
-                await charEmbedmsg.edit(embed=None, content=f"Character respec cancelled. Try again using the same command:\n```yaml\n{commandPrefix}respec \"character name\" \"new character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA```")
-                await charEmbedmsg.clear_reactions()
-                self.bot.get_command('respec').reset_cooldown(ctx)
-                return
+                core.cancel()
+                await core.message.edit(embed=None,
+                                        content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                await  core.message.clear_reactions()
+                self.bot.get_command(command_name).reset_cooldown(ctx)
+                return None
         try:
             if len(guild_name)>0:
                 guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": guild_name, '$options': 'i' }}))
                 # If there is only one of user's character in the guild remove the role.
-                if (len(guildAmount) <= 1):
+                if len(guildAmount) <= 1:
                     await author.remove_roles(get(guild.roles, name = guild_name), reason=f" Respecced")
+            stats_collection = db.stats
+            stat_increase = {f"Background.{char_dict['Background']}": 1, f"Race.{char_dict['Race']}": 1}
+            for feat in char_dict["Feats"]:
+                stat_increase[f"Feats.{feat}"] = 1
 
-            if "Respecc" in charDict and charDict["Respecc"] == "Transfer":
-                charDict["Inventory"].update(charDict["Transfer Set"]["Inventory"])
-                charDict["Magic Items"] = charDict["Transfer Set"]["Magic Items"]
-                charDict["Consumables"] = charDict["Transfer Set"]["Consumables"]
-                del charDict["Transfer Set"]
-                statsCollection = db.stats
-                statsRecord  = statsCollection.find_one({'Life': 1})
-
-                for c in classStat:
-                    char = c.split('-')
-                    if char[0] in statsRecord['Class']:
-                        statsRecord['Class'][char[0]]['Count'] += 1
-                    else:
-                        statsRecord['Class'][char[0]] = {'Count': 1}
-
-                    if len(char) > 1:
-                        if char[1] in statsRecord['Class'][char[0]]:
-                            statsRecord['Class'][char[0]][char[1]] += 1
-                        else:
-                            statsRecord['Class'][char[0]][char[1]] = 1
-
-                if charDict['Race'] in statsRecord['Race']:
-                    statsRecord['Race'][charDict['Race']] += 1
-                else:
-                    statsRecord['Race'][charDict['Race']] = 1
-
-                if charDict['Background'] in statsRecord['Background']:
-                    statsRecord['Background'][charDict['Background']] += 1
-                else:
-                    statsRecord['Background'][charDict['Background']] = 1
-                if featsChosen != "":
-                    feat_split = featsChosen.split(", ")
-                    for feat_key in feat_split:
-                        if not feat_key in statsRecord['Feats']:
-                            statsRecord['Feats'][feat_key] = 1
-                        else:
-                            statsRecord['Feats'][feat_key] += 1
-                statsCollection.update_one({'Life':1}, {"$set": statsRecord}, upsert=True)
-                await self.levelCheck(ctx, charDict["Level"], charDict["Name"])
+            stats_collection.update_one({'Life': 1, 'System': system}, {"$inc": stat_increase}, upsert=True)
+            await self.level_check(ctx, char_dict["Level"], char_dict["Name"])
             # Extra to unset
-            if "Respecc" in charDict:
-                del charDict["Respecc"]
-            charRemoveKeyList = {"Transfer Set" : 1, "Respecc" : 1, 'Image':1, 'Spellbook':1, 'Attuned':1, 'Guild':1, 'Guild Rank':1, 'Grouped':1, 'Item Spend': 1}
-            playersCollection.update_one({'_id': charID}, {"$set": charDict, "$unset": charRemoveKeyList }, upsert=True)
+            if "Respecc" in char_dict:
+                del char_dict["Respecc"]
+            char_remove_key_list = {key: 1 for key in char_remove_key_list}
+            char_remove_key_list["Respecc"] = 1
+            playersCollection.update_one({'_id': charID}, {"$set": char_dict, "$unset": char_remove_key_list }, upsert=True)
             
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
-            charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+            await channel.send("Uh oh, looks like something went wrong. Please try creating your character again.")
         else:
-            if charEmbedmsg:
-                await charEmbedmsg.clear_reactions()
-                await charEmbedmsg.edit(embed=charEmbed, content =f"Congratulations! You have respecced your character!")
-            else: 
-                charEmbedmsg = await channel.send(embed=charEmbed, content=f"Congratulations! You have respecced your character!")
+            await core.send(f"Congratulations! You have respecced your character!")
 
-        self.bot.get_command('respec').reset_cooldown(ctx)
+        self.bot.get_command(command_name).reset_cooldown(ctx)
+        return None
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @is_log_channel()
@@ -2181,7 +2103,6 @@ class Character(commands.Cog):
             await core.message.add_reaction('✅')
         await core.message.add_reaction('🚫')
         await core.message.add_reaction('❌')
-        #todo wait check
         try:
             tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, core.context.author, emoji_options), timeout=60)
         except asyncio.TimeoutError:
@@ -2293,7 +2214,7 @@ class Character(commands.Cog):
         await core.send(
             "**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
 
-        # TODO refactor this behavior
+        # TODO refactor this behavior?
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
@@ -2322,7 +2243,7 @@ class Character(commands.Cog):
             print ('MONGO ERROR: ' + str(e))
             await core.send(content="Uh oh, looks like something went wrong while saving your data")
 
-        role_name = await self.levelCheck(ctx, next_level, char_name)
+        role_name = await self.level_check(ctx, next_level, char_name)
         level_up_embed.clear_fields()
         await levelUpEmbedmsg.edit(content=f":arrow_up:   __**L E V E L   U P!**__\n\n:warning:   **Don't forget to spend your TP!** Use one of the following commands to do so:\n```yaml\n$tp find \"{char_name}\" \"magic item\"\n$tp craft \"{char_name}\" \"magic item\"\n$tp meme \"{char_name}\" \"magic item\"```", embed=level_up_embed)
 
@@ -2338,46 +2259,46 @@ class Character(commands.Cog):
         self.bot.get_command('levelup').reset_cooldown(ctx)
         return None
     
-    async def levelCheck(self, ctx, level, charName):
+    async def level_check(self, ctx, level, char_name):
         author = ctx.author
         roles = [r.name for r in author.roles]
         guild = ctx.guild
-        roleName = ""
+        role_name = ""
         if not any([(x in roles) for x in ['Junior Friend', 'Journeyfriend', 'Elite Friend', 'True Friend', 'Ascended Friend']]) and 'D&D Friend' in roles and level > 1:
-            roleName = 'Junior Friend' 
-            levelRole = get(guild.roles, name = roleName)
-            await author.add_roles(levelRole, reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 2!")
+            role_name = 'Junior Friend'
+            level_role = get(guild.roles, name = role_name)
+            await author.add_roles(level_role, reason=f"***{author}***'s character ***{char_name}*** is the first character who has reached level 2!")
         if 'Journeyfriend' not in roles and 'Junior Friend' in roles and level > 4:
-            roleName = 'Journeyfriend' 
-            roleRemoveStr = 'Junior Friend'
-            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
+            role_name = 'Journeyfriend'
+            role_remove_str = 'Junior Friend'
+            await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 2'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 2'))
         if 'Elite Friend' not in roles and 'Journeyfriend' in roles and level > 10:
-            roleName = 'Elite Friend'
-            roleRemoveStr = 'Journeyfriend'
-            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
+            role_name = 'Elite Friend'
+            role_remove_str = 'Journeyfriend'
+            await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 3'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 3'))
         if 'True Friend' not in roles and 'Elite Friend' in roles and level > 16:
-            roleName = 'True Friend'
-            roleRemoveStr = 'Elite Friend'
-            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
+            role_name = 'True Friend'
+            role_remove_str = 'Elite Friend'
+            await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 4'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 4'))
             await author.add_roles(get(guild.roles, name = 'Roll20 Tier 5'))
             await author.add_roles(get(guild.roles, name = 'Foundry Tier 5'))
         if 'Ascended Friend' not in roles and 'True Friend' in roles and level > 19:
-            roleName = 'Ascended Friend'
-            roleRemoveStr = 'True Friend'
-            await self.upgrade_role(author, charName, guild, roleName, roleRemoveStr)
-        return roleName
+            role_name = 'Ascended Friend'
+            role_remove_str = 'True Friend'
+            await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
+        return role_name
 
-    async def upgrade_role(self, author, charName, guild, roleName, roleRemoveStr):
+    async def upgrade_role(self, author, char_name, guild, roleName, roleRemoveStr):
         levelRole = get(guild.roles, name=roleName)
         roleRemove = get(guild.roles, name=roleRemoveStr)
         await author.add_roles(levelRole,
-                               reason=f"***{author}***'s character ***{charName}*** is the first character who has reached level 20!")
+                               reason=f"***{author}***'s character ***{char_name}*** is the first character who has reached level 20!")
         await author.remove_roles(roleRemove)
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
@@ -2568,7 +2489,6 @@ class Character(commands.Cog):
     # need a different version for 5R? Passing a different record in should be enough
     async def starting_stat_modification(self, core, stats_array, source_record):
         author = core.context.author
-        channel = core.context.channel
         statsBonus = source_record['Modifiers'].replace(" ", "").split(',')
         uniqueArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']
         allStatsArray = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA']

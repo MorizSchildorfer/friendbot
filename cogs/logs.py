@@ -598,6 +598,9 @@ class Log(commands.Cog):
         dmRewardsList = []
         dm["Double"] = False
         dm_time_bank = 0
+        paused_time = 0
+        if "Paused Time" in sessionInfo:
+            paused_time = sessionInfo["Paused Time"]
         #DM REWARD MATH STARTS HERE
         if("Character ID" in dm):
         
@@ -727,9 +730,6 @@ class Log(commands.Cog):
                                         "$inc": {"Games": 1,
                                                     "Event Token" : event_inc}}})
         else:
-            paused_time = 0
-            if "Paused Time" in sessionInfo:
-                paused_time = sessionInfo["Paused Time"]
             dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (1+ sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"])+ (sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo["Tier Bonus"]))*1.5
         # that is the base line of sparkles and noodles gained
         sparklesGained = int(maximumCP) // 3
@@ -773,9 +773,6 @@ class Log(commands.Cog):
         if "Noodles" not in dmEntry:
             dmEntry["Noodles"] = 0
         noodles = dmEntry["Noodles"]
-        paused_time = 0
-        if "Paused Time" in sessionInfo:
-            paused_time = sessionInfo["Paused Time"]
         duration = totalDuration = end - start - paused_time
         noodlesGained = int((duration + dmEntry["DM Time"])//(3*3600))
         new_dm_time = (duration + dmEntry["DM Time"])%(3*3600)

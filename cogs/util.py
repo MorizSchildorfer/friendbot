@@ -6,8 +6,11 @@ from cogs.view import AlphaView, ConfirmView
 from discord.utils import get      
 from math import floor
 from discord.ext import commands
-from bfunc import alphaEmojis, commandPrefix, db, left,right
+from bfunc import alphaEmojis, commandPrefix, db, left,right, bot
 import math
+from typing import TypeVar, Sequence
+
+T = TypeVar('T')
 
 noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
 'Fresh Noodle': {'noodles': 3, 'creation_items': [1, 0, 0], 'creation_level_bonus': 1, 'dm_item_rewards': [1, 1, 0], 'player_item_rewards': [1, 2, 1], 'training': 0},
@@ -35,7 +38,8 @@ cp_thresh_hold_array = [16, 16+60, 16+60+60, 90000000]
 
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
 
-source_types = ["CREATE", "BUY", "REWARD"]
+#ordered by usage priority
+source_types = ["BUY", "CREATE", "REWARD"]
 
 def determine_tier(level: int):
     tier = 4
@@ -51,20 +55,144 @@ def add_to_inventory(inventory: dict, item: str, amount: int, source: str):
     if item not in inventory:
         inventory[item] = {source: amount}
     else:
-        entry = inventory[item]
-        if source in entry:
-            entry[source] += amount
+        add_to_dictionary(inventory[item], source, amount)
+
+def add_to_dictionary(dictionary: dict, item: str, amount: int):
+    if item not in dictionary:
+        dictionary[item] = amount
+    else:
+        dictionary[item] += amount
+
+def remove_from_inventory(core: InteractionCore, inventory: dict, item: str, amount: int) -> dict:
+    reductions = {}
+    if item not in inventory:
+        core.addError("Item not found in inventory")
+        return reductions
+    item_entry = inventory[item]
+    if sum_sources(item_entry) < amount:
+        core.addError("You are trying to remove more than you own")
+        return reductions
+    for source in source_types:
+        from_source = item_entry[source]
+        if from_source >= amount:
+            reductions[source] = -amount
+            break
         else:
-            entry[source] = amount
+            reductions[source] = -from_source
+            amount -= from_source
+    return reductions
 
 def show_inventory(inventory: dict) -> list:
     output = []
     for name, entry in inventory.items():
-        output.append(f"{name} x{sum([entry[source] for source in source_types if source in entry])}")
+        output.append(f"{name} x{sum_sources(entry)}")
     return output
 
 def sum_sources(entry: dict) -> int:
     return sum([entry[source] for source in source_types if source in entry])
+
+async def check_for_char_with_end(ctx, name: str) -> tuple[dict, Any, InteractionCore]:
+    char_embed = discord.Embed()
+    command_name = ctx.command.name
+    core = InteractionCore(ctx, None, char_embed)
+    char_dict, core = await checkForChar(core, name)
+    if not core.isActive():
+        await core.send("Character search cancelled")
+        bot.get_command(command_name).reset_cooldown(ctx)
+        return None
+    char_embed.clear_fields()
+    if not core.hasError():
+        char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+        await core.send()
+        bot.get_command(command_name).reset_cooldown(ctx)
+        return None
+    core.system = char_dict["System"]
+    return char_dict, char_embed, core
+
+
+# Background items: goes through each background and give extra items for inventory.
+async def select_inventory_choices(core: InteractionCore, startingOptions: list, inventory: dict, source: str):
+    embed = core.embed
+    remaining_options = startingOptions
+    while len(remaining_options) > 0:
+        e = remaining_options.pop()
+        for ek, ev in e.items():
+            choice_values = []
+            choice_keys = []
+            alpha_index = 0
+            choice_string = ""
+            if type(ev) == dict:
+                is_choice = "Choice" in ev
+                for key, value in ev.items():
+                    if key == "Choice":
+                        continue
+                    if is_choice:
+                        print(key, value)
+                        choice_keys.append(key)
+                        choice_values.append(value)
+                        choice_string += f"{alphaEmojis[alpha_index]}: {key}\n"
+                        alpha_index += 1
+                    else:
+                        remaining_options.append({key: value})
+            else:
+                choice_keys.append(ek)
+                choice_values.append(ev)
+            if len(choice_values) > 0:
+                # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
+                if len(choice_values) > 1:
+                    embed.add_field(name=f"{ek} lets you choose one.", value=choice_string, inline=False)
+                    await core.send()
+                    await core.message.add_reaction('❌')
+                    try:
+                        tReaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(core.message,
+                                                                                                          core.context.author,
+                                                                                                          alphaEmojis[
+                                                                                                              :alpha_index]),
+                                                          timeout=60)
+                    except asyncio.TimeoutError:
+                        core.cancel()
+                        return core, inventory, 0
+                    else:
+                        await core.message.clear_reactions()
+                        if tReaction.emoji == '❌':
+                            core.cancel()
+                            return core, inventory
+                    top_values = choice_values[alphaEmojis.index(tReaction.emoji)]
+                    top_key = choice_keys[alphaEmojis.index(tReaction.emoji)]
+                else:
+                    top_values = choice_values[0]
+                    top_key = choice_keys[0]
+
+                if type(top_values) == int:
+                    if '[' in top_key and ']' in top_key:
+                        iType = top_key.split('[')
+                        invCollection = db.shop
+                        if 'Instrument' in iType[1]:
+                            found_options = list(invCollection.find({"System": core.system, "Type": {
+                                '$all': [re.compile(f".*{iType[1].replace(']', '')}.*")]}}))
+                        else:
+                            found_options = list(invCollection.find({"System": core.system, "Type": {
+                                '$all': [re.compile(f".*{iType[0]}.*"),
+                                         re.compile(f".*{iType[1].replace(']', '')}.*")]}}))
+                        found_options = list(filter(
+                            lambda c: 'Yklwa' not in c['Name'] and 'Light Repeating Crossbow' not in c[
+                                'Name'] and 'Double-Bladed Scimitar' not in c['Name'] and 'Oversized Longbow' not in c[
+                                          'Name'], found_options))
+                        found_options = sorted(found_options, key=lambda i: i['Name'])
+                        next_options = {"Choice": True}
+                        for item in found_options:
+                            next_options[item["Name"]] = 1
+                        for i in range(0, int(top_values)):
+                            remaining_options.append({top_key: next_options})
+                    else:
+                        add_to_inventory(inventory, top_key, top_values, source)
+                elif 'Pack' in top_key:
+                    remaining_options.append({top_key: top_values})
+                else:
+                    print({top_key: top_values})
+                    remaining_options.append({top_key: top_values})
+                embed.clear_fields()
+    return core, inventory
 
 class InteractionCore:
     def __init__(self, context, message, embed, system: str = None):
@@ -116,6 +244,9 @@ def admin_or_owner():
 def convert_to_seconds(s):
     seconds_per_unit = { "m": 60, "h": 3600 }
     return int(s[:-1]) * seconds_per_unit[s[-1]]
+
+def find_matching(items: list[T], predicate: Callable[T, bool]) -> T:
+    return next((x for x in items if predicate(x)), None)
 
 def reaction_response_control(message, author, options: list):
     def predicate(reaction, user):
@@ -433,7 +564,7 @@ apiEmbedmsg -> the message that will contain apiEmbed
 table -> the table in the database that should be searched in, most common tables are RIT, MIT and SHOP
 query -> the word which will be searched for in the "Name" property of elements, adjustments were made so that also a special property "Grouped" also gets searched
 """
-async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True):
+async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True) -> tuple[dict, InteractionCore]:
     ctx = core.context
     #channel and author of the original message creating this call
     channel = ctx.channel
@@ -709,9 +840,9 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     return [gainedCP, tp, gp]
 
 
-async def spell_item_search(core: InteractionCore, search_parameter, item_type, system="5E"):    
+async def spell_item_search(core: InteractionCore, search_parameter, item_type):
     spellItem = search_parameter.lower().replace(item_type.lower(), "").replace('(', '').replace(')', '')
-    sRecord, core = await callAPI(core, 'spells', spellItem, system=system) 
+    sRecord, core = await callAPI(core, 'spells', spellItem)
     if not core.isActive():
         return None, None, core
     spell_item_name = ""
@@ -739,7 +870,7 @@ async def find_reward_item(core: InteractionCore, item: str, level: int):
         return None, core
     tier = determine_tier(level)
     if item_type:
-        item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type, system)
+        item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type)
     item_record, core = await callAPI(core, 'rit', item, tier = tier, filter_rit = True)
     
     if not core.isActive():

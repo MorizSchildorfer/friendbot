@@ -884,7 +884,7 @@ class Timer(commands.Cog):
                         await ctx.channel.send(msg)
                         return userInfo
                     if item_type:
-                        query, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(ctx, query, item_type, charEmbed, charEmbedmsg, "")
+                        query, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(core, query, item_type)
                         # if no spell was found then we inform the user of the failure and stop the command
                         if msg:
                             await ctx.channel.send(msg)

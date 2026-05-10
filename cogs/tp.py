@@ -20,7 +20,6 @@ class Tp(commands.Cog):
     @commands.group(case_insensitive=True)
     @is_log_channel()
     async def tp(self, ctx):	
-        tpCog = self.bot.get_cog('Tp')
         pass
 
     async def cog_command_error(self, ctx, error):

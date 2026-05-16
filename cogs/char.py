@@ -941,13 +941,10 @@ class Character(commands.Cog):
         core.embed.set_footer(text=None)
         await core.send(
             "**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
-
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
-            tReaction, _ = await self.bot.wait_for("reaction_add",
-                                                       check=reaction_response_control(core.message, author,
-                                                                                       ['✅', '❌']), timeout=60)
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']), timeout=60)
         except asyncio.TimeoutError:
             await core.delete()
             await channel.send(

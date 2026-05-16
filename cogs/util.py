@@ -41,6 +41,9 @@ cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "âˆ
 #ordered by usage priority
 source_types = ["BUY", "CREATE", "REWARD"]
 
+# TODO add a function to determine the display name for magic items
+# Todo add a function to check if a text could be referring to a specific item
+
 def determine_tier(level: int):
     tier = 4
     if level < 5:

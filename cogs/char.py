@@ -10,7 +10,7 @@ from discord.utils import get
 from math import floor
 from discord.ext import commands
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord, bot
-from cogs.util import calculateTreasure, callAPI, check_for_char_with_end, paginate, disambiguate, timeConversion, confirm, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier, add_to_dictionary, sum_sources, select_inventory_choices
+from cogs.util import calculateTreasure, callAPI, check_for_char_with_end, paginate, disambiguate, timeConversion, confirm, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier, add_to_dictionary, sum_sources, select_inventory_choices, format_classes
 
 def search_magic_item(search: str, items: dict) -> list:
     results = []
@@ -45,6 +45,7 @@ def stats_special():
                 ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"] or
                 ctx.channel.id == 564994370416410624)
     return commands.check(predicate)
+
 
 class Character(commands.Cog):
     def __init__ (self, bot):
@@ -657,7 +658,7 @@ class Character(commands.Cog):
             tier = determine_tier(level)
         core.embed.clear_fields()    
         core.embed.title = f"{char_dict['Name']} (Lv {level}): {char_dict['CP']}/{cp_bound_array[tier-1][1]} CP"
-        class_summary = self.format_classes(char_dict["Class"])
+        class_summary = format_classes(char_dict["Class"])
         core.embed.description = f"**Race**: {char_dict['Race']}\n**Class**: {class_summary}\n**Background**: {char_dict['Background']}\n**Max HP**: {display_hp}\n**GP**: {char_dict['GP']} "
 
         for x in range(1,6):
@@ -780,7 +781,9 @@ class Character(commands.Cog):
             del value["BUY"]
         for key, value in char_dict["Inventory"]:
             del value["BUY"]
-
+            del value["CREATE"]
+        for key, value in char_dict["Consumables"]:
+            del value["BUY"]
         char_id = char_dict['_id']
         char_dict['GP'] = 0
 
@@ -834,7 +837,7 @@ class Character(commands.Cog):
                     return core, None
                 # TODO: maybe dont change the dict directly?
                 char_dict['Feats'].extend(list(feats_chosen.keys()))
-
+        inventory = char["Inventory"]
         core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in
                               classes.items()}
@@ -898,7 +901,7 @@ class Character(commands.Cog):
             tier = determine_tier(level)
         core.embed.clear_fields()
         core.embed.title = f"{char_dict['Name']} (Lv {level}): {char_dict['CP']}/{cp_bound_array[tier - 1][1]} CP"
-        class_summary = self.format_classes(char_dict["Class"])
+        class_summary = format_classes(char_dict["Class"])
         core.embed.description = f"**Race**: {char_dict['Race']}\n**Class**: {class_summary}\n**Background**: {char_dict['Background']}\n**Max HP**: {display_hp}\n**GP**: {char_dict['GP']} "
 
         for x in range(1, 6):
@@ -1419,7 +1422,7 @@ class Character(commands.Cog):
                 for charDict in charDictTiers[n]:
                     system = charDict["System"]
                     char_race = charDict['Race']
-                    char_class = self.format_classes(['Class'])
+                    char_class = format_classes(['Class'])
                     if "Reflavor" in charDict:
                         rfarray = charDict['Reflavor']
                         if 'Race' in rfarray:
@@ -1486,7 +1489,7 @@ class Character(commands.Cog):
         if 'Image' in charDict:
             charEmbed.set_thumbnail(url=charDict['Image'])
         char_race = char_dict['Race']
-        char_class = self.format_classes(char_dict['Class'])
+        char_class = format_classes(char_dict['Class'])
         char_background = char_dict['Background']
         if "Reflavor" in char_dict:
             rfdict = char_dict['Reflavor']
@@ -1662,15 +1665,7 @@ class Character(commands.Cog):
             embed.description = ""
             embed.set_thumbnail(url=None)
             await message.edit(embed = embed)
-        
-    def format_classname(self, name, character_class: dict):
-        if character_class["Subclass"]:
-            return f"{name} ({character_class['Subclass']}) "
-        return name
-    
-    def format_classes(self, classes: dict):
-        return '/'.join([f"{self.format_classname(name, entry)} {entry['Level']}" for name, entry in classes.items()])
-    
+
     #TODO rework
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()
@@ -1701,7 +1696,7 @@ class Character(commands.Cog):
         footer = f"To view your character's inventory, type the following command: {commandPrefix}inv {char_dict['Name']}"
         
         char_race = char_dict['Race']
-        char_class = self.format_classes(char_dict['Class'])
+        char_class = format_classes(char_dict['Class'])
         char_background = char_dict['Background']
         if "Reflavor" in char_dict:
             rfdict = char_dict['Reflavor']
@@ -2038,7 +2033,7 @@ class Character(commands.Cog):
         next_level = char_level  + 1
         level_up_embed.clear_fields()
         level_up_embed.title = f"{char_name}: Level Up! {char_level} → {next_level}"
-        level_up_embed.description = f"{char_dict['Race']}: {self.format_classes(char_class)}\n**STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}"
+        level_up_embed.description = f"{char_dict['Race']}: {format_classes(char_class)}\n**STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}"
         class_options = {}
 
         # Multiclass Requirements
@@ -2654,24 +2649,24 @@ class Character(commands.Cog):
                     ritualClass = ritualClasses[selection]
                     featPicked['Name'] = f"{featPicked['Name']} ({ritualClass})"
                     spellsCollection = db.spells
-                    ritua_spells = list(spellsCollection.find({"$and": [{"Classes": {"$regex": ritualClass, '$options': 'i' }}, {"Ritual": True}, {"Level": 1}] }))
+                    ritual_spells = list(spellsCollection.find({"$and": [{"Classes": {"$regex": ritualClass, '$options': 'i' }}, {"Ritual": True}, {"Level": 1}] }))
                     ritual_book = []
-                    if len(ritua_spells) > 2:
+                    if len(ritual_spells) > 2:
                         content = "Please pick the first spell."
-                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritua_spells]), content)
+                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritual_spells]), content)
                         if not core.isActive():
                             return core, None, None
-                        rChoice = ritua_spells.pop(selection)
+                        rChoice = ritual_spells.pop(selection)
                         ritual_book.append({'Name':rChoice['Name'], 'School':rChoice['School']})
                         content = "Please pick the second spell."
-                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritua_spells]), content)
+                        core, selection = await paginate_options(core, self.bot, f"Ritual Caster {ritualClass}", list([spell["Name"] for spell in ritual_spells]), content)
                         if not core.isActive():
                             return core, None, None
-                        rChoice = ritua_spells.pop(selection)
+                        rChoice = ritual_spells.pop(selection)
                         ritual_book.append({'Name':rChoice['Name'], 'School':rChoice['School']})
                     else:
-                        ritual_book.append({'Name':ritua_spells[0]['Name'], 'School':ritua_spells[0]['School']})
-                        ritual_book.append({'Name':ritua_spells[1]['Name'], 'School':ritua_spells[1]['School']})
+                        ritual_book.append({'Name':ritual_spells[0]['Name'], 'School':ritual_spells[0]['School']})
+                        ritual_book.append({'Name':ritual_spells[1]['Name'], 'School':ritual_spells[1]['School']})
                     char_dict["Ritual Book"] = ritual_book
                 if 'Stat Bonuses' in featPicked:
                     feat_bonus = featPicked['Stat Bonuses']

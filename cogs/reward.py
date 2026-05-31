@@ -3,15 +3,14 @@ import re
 import asyncio
 from discord.ext import commands
 from bfunc import db, roleArray, commandPrefix, alphaEmojis, traceback
-from cogs.util import checkForChar, calculateTreasure, timeConversion
+from cogs.util import checkForChar, calculateTreasure, timeConversion, InteractionCore
 from random import *
 
-async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=None):
+async def randomReward(self, core: InteractionCore, tier, rewardType, block=[], amount=None, start=None):
+        ctx = core.context
         channel = ctx.channel
         author = ctx.author
         rewardCollection = db.rit
-
-
         if not block:
             rewardTable = list(rewardCollection.find({"Tier": int(tier), "Minor/Major": rewardType}))
         else:
@@ -25,16 +24,8 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
             await channel.send(f'Error: You requested an invalid amount of {rewardType} reward items.')
             return None
 
-
         randomItem = sample(rewardTable, int(amount)) # Makes a list of all the randomly chosen items. Includes their entire entry, which is needed for special cases of spell scrolls and ammunition
         rewardString = []
-
-        def spellEmbedCheck(r, u):
-            sameMessage = False
-            if charEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((r.emoji in alphaEmojis[:len(spellClasses)]) or (str(r.emoji) == '❌')) and u == author
-
         #Puts all rewards into an array
         for i in range(0,int(amount)):
             if not isinstance(randomItem[i]['Name'], str): #If one of the items has subchoices, such as ammunition, only the category will be added instead of an array of all the choices
@@ -73,24 +64,19 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
                 try:
                     await charEmbedmsg.edit(embed=charEmbed)
                     await charEmbedmsg.add_reaction('❌')
-                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=spellEmbedCheck, timeout=60)
+                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:len(spellClasses)]), timeout=60)
                 except asyncio.TimeoutError:
                     await charEmbedmsg.delete()
                     await channel.send(f'Spell list selection timed out! Try again using the same command:\n')
-                    #self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx)
                     return None
                 else:
                     if tReaction.emoji == '❌':
                         await charEmbedmsg.edit(embed=None, content=f"Spell list selection cancelled.\n")
                         await charEmbedmsg.clear_reactions()
-                        #self.bot.get_command(ctx.invoked_with).reset_cooldown(ctx) #error
                         return None
                 await charEmbedmsg.clear_reactions()
                 classList = spellClasses[alphaEmojis.index(tReaction.emoji)]
-
-                spellCollection = db.spells
-
-                output = list(spellCollection.find({"$and": [{"Classes": {"$regex": classList, '$options': 'i' }, "Level": spellLevel}]}))
+                output = list(db.spells.find({"$and": [{"Classes": {"$regex": classList, '$options': 'i' }, "Level": spellLevel, "System": core.system}]}))
                 spellReward = sample(output, 1)[0] # results in the entire spell's entry
                 spellRewardStr = []  
                 spellRewardStr.append(f"{item_type} ({spellReward['Name']})")
@@ -98,7 +84,6 @@ async def randomReward(self,ctx, tier, rewardType, block=[], amount=None, start=
                 rewardString.append(spellRewardStr[0])
             else:
                 rewardString.append(randomItem[i]['Name'])
-
         return rewardString
 class Reward(commands.Cog):
     def __init__ (self, bot):

@@ -1285,15 +1285,15 @@ Link: {editMessage.jump_url}
         sessionInfo = logData.find_one({"Log ID": int(num)})
         if not sessionInfo:
             return await ctx.channel.send("Session could not be found.") 
-        if "Type" not in sessionInfo or sessionInfo["Type"] == "5e":
+        if "Type" not in sessionInfo or sessionInfo["Type"] == "5E":
             await ctx.channel.send(f"Please use $session deny {num} instead")
-            return
+            return None
         if sessionInfo["Status"] == "Approved" or sessionInfo["Status"] == "Denied":
             await ctx.channel.send("This session has already been processed")
-            return
+            return None
         if ctx.message.author.id == int(sessionInfo["DM"]["ID"]):
             await ctx.channel.send("You cannot deny your own log.")
-            return
+            return None
         
         channel = self.bot.get_channel(sessionInfo["Log Channel ID"])
         try:

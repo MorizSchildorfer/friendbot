@@ -4,12 +4,10 @@ import requests
 import re
 from discord.utils import get        
 from discord.ext import commands
-from bfunc import db, commandPrefix,  alphaEmojis, roleArray, traceBack, numberEmojis, settingsRecord
+from bfunc import db, commandPrefix,  alphaEmojis, traceBack, settingsRecord
 from cogs.util import callAPI, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles, \
     add_to_inventory, check_for_char_with_end, find_matching, sum_sources, InteractionCore
 from math import floor
-
-
 
 def ordinal(n): 
     return "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])

@@ -218,6 +218,9 @@ class InteractionCore:
     def addError(self, error: str):
         if error:
             self.errors.append(error)
+
+    def showErrors(self) -> str:
+        return '\n'.join(core.errors)
     
     async def send(self, main_text: str = "", embed = None):
         embed_to_send = self.embed
@@ -258,6 +261,15 @@ def reaction_response_control(message, author, options: list):
             same_message = True
         return same_message and ((reaction.emoji in options) or (str(reaction.emoji) == '❌')) and user == author
     return predicate
+
+def format_classname(name, character_class: dict):
+    if character_class["Subclass"]:
+        return f"{name} ({character_class['Subclass']}) "
+    return name
+
+def format_classes(classes: dict):
+    return '/'.join([f"{format_classname(name, entry)} {entry['Level']}" for name, entry in classes.items()])
+
 
 def uwuize(text):
     vowels = ['a','e','i','o','u']
@@ -705,7 +717,7 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
             #if only 1 item was left, simply return it
             return records[0], core
 
-async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=False, authorCheck=None):
+async def checkForChar(core: InteractionCore, char, authorOverride=None, mod: bool = False, authorCheck=None):
     author = core.context.author
     guild = core.context.guild
     system = core.system
@@ -716,7 +728,7 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=Fal
     if authorCheck is not None:
         search_author = authorCheck
         mod = False
-    playersCollection = db.players
+    players_collection = db.players
 
     query = char.strip()
     query = query.replace('(', '\\(')
@@ -737,11 +749,11 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=Fal
                     }
     if system is not None:
         filterDic["System"] = system
-    if mod == True:
-        char_records = list(playersCollection.find(filterDic))
+    if mod:
+        char_records = list(players_collection.find(filterDic))
     else:
         filterDic["User ID"] = str(search_author.id)
-        char_records = list(playersCollection.find(filterDic))
+        char_records = list(players_collection.find(filterDic))
 
     if char_records == list():
         core.addError(f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
@@ -752,7 +764,7 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod=Fal
             char_records = sorted(list(char_records), key = lambda i : i ['Name'])
             for i in range(0, min(len(char_records), 20)):
                 info_string += f"{alphaEmojis[i]}: {char_records[i]['System']} {char_records[i]['Name']} ({guild.get_member(int(char_records[i]['User ID']))})\n"
-            charEmbed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=info_string, inline=False)
+            core.embed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=info_string, inline=False)
             await core.send()
             choice = await disambiguate(min(len(char_records), 20), core.message, author)
             if choice is None or choice == -1:
@@ -863,7 +875,6 @@ async def spell_item_search(core: InteractionCore, search_parameter, item_type):
 
 async def find_reward_item(core: InteractionCore, item: str, level: int):
     item_type = ""
-    system = core.system
     if "spell scroll" in item.lower():
         item_type = "Spell Scroll"
     elif "spellwrought tattoo" in item.lower():
@@ -873,12 +884,12 @@ async def find_reward_item(core: InteractionCore, item: str, level: int):
         return None, core
     tier = determine_tier(level)
     if item_type:
-        item, spell_item_name, charEmbed, charEmbedmsg, found_errors = await spell_item_search(core, item, item_type)
+        item, spell_item_name, core = await spell_item_search(core, item, item_type)
     item_record, core = await callAPI(core, 'rit', item, tier = tier, filter_rit = True)
     
     if not core.isActive():
         return None, core
-    elif item_record == None:
+    elif item_record is None:
         core.addError(f" {item} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
     elif 'spell scroll' in item.lower() or "spellwrought tattoo" in item.lower():
         item_record['Name'] = spell_item_name

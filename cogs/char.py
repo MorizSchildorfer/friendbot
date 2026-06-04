@@ -140,10 +140,11 @@ class Character(commands.Cog):
     @commands.command()
     @commands.cooldown(1, 60, type=commands.BucketType.user)
     @is_log_channel()
-    async def races(self, ctx):
+    async def races(self, ctx, system):
+        system = system.strip().upper()
         try:
             items = list(db.races.find(
-               {},
+               {"System" : system},
             ))
             race_embed = discord.Embed()
             race_embed.title = f"All Valid Races:\n"
@@ -1638,7 +1639,7 @@ class Character(commands.Cog):
                 core.addError(f"You are trying to bring {value} {key} but only have {available}")
         return found
 
-    def similar_(self, to_check: str, contain: str) -> Any:
+    def similar_(self, to_check: str, contain: str) -> bool:
         return to_check.strip() != "" and to_check.lower().replace(" ", "").strip() in contain.lower().replace(" ", "")
 
     @commands.Cog.listener()
@@ -2336,7 +2337,7 @@ class Character(commands.Cog):
         else:
             await core.send(f"You successfully attuned to **{item_name}**!")
 
-    async def select_magic_item(self, char_dict, core, item_name) -> Any:
+    async def select_magic_item(self, char_dict, core, item_name) -> any:
         matches = search_magic_item(item_name, magic_items)
         # IF multiple matches, check which one the player meant.
         if len(matches) == 0:

@@ -17,6 +17,7 @@ from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_
 
 def add_5e(item):
     item["System"] = "5E"
+    del item["_id"]
     return item
 
 def is_log_channel():
@@ -159,11 +160,25 @@ class Admin(commands.Cog, name="Admin"):
 
     @commands.command()
     @admin_or_owner()
-    async def transferRit(self, ctx):
-        entries = list(map(add_5e, connection.dnd.rit.find()))
+    async def transferUnchanged(self, ctx):
+        unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races"] # "rit"
+        for collection in unchanged:
+            entries = list(map(add_5e, connection.dnd[collection].find()))
+            try:
+                if len(entries) > 0:
+                    connection.dnd5r[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Transferred {collection}")
+        
+     
+    @commands.command()
+    @admin_or_owner()
+    async def delete5e(self, ctx):
         try:
-            if len(entries) > 0:
-                connection.dnd5r.rit.insert_many(entries)
+            connection.dnd5r["races"].delete_many({"System": "5E"})
         except BulkWriteError as bwe:
             print(bwe.details)
             # if it fails, we need to cancel and use the error details

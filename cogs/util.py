@@ -8,7 +8,7 @@ from math import floor
 from discord.ext import commands
 from bfunc import alphaEmojis, commandPrefix, db, left,right, bot
 import math
-from typing import TypeVar, Sequence
+from typing import TypeVar, Sequence, Callable
 
 T = TypeVar('T')
 
@@ -40,6 +40,52 @@ cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "âˆ
 
 #ordered by usage priority
 source_types = ["BUY", "CREATE", "REWARD"]
+
+
+class InteractionCore:
+    def __init__(self, context, message, embed, system: str = None):
+        self.context = context
+        self.message = message
+        self.embed = embed
+        self.status: str = "ACTIVE"
+        self.system: str = system
+        self.errors: list = []
+        
+    def isActive(self):
+        return self.status == "ACTIVE"
+        
+    def cancel(self):
+        return self.status == "CANCELLED"
+        
+    def hasError(self) -> bool:
+        return len(self.errors) != 0
+        
+    def addError(self, error: str):
+        if error:
+            self.errors.append(error)
+
+    def showErrors(self) -> str:
+        return '\n'.join(core.errors)
+    
+    async def send(self, main_text: str = "", embed = None):
+        embed_to_send = self.embed
+        if embed:
+            embed_to_send = embed
+        if not self.message:
+            self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
+        else:
+            self.message = await self.message.edit(embed=embed_to_send, content=main_text)
+    
+    async def delete(self):
+        if self.message:
+            await self.message.delete()
+            self.message = None
+    
+    def __str__(self):
+        return "%s(%s)" % (self.__class__.__name__,
+    ", ".join([self.system, self.status, self.errors.__str__()])
+  )
+
 
 # TODO add a function to determine the display name for magic items
 # Todo add a function to check if a text could be referring to a specific item
@@ -94,7 +140,7 @@ def show_inventory(inventory: dict) -> list:
 def sum_sources(entry: dict) -> int:
     return sum([entry[source] for source in source_types if source in entry])
 
-async def check_for_char_with_end(ctx, name: str) -> tuple[dict, Any, InteractionCore]:
+async def check_for_char_with_end(ctx, name: str) -> tuple[dict, any, InteractionCore]:
     char_embed = discord.Embed()
     command_name = ctx.command.name
     core = InteractionCore(ctx, None, char_embed)
@@ -196,50 +242,6 @@ async def select_inventory_choices(core: InteractionCore, startingOptions: list,
                     remaining_options.append({top_key: top_values})
                 embed.clear_fields()
     return core, inventory
-
-class InteractionCore:
-    def __init__(self, context, message, embed, system: str = None):
-        self.context = context
-        self.message = message
-        self.embed = embed
-        self.status: str = "ACTIVE"
-        self.system: str = system
-        self.errors: list = []
-        
-    def isActive(self):
-        return self.status == "ACTIVE"
-        
-    def cancel(self):
-        return self.status == "CANCELLED"
-        
-    def hasError(self) -> bool:
-        return len(self.errors) != 0
-        
-    def addError(self, error: str):
-        if error:
-            self.errors.append(error)
-
-    def showErrors(self) -> str:
-        return '\n'.join(core.errors)
-    
-    async def send(self, main_text: str = "", embed = None):
-        embed_to_send = self.embed
-        if embed:
-            embed_to_send = embed
-        if not self.message:
-            self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
-        else:
-            self.message = await self.message.edit(embed=embed_to_send, content=main_text)
-    
-    async def delete(self):
-        if self.message:
-            await self.message.delete()
-            self.message = None
-    
-    def __str__(self):
-        return "%s(%s)" % (self.__class__.__name__,
-    ", ".join([self.system, self.status, self.errors.__str__()])
-  )
 
 def admin_or_owner():
     async def predicate(ctx):

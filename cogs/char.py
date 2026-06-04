@@ -597,8 +597,6 @@ class Character(commands.Cog):
 
                 if not core.isActive():
                     return core, None
-                #TODO: maybe dont change the dict directly?
-                char_dict['Feats'].extend(list(feats_chosen.keys()))
 
         core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
@@ -612,7 +610,8 @@ class Character(commands.Cog):
             backgroundGp = bRecord["GP"]
             char_dict["GP"] += backgroundGp
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
-            char_dict["Feats"] = [bRecord["Feat"]]
+            if system == '5R':
+                char_dict["Feats"].append(bRecord["Feat"])
 
         stats = {}
         # Stats - Point Buy
@@ -832,11 +831,8 @@ class Character(commands.Cog):
             char_dict['Race'] = race_record['Name']
             if "Extra Feat" in race_record:
                 core, feats_chosen, char_dict = await self.choose_feat(core, {}, ["Extra Feat"], char_dict)
-
                 if not core.isActive():
                     return core, None
-                # TODO: maybe dont change the dict directly?
-                char_dict['Feats'].extend(list(feats_chosen.keys()))
         inventory = char["Inventory"]
         core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in
@@ -2158,8 +2154,8 @@ class Character(commands.Cog):
         char_feats_gained_str = ''
         if feat_levels != list():
             core, feats_picked, char_dict = await self.choose_feat(core, char_class, feat_levels, char_dict)
-            if featsChosen != list():
-                char_feats_gained_str = f"Feats Gained: **{charFeatsGained}**"
+            if len(feats_picked) > 0:
+                char_feats_gained_str = f"Feats Gained: **{''.join(feats_picked.keys())}**"
 
         if free_spells is not None:
             char_dict['Free Spells'] = free_spells

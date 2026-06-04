@@ -11,10 +11,10 @@ async def pin_control(self, ctx, goal):
     author = ctx.author
     channel = ctx.channel
     infoMessage = await channel.send(f"You have 60 seconds to react to the message you want to {ctx.invoked_with} with the 📌 emoji (`:pushpin:`)!")
-    def pinnedEmbedCheck(event):
+    def pinned_embed_check(event):
         return str(event.emoji) == '📌' and event.user_id == author.id
     try:
-        event = await self.bot.wait_for("raw_reaction_add", check=pinnedEmbedCheck , timeout=60)
+        event = await self.bot.wait_for("raw_reaction_add", check=pinned_embed_check , timeout=60)
     except asyncio.TimeoutError:
         await infoMessage.edit(content=f'The `{ctx.invoked_with}` command has timed out! Try again.')
         return
@@ -25,34 +25,40 @@ async def pin_control(self, ctx, goal):
     await asyncio.sleep(10) 
     await infoMessage.delete()
 
+
+def is_log_channel():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
+                ctx.channel.category_id == 698784680488730666)
+    return commands.check(predicate)
+
+
+def is_guild_channel():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Guild Rooms"]
+    return commands.check(predicate)
+
+
+def is_game_channel():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
+                ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Game Rooms"] or
+                ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"]or
+                ctx.channel.category_id == 698784680488730666)
+    return commands.check(predicate)
+
+
 class Guild(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
         self.creation_cost = 0
-       
-    def is_log_channel():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
-                    ctx.channel.category_id == 698784680488730666)
-        return commands.check(predicate)
-    def is_guild_channel():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Guild Rooms"]
-        return commands.check(predicate)
-    def is_game_channel():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or 
-                    ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Game Rooms"] or
-                    ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"]or
-                    ctx.channel.category_id == 698784680488730666)
-        return commands.check(predicate)
-        
+
     @commands.group(aliases=['g'], case_insensitive=True)
     async def guild(self, ctx):	
         pass
@@ -118,7 +124,6 @@ class Guild(commands.Cog):
         channel = ctx.channel
         author = ctx.author
         guildEmbed = discord.Embed()
-        guildCog = self.bot.get_cog('Guild')
 
         guildRole = ctx.message.role_mentions
         guildChannel = ctx.message.channel_mentions
@@ -160,7 +165,6 @@ class Guild(commands.Cog):
             if userRecords: 
                 charDict, guildEmbedmsg = await checkForChar(ctx, charName, guildEmbed)
                 if charDict:
-
                     # GP needed to fund guild.
                     gpNeeded = 0
 

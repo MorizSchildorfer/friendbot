@@ -11,16 +11,26 @@ import collections
 from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
-from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, confirm, texttest
+from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers, connection
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles
+
+
+def add_5e(item):
+    item["System"] = "5E"
+    return item
+
+def is_log_channel():
+    async def predicate(ctx):
+        return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
+    return commands.check(predicate)
+
 
 class Admin(commands.Cog, name="Admin"):
     def __init__ (self, bot):
         self.bot = bot
     async def cog_command_error(self, ctx, error):
         msg = None
-        
-        
+
         if isinstance(error, commands.BadArgument):
             # convert string to int failed
             msg = "Your parameter types were off."
@@ -52,13 +62,7 @@ class Admin(commands.Cog, name="Admin"):
     @commands.group(case_insensitive=True)
     async def react(self, ctx):	
         pass
-    
-    def is_log_channel():
-        async def predicate(ctx):
-            return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
-        return commands.check(predicate)
-    
-    
+
     @react.command()
     @admin_or_owner()
     async def printGuilds(self, ctx):
@@ -77,14 +81,6 @@ class Admin(commands.Cog, name="Admin"):
         message = await ch.fetch_message(msg)
         await message.add_reaction(emote)
         await ctx.message.delete()
-        
-    
-    #Allows the sending of messages
-    @commands.command()
-    @admin_or_owner()
-    async def send(self, ctx, channel: int, *, msg: str):
-        ch = ctx.guild.get_channel(channel)
-        await ch.send(content=msg)
     
     #this function allows you to specify a channel and message and have the bot remove its reaction with a given emote
     #Not tested with emotes the bot might not have access to
@@ -160,6 +156,19 @@ class Admin(commands.Cog, name="Admin"):
         liner_dic["Money"] = list([line["Text"] for line in db.liners_money.find()])
         await ctx.channel.send("All liners Updated")
 
+
+    @commands.command()
+    @admin_or_owner()
+    async def transferRit(self, ctx):
+        entries = list(map(add_5e, connection.dnd.rit.find()))
+        try:
+            if len(entries) > 0:
+                connection.dnd5r.rit.insert_many(entries)
+        except BulkWriteError as bwe:
+            print(bwe.details)
+            # if it fails, we need to cancel and use the error details
+            return
+        await ctx.channel.send(content="Completed")
     
     @commands.command()
     @admin_or_owner()
@@ -214,6 +223,7 @@ class Admin(commands.Cog, name="Admin"):
         alignment="\n".join([f"{x}: {y}" for x,y in dict(collections.Counter(sorted(list([x["Alignment"].replace("\"", "") for x in player_list])))).items()])
         contents.append(("Alignment", alignment, False))
         await paginate(ctx, self.bot, f"Alignments List", contents=contents, separator="\n")
+
     @commands.command()
     @commands.has_any_role("Mod Friend")
     async def reflavorList(self, ctx):
@@ -245,6 +255,7 @@ class Admin(commands.Cog, name="Admin"):
         contents.append(("Background", backgroundContents, False))
 
         await paginate(ctx, self.bot, f"Reflavor List", contents=contents, separator="\n")
+
     @commands.command()
     @commands.has_any_role("Mod Friend")
     async def nicknameList(self, ctx):
@@ -422,46 +433,7 @@ class Admin(commands.Cog, name="Admin"):
     
         except Exception as e:
             traceback.print_exc()
-            
-    @commands.command()
-    @commands.has_any_role('Mod Friend')
-    async def permitRaceRespec(self, ctx, charName):
-        charEmbed = discord.Embed()
-        authorCheck= None
-        
-        if ctx.message.mentions:
-            authorCheck =ctx.message.mentions[0]
-        mod= not authorCheck
-        cRecord, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, authorCheck = authorCheck, mod=mod)
-        channel = ctx.channel
-        if not cRecord:
-            await channel.send(content=f'I was not able to find the character ***"{charName}"***!')
-            return False
 
-        if charEmbedmsg:
-            await charEmbedmsg.delete()
-            
-        try:
-            db.players.update_one(
-               {"Name": cRecord["Name"], "User ID": cRecord["User ID"]}, {"$set" : {"Race Respec": 1}}
-            )
-            await channel.send(content=f"Successfully updated {cRecord['Name']}.")
-    
-        except Exception as e:
-            traceback.print_exc()
-            
-    @commands.command()
-    @admin_or_owner()
-    async def ritRework(self, ctx):
-        try:
-            db.rit.update_many(
-               {"Type": {"$exists" : False}},
-                {"$set" : {"Type": "Magic Items"}}
-            )
-            await ctx.channel.send(content=f"Successfully updated the rit.")
-    
-        except Exception as e:
-            traceback.print_exc()
                    
     @commands.command()
     @admin_or_owner()
@@ -1007,14 +979,6 @@ class Admin(commands.Cog, name="Admin"):
                         return 
 
                     else:
-                        # Converts number to ordinal - 1:1st, 2:2nd, 3:3rd...
-                        # floor(n/10)%10!=1, this acts as an if statement to check if the number is in the teens
-                        # (n%10<4), this acts as an if statement to check if the number is below 4
-                        # n%10 get the last digit of the number
-                        # by multiplying these number together we end up with calculation that will be 0 unless both conditions have been met, otherwise it is the digit
-                        # this number x is then used as the starting point of the selection and ::4 will then select the second letter by getting the x+4 element
-                        # technically it will get more, but since the string is only 8 characters it will return 2 characters always
-                        # th, st, nd, rd are spread out by 4 characters in the string 
                         ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
                         # change the query to be an accurate representation
                         query = f"Spell Scroll ({ordinal(sRecord['Level'])} Level)"
@@ -1068,9 +1032,6 @@ class Admin(commands.Cog, name="Admin"):
         msg = ctx.message
         rewardList = msg.raw_mentions
         channel = ctx.channel
-        guild = ctx.guild
-        charEmbed = discord.Embed()
-        charEmbedmsg = None
         # if nobody was listed, inform the user
         if rewardList == list():
             await ctx.channel.send(content=f"I could not find any mention of a user to hand out a reward item.") 
@@ -1086,9 +1047,6 @@ class Admin(commands.Cog, name="Admin"):
         msg = ctx.message
         rewardList = msg.raw_mentions
         channel = ctx.channel
-        guild = ctx.guild
-        charEmbed = discord.Embed()
-        charEmbedmsg = None
         # if nobody was listed, inform the user
         if rewardList == list():
             await ctx.channel.send(content=f"I could not find any mention of a user.") 
@@ -1246,17 +1204,6 @@ class Admin(commands.Cog, name="Admin"):
     async def send(self, ctx, channel: int, *, msg: str):
         ch = ctx.guild.get_channel(channel)
         await ch.send(content=msg)
-
-    #this function allows you to specify a channel and message and have the bot remove its reaction with a given emote
-    #Not tested with emotes the bot might not have access to
-    @react.command()
-    @admin_or_owner()
-    async def remove(self, ctx, channel: int, msg: int, emote: str):
-        ch = ctx.guild.get_channel(channel)
-        message = await ch.fetch_message(msg)
-        await message.remove_reaction(emote, self.bot.user)
-        await ctx.message.delete()
-    
     
         
     @commands.command()

@@ -148,13 +148,13 @@ async def check_for_char_with_end(ctx, name: str) -> tuple[dict, any, Interactio
     if not core.isActive():
         await core.send("Character search cancelled")
         bot.get_command(command_name).reset_cooldown(ctx)
-        return None
+        return None, char_embed, core
     char_embed.clear_fields()
-    if not core.hasError():
+    if core.hasError():
         char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
         await core.send()
         bot.get_command(command_name).reset_cooldown(ctx)
-        return None
+        return None, char_embed, core
     core.system = char_dict["System"]
     return char_dict, char_embed, core
 
@@ -756,7 +756,8 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod: bo
     else:
         filterDic["User ID"] = str(search_author.id)
         char_records = list(players_collection.find(filterDic))
-
+    print(filterDic)
+    print(char_records)
     if char_records == list():
         core.addError(f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
         return None, core

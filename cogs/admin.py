@@ -20,6 +20,34 @@ def add_5e(item):
     del item["_id"]
     return item
 
+def convert_bonus_string(full):
+    bonus_strings = full.split(",")
+    new_bonuses = []
+    for bonus in bonus_strings:
+        output = {}
+        bonus = bonus.strip()
+        typ = "FIXED"
+        if bonus.startswith("MAX"):
+            typ = "MAX"
+            bonus = bonus.replace("MAX ", "")
+        elif "+" in bonus:
+            typ = "BONUS"
+            bonus = bonus.replace("+ ", "")
+        output["Type"] = typ
+        output["Stat"] = bonus.split(" ")[0]
+        output["Value"] = int(bonus.split(" ")[1])
+        new_bonuses.append(output)
+    return new_bonuses
+
+def change_stat_bonus(item):
+    if "Stat Bonuses" in item:
+        item["Stat Bonuses"] = convert_bonus_string(item["Stat Bonuses"])
+    if "Predecessor" in item:
+        if "Stat Bonuses" in item["Predecessor"]:
+            for i in range(0, len( item["Predecessor"]["Stat Bonuses"])):
+                item["Predecessor"]["Stat Bonuses"][i] = convert_bonus_string(item["Predecessor"]["Stat Bonuses"][i])
+    return item
+
 def is_log_channel():
     async def predicate(ctx):
         return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"]
@@ -161,9 +189,25 @@ class Admin(commands.Cog, name="Admin"):
     @commands.command()
     @admin_or_owner()
     async def transferUnchanged(self, ctx):
-        unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races"] # "rit"
+        unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races", "rit", "classes"] # 
         for collection in unchanged:
             entries = list(map(add_5e, connection.dnd[collection].find()))
+            try:
+                if len(entries) > 0:
+                    connection.dnd5r[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Transferred {collection}")
+        
+    
+    @commands.command()
+    @admin_or_owner()
+    async def transferMit(self, ctx):
+        unchanged = ["mit"]
+        for collection in unchanged:
+            entries = list(map(change_stat_bonus, map(add_5e, connection.dnd[collection].find())))
             try:
                 if len(entries) > 0:
                     connection.dnd5r[collection].insert_many(entries)
@@ -176,9 +220,9 @@ class Admin(commands.Cog, name="Admin"):
      
     @commands.command()
     @admin_or_owner()
-    async def delete5e(self, ctx):
+    async def delete5e(self, ctx, table):
         try:
-            connection.dnd5r["races"].delete_many({"System": "5E"})
+            connection.dnd5r[table].delete_many({"System": "5E"})
         except BulkWriteError as bwe:
             print(bwe.details)
             # if it fails, we need to cancel and use the error details

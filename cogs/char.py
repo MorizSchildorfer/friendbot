@@ -604,6 +604,9 @@ class Character(commands.Cog):
         char_dict["Starting Class"] = starting_class
         # check bg and gp
         bRecord, core = await callAPI(core, 'backgrounds', bg)
+        stat_bonus_record = race_record
+        if system == '5R':
+            stat_bonus_record = bRecord
         if not bRecord:
             core.addError(f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n')
         if not core.hasError():
@@ -614,10 +617,9 @@ class Character(commands.Cog):
             if system == '5R':
                 char_dict["Feats"].append(bRecord["Feat"])
 
-        stats = {}
         # Stats - Point Buy
         if not core.hasError():
-            core, stats = await self.starting_stat_modification(core, [stats["STR"], stats["DEX"], stats["CON"], stats["INT"], stats["WIS"], stats["CHA"]], bRecord)
+            core, stats = await self.starting_stat_modification(core, [stats["STR"], stats["DEX"], stats["CON"], stats["INT"], stats["WIS"], stats["CHA"]], stat_bonus_record)
             if not core.isActive():
                 return None
         
@@ -647,9 +649,9 @@ class Character(commands.Cog):
         display_hp = 0
         stat_bonuses, max_stat_bonuses, stat_setters = self.calculate_stat_bonuses(char_dict, system)
         if hp_records:
-            hp: int = self.calculate_base_hp(hp_records, char_dict, lvl)
+            hp: int = self.calculate_base_hp(classes, char_dict, lvl)
             char_dict['HP'] = hp
-            display_hp = hp + self.calculate_bonus_hp(char_dict, lvl, stat_bonuses, max_stat_bonuses, stat_setters)
+            display_hp = hp + self.calculate_bonus_hp(lvl, stats["CON"], stat_bonuses, max_stat_bonuses, stat_setters)
         
         level = char_dict['Level']
         if level == 20:
@@ -887,9 +889,9 @@ class Character(commands.Cog):
         display_hp = 0
         stat_bonuses, max_stat_bonuses, stat_setters = self.calculate_stat_bonuses(char_dict, system)
         if hp_records:
-            hp: int = self.calculate_base_hp(hp_records, char_dict, lvl)
+            hp: int = self.calculate_base_hp(classes, char_dict, lvl)
             char_dict['HP'] = hp
-            display_hp = hp + self.calculate_bonus_hp(char_dict, lvl, stat_bonuses, max_stat_bonuses, stat_setters)
+            display_hp = hp + self.calculate_bonus_hp(lvl, stats["CON"], stat_bonuses, max_stat_bonuses, stat_setters)
 
         level = char_dict['Level']
         if level == 20:
@@ -991,9 +993,9 @@ class Character(commands.Cog):
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
-        if "GID" in charDict:
+        if "GID" in char_dict:
             core.addError(f":warning: Your character is still awaiting rewards!\n")
-        if "Death" in charDict:
+        if "Death" in char_dict:
             core.addError(f":warning: Your character is still dead!\n")
 
         _, _, cp_transferred, error_messages = self.time_transfer(time_transfer, char_dict['Level'], str(author.id))
@@ -1005,12 +1007,12 @@ class Character(commands.Cog):
             self.bot.get_command('applyTime').reset_cooldown(ctx)
             return None
         transferred_time = cp_transferred * 3600
-        treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"], transferred_time)
+        treasureArray  = calculateTreasure(char_dict["Level"], char_dict["CP"], transferred_time)
         inc_dic = {"GP": treasureArray[2], "CP": treasureArray[0]}
         inc_dic.update(treasureArray[1])
         confirm_embed = discord.Embed()
         confirm_embed.title = f"Please confirm the **{timeConversion(transferred_time, True)}** minute deduction."
-        confirm_embed.description = f"\n**{charDict['Name']}** will receive **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**"
+        confirm_embed.description = f"\n**{char_dict['Name']}** will receive **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**"
         await core.send(embed=confirm_embed)
         decision = await confirm(confirm_message, ctx.author)
         if decision != 1:
@@ -1018,9 +1020,9 @@ class Character(commands.Cog):
             self.bot.get_command('applyTime').reset_cooldown(ctx)
             return None
         try:
-            db.players.update_one({"_id": charDict["_id"]}, {"$inc": inc_dic})
+            db.players.update_one({"_id": char_dict["_id"]}, {"$inc": inc_dic})
             db.users.update_one({"User ID": f"{author.id}"}, {"$inc": {f"Time Bank": -transferred_time}})
-            await core.send(f"**{charDict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**")
+            await core.send(f"**{char_dict['Name']}** has received **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**")
     
         except Exception as e:
             traceback.print_exc()
@@ -1063,58 +1065,58 @@ class Character(commands.Cog):
             return None
         def retireEmbedCheck(r, u):
             sameMessage = False
-            if charEmbedmsg.id == r.message.id:
+            if char_embedmsg.id == r.message.id:
                 sameMessage = True
             return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
-        if charDict:
-            charID = charDict['_id']
+        if char_dict:
+            charID = char_dict['_id']
 
-            charEmbed.title = f"Are you sure you want to retire {charDict['Name']}?"
-            charEmbed.description = "✅: Yes\n\n❌: Cancel"
-            if not charEmbedmsg:
-                charEmbedmsg = await channel.send(embed=charEmbed)
+            char_embed.title = f"Are you sure you want to retire {char_dict['Name']}?"
+            char_embed.description = "✅: Yes\n\n❌: Cancel"
+            if not char_embedmsg:
+                char_embedmsg = await channel.send(embed=char_embed)
             else:
-                await charEmbedmsg.edit(embed=charEmbed)
+                await char_embedmsg.edit(embed=char_embed)
 
-            await charEmbedmsg.add_reaction('✅')
-            await charEmbedmsg.add_reaction('❌')
+            await char_embedmsg.add_reaction('✅')
+            await char_embedmsg.add_reaction('❌')
             try:
                 tReaction, tUser = await self.bot.wait_for("reaction_add", check=retireEmbedCheck , timeout=60)
             except asyncio.TimeoutError:
-                await charEmbedmsg.delete()
+                await char_embedmsg.delete()
                 await channel.send(f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
                 self.bot.get_command('retire').reset_cooldown(ctx)
                 return
             else:
-                await charEmbedmsg.clear_reactions()
+                await char_embedmsg.clear_reactions()
                 if tReaction.emoji == '❌':
-                    await charEmbedmsg.edit(embed=None, content=f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
-                    await charEmbedmsg.clear_reactions()
+                    await char_embedmsg.edit(embed=None, content=f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
+                    await char_embedmsg.clear_reactions()
                     self.bot.get_command('retire').reset_cooldown(ctx)
                     return
                 elif tReaction.emoji == '✅':
-                    charEmbed.clear_fields()
+                    char_embed.clear_fields()
                     try:
                         playersCollection = db.players
                         
                         deadCollection = db.dead
-                        if "Guild" in charDict:
-                            guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": charDict['Guild'], '$options': 'i' }}))
+                        if "Guild" in char_dict:
+                            guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": char_dict['Guild'], '$options': 'i' }}))
                             # If there is only one of user's character in the guild remove the role.
                             if (len(guildAmount) <= 1):
-                                await author.remove_roles(get(guild.roles, name = charDict['Guild']), reason=f"Left guild {charDict['Guild']}")
+                                await author.remove_roles(get(guild.roles, name = char_dict['Guild']), reason=f"Left guild {char_dict['Guild']}")
                         playersCollection.delete_one({'_id': charID})
                         
-                        deadCollection.insert_one(charDict)
+                        deadCollection.insert_one(char_dict)
                     except Exception as e:
                         print ('MONGO ERROR: ' + str(e))
-                        charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
+                        char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
                     else:
-                        if charEmbedmsg:
-                            await charEmbedmsg.clear_reactions()
-                            await charEmbedmsg.edit(embed=None, content =f"Congratulations! You have retired ***{charDict['Name']}***. ")
+                        if char_embedmsg:
+                            await char_embedmsg.clear_reactions()
+                            await char_embedmsg.edit(embed=None, content =f"Congratulations! You have retired ***{char_dict['Name']}***. ")
                         else: 
-                            charEmbedmsg = await channel.send(embed=None, content=f"Congratulations! You have retired ***{charDict['Name']}***.")
+                            char_embedmsg = await channel.send(embed=None, content=f"Congratulations! You have retired ***{char_dict['Name']}***.")
 
         self.bot.get_command('retire').reset_cooldown(ctx)
 
@@ -1133,13 +1135,13 @@ class Character(commands.Cog):
 
         def retireEmbedCheck(r, u):
             sameMessage = False
-            if charEmbedmsg.id == r.message.id:
+            if char_embedmsg.id == r.message.id:
                 sameMessage = True
             return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
 
         def deathEmbedCheck(r, u):
             sameMessage = False
-            if charEmbedmsg.id == r.message.id:
+            if char_embedmsg.id == r.message.id:
                 sameMessage = True
             return sameMessage and ((str(r.emoji) == '1️⃣') or (str(r.emoji) == '2️⃣') or (char_dict['GP'] + deathDict["inc"]['GP']  >= gpNeeded and str(r.emoji) == '3️⃣') or (str(r.emoji) == '❌')) and u == author
 
@@ -1168,28 +1170,28 @@ class Character(commands.Cog):
                 char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: ~~Revival~~ - You currently have {char_dict['GP'] + deathDict['inc']['GP']} GP but need {gpNeeded} GP to be revived."
             else:
                 char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: Revival - Revives your character for {gpNeeded} GP."
-            if not charEmbedmsg:
-                charEmbedmsg = await channel.send(embed=char_embed)
+            if not char_embedmsg:
+                char_embedmsg = await channel.send(embed=char_embed)
             else:
-                await charEmbedmsg.edit(embed=char_embed)
+                await char_embedmsg.edit(embed=char_embed)
 
-            await charEmbedmsg.add_reaction('1️⃣')
-            await charEmbedmsg.add_reaction('2️⃣')
+            await char_embedmsg.add_reaction('1️⃣')
+            await char_embedmsg.add_reaction('2️⃣')
             if char_dict['GP'] + deathDict["inc"]['GP']  >= gpNeeded:
-                await charEmbedmsg.add_reaction('3️⃣')
-            await charEmbedmsg.add_reaction('❌')
+                await char_embedmsg.add_reaction('3️⃣')
+            await char_embedmsg.add_reaction('❌')
             try:
                 tReaction, tUser = await self.bot.wait_for("reaction_add", check=deathEmbedCheck , timeout=60)
             except asyncio.TimeoutError:
-                await charEmbedmsg.delete()
+                await char_embedmsg.delete()
                 await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
                 self.bot.get_command('death').reset_cooldown(ctx)
                 return
             else:
-                await charEmbedmsg.clear_reactions()
+                await char_embedmsg.clear_reactions()
                 if tReaction.emoji == '❌':
-                    await charEmbedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
-                    await charEmbedmsg.clear_reactions()
+                    await char_embedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
+                    await char_embedmsg.clear_reactions()
                     self.bot.get_command('death').reset_cooldown(ctx)
 
                     return
@@ -1197,21 +1199,21 @@ class Character(commands.Cog):
                     char_embed.title = f"Are you sure you want to retire {char_dict['Name']}?"
                     char_embed.description = "✅: Yes\n\n❌: Cancel"
                     char_embed.set_footer(text=None)
-                    await charEmbedmsg.edit(embed=char_embed)
-                    await charEmbedmsg.add_reaction('✅')
-                    await charEmbedmsg.add_reaction('❌')
+                    await char_embedmsg.edit(embed=char_embed)
+                    await char_embedmsg.add_reaction('✅')
+                    await char_embedmsg.add_reaction('❌')
                     try:
                         tReaction, tUser = await self.bot.wait_for("reaction_add", check=retireEmbedCheck , timeout=60)
                     except asyncio.TimeoutError:
-                        await charEmbedmsg.delete()
+                        await char_embedmsg.delete()
                         await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
                         self.bot.get_command('death').reset_cooldown(ctx)
                         return
                     else:
-                        await charEmbedmsg.clear_reactions()
+                        await char_embedmsg.clear_reactions()
                         if tReaction.emoji == '❌':
-                            await charEmbedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name" "charactername"```')
-                            await charEmbedmsg.clear_reactions()
+                            await char_embedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name" "charactername"```')
+                            await char_embedmsg.clear_reactions()
                             self.bot.get_command('death').reset_cooldown(ctx)
                             return
                         elif tReaction.emoji == '✅':
@@ -1232,14 +1234,14 @@ class Character(commands.Cog):
                                 
                             except Exception as e:
                                 print ('MONGO ERROR: ' + str(e))
-                                charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
+                                char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
                             else:
-                                if charEmbedmsg:
-                                    await charEmbedmsg.clear_reactions()
-                                    await charEmbedmsg.edit(embed=None, content ="Congratulations! You have retired your character.")
+                                if char_embedmsg:
+                                    await char_embedmsg.clear_reactions()
+                                    await char_embedmsg.edit(embed=None, content ="Congratulations! You have retired your character.")
 
                                 else: 
-                                    charEmbedmsg = await channel.send(embed=None, content="Congratulations! You have retired your character.")
+                                    char_embedmsg = await channel.send(embed=None, content="Congratulations! You have retired your character.")
                     
                 elif tReaction.emoji == '2️⃣' or tReaction.emoji == '3️⃣':
                     char_embed.clear_fields()
@@ -1258,13 +1260,13 @@ class Character(commands.Cog):
                         
                     except Exception as e:
                         print ('MONGO ERROR: ' + str(e))
-                        charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
+                        char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
                     else:
-                        if charEmbedmsg:
-                            await charEmbedmsg.clear_reactions()
-                            await charEmbedmsg.edit(embed=None, content= surviveString)
+                        if char_embedmsg:
+                            await char_embedmsg.clear_reactions()
+                            await char_embedmsg.edit(embed=None, content= surviveString)
                         else: 
-                            charEmbedmsg = await channel.send(embed=None, content=surviveString)
+                            char_embedmsg = await channel.send(embed=None, content=surviveString)
         self.bot.get_command('death').reset_cooldown(ctx)
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
@@ -1273,15 +1275,13 @@ class Character(commands.Cog):
     async def inventory(self,ctx, char, mod_override=""):
         author = ctx.author
         guild = ctx.guild
-        char_embed = discord.Embed()
 
         contents = []
         mod= False
         if mod_override:
             mod = "Mod Friend" in [role.name for role in author.roles]
 
-        core = InteractionCore(ctx, None, char_embed)
-        char_dict, core = await checkForChar(core, char, authorCheck=authorCheck, mod=mod)
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not core.isActive():
             await core.send("Character search cancelled")
             self.bot.get_command('inv').reset_cooldown(ctx)
@@ -1416,22 +1416,22 @@ class Character(commands.Cog):
                 charDictTiers[determine_tier(c["Level"]) - 1].append(c)
             for n in range(0,len(charDictTiers)):
                 charString += f"\n———**Tier {n+1} Characters:**———\n"
-                for charDict in charDictTiers[n]:
-                    system = charDict["System"]
-                    char_race = charDict['Race']
-                    char_class = format_classes(['Class'])
-                    if "Reflavor" in charDict:
-                        rfarray = charDict['Reflavor']
+                for char_dict in charDictTiers[n]:
+                    system = char_dict["System"]
+                    char_race = char_dict['Race']
+                    char_class = format_classes(char_dict['Class'])
+                    if "Reflavor" in char_dict:
+                        rfarray = char_dict['Reflavor']
                         if 'Race' in rfarray:
                             char_race = f"{rfarray['Race']} | {char_race}"
                         if 'Class' in rfarray:
                             char_class = f"{rfarray['Class']} | {char_class}"
                             
-                    paused = "Paused" in charDict and charDict["Paused"]
-                    charString += f"**({system})** **{'[PAUSED] '*paused}{charDict['Name']}**: Lv {charDict['Level']}, {char_race}, {char_class}\n"
+                    paused = "Paused" in char_dict and char_dict["Paused"]
+                    charString += f"**({system})** **{'[PAUSED] '*paused}{char_dict['Name']}**: Lv {char_dict['Level']}, {char_race}, {char_class}\n"
 
-                    if 'Guild' in charDict:
-                        charString += f"---Guild: *{charDict['Guild']}*\n"
+                    if 'Guild' in char_dict:
+                        charString += f"---Guild: *{char_dict['Guild']}*\n"
         else:
             charString = "None"
 
@@ -1483,8 +1483,8 @@ class Character(commands.Cog):
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         footer = f"Attuned magic items are bolded."
-        if 'Image' in charDict:
-            charEmbed.set_thumbnail(url=charDict['Image'])
+        if 'Image' in char_dict:
+            char_embed.set_thumbnail(url=char_dict['Image'])
         char_race = char_dict['Race']
         char_class = format_classes(char_dict['Class'])
         char_background = char_dict['Background']
@@ -1506,10 +1506,10 @@ class Character(commands.Cog):
             tier = 5
         else:
             tier = determine_tier(char_level)
-        charEmbed.colour = self.determine_color(guild, tier)
+        char_embed.colour = self.determine_color(guild, tier)
 
-        if 'Guild' in charDict:
-            description += f"{charDict['Guild']}: Rank {charDict['Guild Rank']}"
+        if 'Guild' in char_dict:
+            description += f"{char_dict['Guild']}: Rank {char_dict['Guild Rank']}"
         else:
             description += "No Guild"
 
@@ -1525,8 +1525,8 @@ class Character(commands.Cog):
         if cons:
             consumablesList = list(map(lambda x: x.strip(), cons.split(',')))
 
-            allowed_count = 2 + (charDict["Level"]-1)//4
-            if "Ioun Stone (Mastery)" in charDict['Magic Items']:
+            allowed_count = 2 + (char_dict["Level"]-1)//4
+            if "Ioun Stone (Mastery)" in char_dict['Magic Items']:
                 allowed_count += 1
             # block the command if more consumables than allowed (limit or available) are being registerd
             if len(consumablesList) > allowed_count:
@@ -1559,17 +1559,17 @@ class Character(commands.Cog):
         if cPages > 1:
             for p in range(len(cPageStops)-1):
                 if cPageStops[p + 1] > cPageStops[p]:
-                    charEmbed.add_field(name=f'Consumables - p. {p+1}', value=consumesString[cPageStops[p]:cPageStops[p+1]], inline=True)
+                    char_embed.add_field(name=f'Consumables - p. {p+1}', value=consumesString[cPageStops[p]:cPageStops[p+1]], inline=True)
         else:
-            charEmbed.add_field(name='Consumables', value=consumesString, inline=True)
+            char_embed.add_field(name='Consumables', value=consumesString, inline=True)
 
         # Show Magic items in inventory.
         mPages = 1
         mPageStops = [0]
-        magic_items = charDict['Magic Items']
+        magic_items = char_dict['Magic Items']
         attune_list = list([key for key, value in magic_items.items() if 'Attuned' in value and value['Attuned']])
-        if 'Attuned' in charDict:
-            for attune_item in charDict['Attuned'].split(", "):
+        if 'Attuned' in char_dict:
+            for attune_item in char_dict['Attuned'].split(", "):
                 attune_list.append(attune_item.split(" [", 1)[0])
         if mits:
             magic_item_list = list(map(lambda x: x.strip(), mits.split(',')))
@@ -1603,9 +1603,9 @@ class Character(commands.Cog):
         if mPages > 1:
             for p in range(len(mPageStops)-1):
                 if mPageStops[p + 1] > mPageStops[p]:
-                    charEmbed.add_field(name=f'Magic Items - p. {p+1}', value=miString[mPageStops[p]:mPageStops[p+1]], inline=True)
+                    char_embed.add_field(name=f'Magic Items - p. {p+1}', value=miString[mPageStops[p]:mPageStops[p+1]], inline=True)
         else:
-            charEmbed.add_field(name='Magic Items', value=miString, inline=True)
+            char_embed.add_field(name='Magic Items', value=miString, inline=True)
 
         if core.hasError():
             await core.delete()
@@ -1613,7 +1613,7 @@ class Character(commands.Cog):
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
             return None
-        charEmbed.set_footer(text=footer)
+        char_embed.set_footer(text=footer)
         await core.send()
         return None
 
@@ -1670,8 +1670,6 @@ class Character(commands.Cog):
     async def info(self,ctx, char, mod_override = ""):
         author = ctx.author
         guild = ctx.guild
-        char_embed = discord.Embed()
-        core = InteractionCore(ctx, None, char_embed)
         mod= False
         authorCheck = None
         if mod_override:
@@ -1679,19 +1677,19 @@ class Character(commands.Cog):
             if ctx.message.mentions:
                 authorCheck = ctx.message.mentions[0]
                 mod = False
-        char_dict, core = await checkForChar(core, char, authorCheck = authorCheck, mod=mod)
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not core.isActive():
             await core.send("Character search cancelled")
             self.bot.get_command('info').reset_cooldown(ctx)
             return
-        if not core.hasError():
+        if core.hasError():
             char_embed.clear_fields()
             char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
             await core.send()
             self.bot.get_command('info').reset_cooldown(ctx)
             return
         footer = f"To view your character's inventory, type the following command: {commandPrefix}inv {char_dict['Name']}"
-        
+        system = core.system
         char_race = char_dict['Race']
         char_class = format_classes(char_dict['Class'])
         char_background = char_dict['Background']
@@ -1761,14 +1759,14 @@ class Character(commands.Cog):
 
             if fsString:
                 char_embed.add_field(name='Free Spellbook Copies Available', value=fsString , inline=False)
-
+        stats = char_dict["Stats"]
         stat_bonuses, max_stat_bonuses, stat_setters = self.calculate_stat_bonuses(char_dict, system)
-        display_hp = char_dict['HP'] + self.calculate_bonus_hp(char_dict, lvl, stat_bonuses, max_stat_bonuses, stat_setters)
+        display_hp = char_dict['HP'] + self.calculate_bonus_hp(char_level, stats["CON"], stat_bonuses, max_stat_bonuses, stat_setters)
         stat_string = ""
         for stat_name, stat_value in stats.items():
             _, description = self.determine_stat(stat_value, stat_name, max_stat_bonuses, stat_bonuses, stat_setters)
             stat_string += description + "\n"
-        char_embed.add_field(name='Stats', value=f":heart: {display_hp} Max HP\n• STR: {char_dict['STR']} \n• DEX: {char_dict['DEX']} \n• CON: {char_dict['CON']} \n• INT: {char_dict['INT']} \n• WIS: {char_dict['WIS']} \n• CHA: {char_dict['CHA']}", inline=False)
+        char_embed.add_field(name='Stats', value=f":heart: {display_hp} Max HP\n• STR: {stats['STR']} \n• DEX: {stats['DEX']} \n• CON: {stats['CON']} \n• INT: {stats['INT']} \n• WIS: {stats['WIS']} \n• CHA: {stats['CHA']}", inline=False)
         char_embed.set_footer(text=footer)
         if 'Image' in char_dict:
             char_embed.set_thumbnail(url=char_dict['Image'])
@@ -1966,7 +1964,7 @@ class Character(commands.Cog):
             playersCollection.update_one({'_id': charID}, {"$set": data})
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
-            charEmbedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
+            char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try creating your character again.")
         else:
             await ctx.channel.send(content=f'I have updated the name for ***{char}***. Please double-check using one of the following commands:\n```yaml\n{commandPrefix}info "character name"\n{commandPrefix}char "character name"\n{commandPrefix}i "character name"```')
             
@@ -2353,17 +2351,18 @@ class Character(commands.Cog):
             item_name = matches[selected]
         return core, item_name
 
-    def calculate_base_hp (self, classes, char_dict, lvl):
-        total_hp = classes[char_dict['Starting Class']]['Hit Die Max']
-        for c in classes:
+    def calculate_base_hp(self, classes, char_dict, lvl):
+        total_hp = classes[char_dict['Starting Class']]['Class']['Hit Die Max']
+        for c in classes.values():
             level = int(c['Level'])
-            total_hp += c['Hit Die Average'] * level
+            total_hp += c['Class']['Hit Die Average'] * level
 
-        total_hp += ((int(char_dict['CON']) - 10) // 2) * lvl
+        total_hp += ((int(char_dict['Stats']['CON']) - 10) // 2) * lvl
         return total_hp
 
     def calculate_bonus_hp(self, level: int, con: int, stat_bonuses: dict, max_stat_bonuses: dict, stat_setters: dict):
         hp_bonus, _ = self.determine_stat(0, "HP", max_stat_bonuses, stat_bonuses, stat_setters)
+        print(hp_bonus, level)
         total_hp = int(hp_bonus * level)
         con, _ = self.determine_stat(con, "CON", max_stat_bonuses, stat_bonuses, stat_setters)
         total_hp += floor(((con - 10)/2) * level)
@@ -2376,7 +2375,7 @@ class Character(commands.Cog):
             max_value += max_stat_bonuses[key]
         bonus = stat_bonuses[key]
         final_stat += bonus
-        final_stat = max(min(con, max_value), stat_setters[key])
+        final_stat = max(min(final_stat, max_value), stat_setters[key])
         description = f"**{key}**: {base_stat}"
         # TODO handle all constellations (bonus, reduced to max, exactly max?, set beyond max)
         if final_stat != base_stat:
@@ -2428,8 +2427,7 @@ class Character(commands.Cog):
                 stat_bonuses[stat] += value
         return stat_bonuses, max_stat_bonuses, stat_setters
 
-        #TODO switch to giving the stats dict
-    # need a different version for 5R? Passing a different record in should be enough
+    #TODO switch to giving the stats dict
     async def starting_stat_modification(self, core, stats_array, source_record):
         author = core.context.author
         statsBonus = source_record['Modifiers'].replace(" ", "").split(',')
@@ -2469,7 +2467,7 @@ class Character(commands.Cog):
                     uniqueReacts.append(alphaEmojis[u])
 
                 core.embed.add_field(name=f"{source_record['Name']} lets you choose **1** extra stat to increase by {anyAmount}. React below with the stat you would like to choose.", value=uniqueStatStr, inline=False)
-                await core.send(embed=charEmbed)
+                await core.send()
                 
                 choice = await disambiguate(len(uniqueArray), core.message, author)
                 if choice is None:
@@ -2516,7 +2514,7 @@ class Character(commands.Cog):
         race: str = char_dict["Race"]
         char_stats: dict = char_dict["Stats"]
         char_feats: list = char_dict["Feats"]
-        stat_names = list(char_stats.key())
+        stat_names = list(char_stats.keys())
         author = core.context.author
         feat_records = []
         feats_picked = {}

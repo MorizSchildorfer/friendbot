@@ -1286,7 +1286,7 @@ class Character(commands.Cog):
             await core.send("Character search cancelled")
             self.bot.get_command('inv').reset_cooldown(ctx)
             return
-        if not core.hasError():
+        if core.hasError():
             char_embed.clear_fields()
             char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
             await core.send()

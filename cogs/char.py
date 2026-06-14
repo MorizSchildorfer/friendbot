@@ -627,6 +627,7 @@ class Character(commands.Cog):
         # check race
         race_record, core = await callAPI(core, 'races', race)
         if not core.isActive():
+            self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         if not race_record:
             core.addError(f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
@@ -644,6 +645,7 @@ class Character(commands.Cog):
         # check bg and gp
         bRecord, core = await callAPI(core, 'backgrounds', bg)
         if not core.isActive():
+            self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         stat_bonus_record = race_record
         if system == '5R':
@@ -662,6 +664,7 @@ class Character(commands.Cog):
         if not core.hasError():
             core, stats = await self.starting_stat_modification(core, [stats["STR"], stats["DEX"], stats["CON"], stats["INT"], stats["WIS"], stats["CHA"]], stat_bonus_record)
             if not core.isActive():
+                self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None
         
         #Stats - Feats
@@ -669,6 +672,7 @@ class Character(commands.Cog):
             core, char_dict = await self.selectClassFeats(core, classes, char_dict)
 
         if not core.isActive():
+            self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         #HP
         hp_records = []
@@ -680,6 +684,7 @@ class Character(commands.Cog):
             # TODO: pass a new dictionary
             core = self.check_multiclass(core, classes, char_dict)
         if not core.isActive():
+            self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         if core.hasError():
             await core.delete()

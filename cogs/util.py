@@ -71,7 +71,7 @@ class InteractionCore:
         embed_to_send = self.embed
         if embed:
             embed_to_send = embed
-        if not embed.description:
+        if not embed_to_send.embed.description:
             embed = None
         if not self.message:
             self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
@@ -192,7 +192,6 @@ async def select_inventory_choices(core: InteractionCore, startingOptions: list,
                 # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
                 if len(choice_values) > 1:
                     embed.add_field(name=f"{ek} lets you choose one.", value=choice_string, inline=False)
-                    core.embed= embed
                     await core.send()
                     await core.message.add_reaction('❌')
                     try:

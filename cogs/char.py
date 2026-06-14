@@ -431,7 +431,7 @@ class Character(commands.Cog):
                     classes[class_name] = {'Class': class_entry, 'Level': int(class_level), 'Subclass': None}
                 total_level += int(class_level)
         else:
-            single_class, core = await callAPI(core, 'classes', starting_class)
+            single_class, core = await callAPI(core, 'classes', class_string)
             if single_class:
                 print(single_class)
                 starting_class = single_class["Name"]

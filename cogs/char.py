@@ -218,7 +218,7 @@ class Character(commands.Cog):
         pass
     
     def time_transfer(self, transferInfo: str, level: int, userId: str):
-        user_records = self.db.users.find_one({"User ID": userId})
+        user_records = db.users.find_one({"User ID": userId})
         error_messages = ""
         cp_transferred = 0
         cp = 0

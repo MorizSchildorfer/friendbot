@@ -433,6 +433,7 @@ class Character(commands.Cog):
         else:
             single_class, core = await callAPI(core, 'classes', starting_class)
             if single_class:
+                print(single_class)
                 starting_class = single_class["Name"]
                 classes[single_class["Name"]] = {'Class':single_class, 'Level': int(level), 'Subclass': None}
             else:

@@ -391,7 +391,7 @@ class Character(commands.Cog):
             query = query.replace('.', '\\.')
             playersCollection = db.players
             userRecords = list(playersCollection.find({"User ID": str(author.id), "Name": {"$regex": f"^{query}$", '$options': 'i' } }))
-            if userRecords != list():
+            if len(userRecords) > 0:
                 core.addError(f":warning: You already have a character by the name of ***{name}***! Please use a different name.")
         return core
     

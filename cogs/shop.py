@@ -191,7 +191,7 @@ class Shop(commands.Cog):
                 else:
                     pack_contents += f"{pk} x{pv}\n"
             pack_contents += "\n"
-        embed.description = f"Are you sure you want to purchase {amount}x **{item_record['Name']}** for **{gpNeeded} GP**?\n\n{pack_contents}Current GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        embed.description = f"Are you sure you want to purchase {amount}x **{item_record['Name']}** for **{gpNeeded} GP**?\n\n{pack_contents}Current GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
 
         await core.send(embed=embed)
         await core.message.add_reaction('✅')
@@ -229,7 +229,7 @@ class Shop(commands.Cog):
                     print ('MONGO ERROR: ' + str(e))
                     await core.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
                 else:
-                    embed.description = f"{amount}x **{item_record['Name']}** purchased for **{gpNeeded} GP**!\n\n{pack_contents}Current GP: {newGP} GP\n"
+                    embed.description = f"{amount}x **{item_record['Name']}** purchased for **{gpNeeded} GP**!\n\n{pack_contents}Current GP: {new_gp} GP\n"
                     await core.send()
                     ctx.command.reset_cooldown(ctx)
 
@@ -434,7 +434,7 @@ class Shop(commands.Cog):
             return None
 
         shopEmbed.title = f"Shop (Buy): {char_dict['Name']}"
-        shopEmbed.description = f"Are you sure you want to coat {amount}x **{targetItem}** in {coatType} for **{gpNeeded} GP**?\n\nCurrent GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        shopEmbed.description = f"Are you sure you want to coat {amount}x **{targetItem}** in {coatType} for **{gpNeeded} GP**?\n\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
         # get confirmation of the purchase from the user
         await core.send()
         await core.message.add_reaction('✅')
@@ -465,12 +465,12 @@ class Shop(commands.Cog):
                     char_dict['Inventory'][fullItemName] = amount
                 try:
                     # update the character entry with the new inventory and gold
-                    db.players.update_one({'_id': char_dict['_id']}, {"$set": {"Inventory": char_dict['Inventory'], 'GP': newGP}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": {"Inventory": char_dict['Inventory'], 'GP': new_gp}})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
                 else:
-                    shopEmbed.description = f"{amount}x **{targetItem}** have been coated in {coatType} for **{gpNeeded} GP**! \n\nCurrent GP: {newGP} GP\n"
+                    shopEmbed.description = f"{amount}x **{targetItem}** have been coated in {coatType} for **{gpNeeded} GP**! \n\nCurrent GP: {new_gp} GP\n"
                     await core.send()
                     ctx.command.reset_cooldown(ctx)
 
@@ -861,9 +861,9 @@ class Shop(commands.Cog):
                 else:
                     shopEmbed.title = f"Shop (Copy): {char_dict['Name']}"
                     if spellScrollAmount == 0:
-                        shopEmbed.description = f"You have copied the **{spell_record['Name']}** spell ({ordinal(spell_record['Level'])} level) into your {book_choice} for {gp_needed} GP!\nYou copied your last spell scroll of **{spell_record['Name']}** and it has been removed from your inventory. \n\nCurrent GP: {newGP} GP\n"
+                        shopEmbed.description = f"You have copied the **{spell_record['Name']}** spell ({ordinal(spell_record['Level'])} level) into your {book_choice} for {gp_needed} GP!\nYou copied your last spell scroll of **{spell_record['Name']}** and it has been removed from your inventory. \n\nCurrent GP: {new_gp} GP\n"
                     else:
-                        shopEmbed.description = f"You have copied the **{spell_record['Name']}** spell ({ordinal(spell_record['Level'])} level) into your {book_choice} for {gp_needed} GP!\nAfter copying the spell scroll of **{spell_record['Name']}** and you have {spellScrollAmount} spell scroll(s) of **{spell_record['Name']}** left. \n\nCurrent GP: {newGP} GP\n"
+                        shopEmbed.description = f"You have copied the **{spell_record['Name']}** spell ({ordinal(spell_record['Level'])} level) into your {book_choice} for {gp_needed} GP!\nAfter copying the spell scroll of **{spell_record['Name']}** and you have {spellScrollAmount} spell scroll(s) of **{spell_record['Name']}** left. \n\nCurrent GP: {new_gp} GP\n"
                     if 'Free Spells' in char_dict:
                         fsString = ""
                         fsIndex = 0
@@ -899,14 +899,14 @@ class Shop(commands.Cog):
             await core.send(f"***{char_dict['Name']}*** does not have enough GP to learn a language or gain proficiency in a tool in this way.")
             return None
         #calculate gp after purchase
-        newGP = char_dict['GP'] - gpNeeded
+        new_gp = char_dict['GP'] - gpNeeded
         
         #increase the purchase level of the specific option
         char_dict[purchaseOption] += 1
 
         #update embed text to ask for confirmation
         shopEmbed.title = f"Downtime {trainingType} Training: {char_dict['Name']}"
-        shopEmbed.description = f"Are you sure you want to learn your **{specificationText}** {purchasePossibilities} for {gpNeeded} GP?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        shopEmbed.description = f"Are you sure you want to learn your **{specificationText}** {purchasePossibilities} for {gpNeeded} GP?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
         await core.send()
 
         #set up menu interaction
@@ -932,7 +932,7 @@ class Shop(commands.Cog):
                     await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
                 else:
                     #Inform of the purchase success
-                    shopEmbed.description = f"***{char_dict['Name']}*** has been trained by an instructor and can learn a {purchasePossibilities} of your choice. :tada:\n\nCurrent GP: {newGP} GP\n"
+                    shopEmbed.description = f"***{char_dict['Name']}*** has been trained by an instructor and can learn a {purchasePossibilities} of your choice. :tada:\n\nCurrent GP: {new_gp} GP\n"
                     await core.send()
                     
     @downtime.command()

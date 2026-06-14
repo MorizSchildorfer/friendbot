@@ -1300,7 +1300,8 @@ class Character(commands.Cog):
             tier = 5
         else:
             tier = determine_tier(char_level)
-        char_embed.colour = self.determine_color(guild, tier)
+        color=self.determine_color(guild, tier)
+        char_embed.colour = color
         spell_list = []
         if "Spellbook" in char_dict:
             spell_list = [spell["Name"] for spell in char_dict["Spellbook"]]
@@ -1363,7 +1364,7 @@ class Character(commands.Cog):
                     if name in inventory:
                         sub_entries[name] = inventory[name]
             for k, v in types.items():
-                output = '\n'.join(show_inventory(v).sorted())
+                output = '\n'.join(sorted(show_inventory(v)))
                 contents.append((f"{k}", output, False))
 
         if "Collectibles" in char_dict:
@@ -2351,7 +2352,7 @@ class Character(commands.Cog):
         return core, item_name
 
     def calculate_base_hp(self, classes, char_dict, lvl):
-        total_hp = classes[char_dict['Starting Class']]['Class']['Hit Die Max']
+        total_hp = classes[char_dict['Starting Class']]['Class']['Hit Die Max'] - classes[char_dict['Starting Class']]['Class']['Hit Die Average']
         for c in classes.values():
             level = int(c['Level'])
             total_hp += c['Class']['Hit Die Average'] * level

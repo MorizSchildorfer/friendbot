@@ -20,6 +20,12 @@ def add_5e(item):
     del item["_id"]
     return item
 
+
+def map_logs(item):
+    if "Type" not in item:
+        item["Type"] = "5E"
+    return item
+
 def convert_bonus_string(full):
     bonus_strings = full.split(",")
     new_bonuses = []
@@ -39,6 +45,14 @@ def convert_bonus_string(full):
         new_bonuses.append(output)
     return new_bonuses
 
+def check_for_wrong_key(dictionary):
+    for k, v in dictionary.items():
+        if not isinstance(k, str):
+            print("ISSUE", v)
+        if isinstance(v, dict):
+            check_for_wrong_key(v)
+            
+
 def change_stat_bonus(item):
     if "Stat Bonuses" in item:
         item["Stat Bonuses"] = convert_bonus_string(item["Stat Bonuses"])
@@ -49,11 +63,10 @@ def change_stat_bonus(item):
     return item
 
 def fix_hp(player, class_entries):
-    total_hp = class_entries[player['Starting Class']]['Hit Die Max']
+    total_hp = class_entries[player['Starting Class']]['Hit Die Max'] - class_entries[player['Starting Class']]['Hit Die Average']
     for name, c in player["Class"].items():
         level = int(c['Level'])
         total_hp += class_entries[name]['Hit Die Average'] * level
-    total_hp += ((int(player['Stats']['CON']) - 10) // 2) * player["Level"]
     player["HP"] = total_hp
     return player
 
@@ -70,13 +83,13 @@ def change_player(player, all_item_records):
     
     new_inventory = {}
     for name, count in player["Inventory"].items():
-        new_inventory[name] = {"CREATED": count}
+        new_inventory[name] = {"CREATE": count}
     player["Inventory"] = new_inventory
     
     new_consumables = {}
     if not player["Consumables"] == "None":
         for consumable in player["Consumables"].split(", "):
-            add_to_inventory(new_consumables, consumable, 1, "CREATED")
+            add_to_inventory(new_consumables, consumable, 1, "CREATE")
     player["Consumables"] = new_consumables
     
     new_stats = {}
@@ -86,10 +99,9 @@ def change_player(player, all_item_records):
     player["Stats"] = new_stats
     
     new_class = {}
-    old_classes = player["Class"].split(", ")
+    old_classes = player["Class"].split(" / ")
     player["Starting Class"] = old_classes[0].split(" ")[0].strip()
     for multi_class in old_classes:
-        print(multi_class)
         entry = {"Subclass": None, "Level": player["Level"]}
         split_subclass = multi_class.split("(")
         if len(split_subclass) > 1:
@@ -116,7 +128,7 @@ def change_player(player, all_item_records):
             entry = {}
             key = magic_item
             if magic_item not in all_item_records:
-                add_to_inventory(new_items, key, "CREATED", 1)
+                add_to_inventory(new_items, key, 1, "CREATE")
                 new_items[key]["Name"] = key
                 continue
             entry["BUY"] = 1
@@ -140,7 +152,8 @@ def change_player(player, all_item_records):
                     for bonus in entry["Stat Bonuses"]:
                         new_stats[bonus["Stat"]] -= bonus["Value"]
             new_items[key] = entry
-    player["Magic Items"] = {}
+    check_for_wrong_key(new_items)
+    player["Magic Items"] = new_items
     if "Attuned" in player:
         del player["Attuned"]
     if "Item Spend" in player:
@@ -291,6 +304,37 @@ class Admin(commands.Cog, name="Admin"):
         unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races", "rit", "classes"] # 
         for collection in unchanged:
             entries = list(map(add_5e, connection.dnd[collection].find()))
+            try:
+                if len(entries) > 0:
+                    connection.dnd5r[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Transferred {collection}")
+    
+    @commands.command()
+    @admin_or_owner()
+    async def transferPure(self, ctx):
+        unchanged = ["liners_money", "liners_craft", "liners_meme", "liners_find", "guilds"] # 
+        for collection in unchanged:
+            entries = list(connection.dnd[collection].find())
+            try:
+                if len(entries) > 0:
+                    connection.dnd5r[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Transferred {collection}")
+    
+    
+    @commands.command()
+    @admin_or_owner()
+    async def transferLogs(self, ctx):
+        unchanged = ["logdata"] # 
+        for collection in unchanged:
+            entries = list(map(map_logs, connection.dnd[collection].find()))
             try:
                 if len(entries) > 0:
                     connection.dnd5r[collection].insert_many(entries)

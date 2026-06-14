@@ -98,7 +98,7 @@ class Help(commands.Cog):
 
         helpEmbedGen.add_field(name=f'▫️ Creating and Viewing Your User Profile', value=f'{commandPrefix}user', inline=False)
 
-        helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}printRaces', inline=False)
+        helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}races "system"', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Calculating Rewards', value=f'{commandPrefix}reward XhYm tier', inline=False)
 
@@ -121,7 +121,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.title = 'Character Commands'
 
-        helpEmbedChar.add_field(name=f'▫️ Creating a Character', value=f'{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Creating a Character', value=f'{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
 
         helpEmbedChar.add_field(name=f'▫️ Viewing a Character\'s Information', value=f'{commandPrefix}info "character name"\n[{commandPrefix}char, {commandPrefix}i]', inline=False)
 
@@ -276,7 +276,7 @@ class Help(commands.Cog):
 
         helpEmbedShop.title = 'Shop Commands'
         
-        helpEmbedShop.add_field(name=f'▫️ Looking for a Shop Item', value=f'{commandPrefix}shop browse/view/peruse', inline=False)
+        helpEmbedShop.add_field(name=f'▫️ Looking for a Shop Item', value=f'{commandPrefix}shop browse/view/peruse "system"', inline=False)
 
         helpEmbedShop.add_field(name=f'▫️ Buying a Shop Item', value=f'{commandPrefix}shop buy "character name" "item" #', inline=False)
 

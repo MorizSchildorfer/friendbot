@@ -144,12 +144,12 @@ class Shop(commands.Cog):
         if "Pack" in item_record:
             amount *= item_record['Pack']
 
-        if float(charRecords['GP']) < gpNeeded:
+        if float(char_dict['GP']) < gpNeeded:
             await channel.send(f"You do not have enough GP to purchase {amount}x **{item_record['Name']}**!")
             ctx.command.reset_cooldown(ctx)
             return None
 
-        embed.title = f"Shop (Buy): {charRecords['Name']}"
+        embed.title = f"Shop (Buy): {char_dict['Name']}"
 
         pack_contents = ""
         if "Unpack" in item_record:
@@ -191,7 +191,7 @@ class Shop(commands.Cog):
                 else:
                     pack_contents += f"{pk} x{pv}\n"
             pack_contents += "\n"
-        embed.description = f"Are you sure you want to purchase {amount}x **{item_record['Name']}** for **{gpNeeded} GP**?\n\n{pack_contents}Current GP: {charRecords['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        embed.description = f"Are you sure you want to purchase {amount}x **{item_record['Name']}** for **{gpNeeded} GP**?\n\n{pack_contents}Current GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
 
         await core.send(embed=embed)
         await core.message.add_reaction('✅')
@@ -224,7 +224,7 @@ class Shop(commands.Cog):
                 increase = {kind: inventory_increase,
                             "GP": gpNeeded}
                 try:
-                    db.players.update_one({'_id': charRecords['_id']}, {"$inc": increase})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$inc": increase})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await core.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
@@ -237,7 +237,7 @@ class Shop(commands.Cog):
     Function extracted from sell in order to use it in adamantine and silver
     Checks the player inventory of mundane items to check for the query buyItem
     """
-    async def checkInventory(self, core, buyItem, charRecords):
+    async def checkInventory(self, core, buyItem, char_dict):
     
         channel = ctx.channel
         author = ctx.author
@@ -245,14 +245,14 @@ class Shop(commands.Cog):
         buyList = []
         buyString=""
         numI = 0
-        if charRecords['Inventory'] == "None":
+        if char_dict['Inventory'] == "None":
             await core.send(f'You do not have any valid items in your inventory. Please try again with an item.')
             ctx.command.reset_cooldown(ctx)
             return False
 
         # Iterate through character's inventory to see which items would match the query
         else:
-            for k in charRecords['Inventory'].keys():
+            for k in char_dict['Inventory'].keys():
                 if buyItem.lower() in k.lower():
                     # update the disambiguation trackers
                     buyList.append(k)
@@ -289,7 +289,7 @@ class Shop(commands.Cog):
             buyItem = buyList[0]
         else:
             # inform the user if the query couldnt be found
-            await core.send(f'**{buyItem}** could not be found in {charRecords["Name"]}\'s inventory! Check to see if it is a valid item and check your spelling.')
+            await core.send(f'**{buyItem}** could not be found in {char_dict["Name"]}\'s inventory! Check to see if it is a valid item and check your spelling.')
             ctx.command.reset_cooldown(ctx)
             return False
         return buyItem
@@ -310,7 +310,7 @@ class Shop(commands.Cog):
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         # if the character exists, check for the item in the inventory and disambiguate
-        buyItem = await self.checkInventory(core, buyItem, charRecords)
+        buyItem = await self.checkInventory(core, buyItem, char_dict)
         # if the item couldnt be found, end
         if not buyItem:
             return None
@@ -335,14 +335,14 @@ class Shop(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
             # if they do not have enough instances of the item, cancel
-            if charRecords['Inventory'][f"{buyItem}"] < amount:
+            if char_dict['Inventory'][f"{buyItem}"] < amount:
                 await channel.send(f"You do not have enough **{buyItem}s** to coat!")
                 ctx.command.reset_cooldown(ctx)
                 return None
             # create the resulting item name
             fullItemName = "Silvered " + buyItem
             # call the function that handles the purchase calculations
-            await self.coat(ctx, 100, "silver", buyItem, amount, fullItemName, charRecords, bRecord, embed, shopEmbedmsg)
+            await self.coat(ctx, 100, "silver", buyItem, amount, fullItemName, char_dict, bRecord, embed, shopEmbedmsg)
 
         # if the item couldnt be found in the DB, cancel
         else:
@@ -366,7 +366,7 @@ class Shop(commands.Cog):
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         # if the character exists, check for the item in the inventory and disambiguate
-        buyItem = await self.checkInventory(core, buyItem, charRecords)
+        buyItem = await self.checkInventory(core, buyItem, char_dict)
         # if the item couldnt be found, end
         if not buyItem:
             return None
@@ -395,7 +395,7 @@ class Shop(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
 
-            if charRecords['Inventory'][f"{buyItem}"] < amount:
+            if char_dict['Inventory'][f"{buyItem}"] < amount:
                 await channel.send(f"You do not have enough **{buyItem}s** to coat!")
                 ctx.command.reset_cooldown(ctx)
                 return None
@@ -406,7 +406,7 @@ class Shop(commands.Cog):
             if silvered:
                 fullItemName = "Silvered " + fullItemName
             # call the function handling the purchase and DB updateing
-            await self.coat(core, 500, "adamantine", buyItem, amount, fullItemName, charRecords, bRecord)
+            await self.coat(core, 500, "adamantine", buyItem, amount, fullItemName, char_dict, bRecord)
         else:
             await core.send(f'**{buyItem}** doesn\'t exist or is an unbuyable item! Check to see if it is a valid item and check your spelling.')
             ctx.command.reset_cooldown(ctx)
@@ -419,22 +419,22 @@ class Shop(commands.Cog):
     coatType -> string name of the process
     amount -> how many items are being coated
     fullItemName -> the final name of the item, used to create the dictionary entry
-    charRecords -> DB entry of the character
+    char_dict -> DB entry of the character
     bRecord -> DB entry of the base item being covered
     """
-    async def coat(self, core, cost, coatType, targetItem, amount, fullItemName, charRecords, bRecord):
+    async def coat(self, core, cost, coatType, targetItem, amount, fullItemName, char_dict, bRecord):
         channel = ctx.channel
         author = ctx.author
         # total cost of the process
         gpNeeded = (cost * amount)
         # if they do not have enough gold, cancel
-        if float(charRecords['GP']) < gpNeeded:
+        if float(char_dict['GP']) < gpNeeded:
             await core.send(f"You do not have enough gp to {coatType} {amount}x **{bRecord['Name']}**!")
             ctx.command.reset_cooldown(ctx)
             return None
 
-        shopEmbed.title = f"Shop (Buy): {charRecords['Name']}"
-        shopEmbed.description = f"Are you sure you want to coat {amount}x **{targetItem}** in {coatType} for **{gpNeeded} GP**?\n\nCurrent GP: {charRecords['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        shopEmbed.title = f"Shop (Buy): {char_dict['Name']}"
+        shopEmbed.description = f"Are you sure you want to coat {amount}x **{targetItem}** in {coatType} for **{gpNeeded} GP**?\n\nCurrent GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
         # get confirmation of the purchase from the user
         await core.send()
         await core.message.add_reaction('✅')
@@ -453,19 +453,19 @@ class Shop(commands.Cog):
                 return None
             elif tReaction.emoji == '✅':
                 # deduct the amount from the item entry being coated
-                charRecords['Inventory'][f"{targetItem}"] -= amount
+                char_dict['Inventory'][f"{targetItem}"] -= amount
                 # if all are used, remove the entry
-                if int(charRecords['Inventory'][f"{targetItem}"]) <= 0:
-                    del charRecords['Inventory'][f"{targetItem}"]
+                if int(char_dict['Inventory'][f"{targetItem}"]) <= 0:
+                    del char_dict['Inventory'][f"{targetItem}"]
                 # if the resulting item is already in the inventory, increment
-                if fullItemName in charRecords['Inventory']:
-                    charRecords['Inventory'][fullItemName] += amount
+                if fullItemName in char_dict['Inventory']:
+                    char_dict['Inventory'][fullItemName] += amount
                 else:
                     # otherwise create it
-                    charRecords['Inventory'][fullItemName] = amount
+                    char_dict['Inventory'][fullItemName] = amount
                 try:
                     # update the character entry with the new inventory and gold
-                    db.players.update_one({'_id': charRecords['_id']}, {"$set": {"Inventory": charRecords['Inventory'], 'GP': newGP}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": {"Inventory": char_dict['Inventory'], 'GP': newGP}})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
@@ -605,7 +605,7 @@ class Shop(commands.Cog):
         gp_refund = round((item_record['GP'] / 2) * amount, 2)
         new_gp = char_dict['GP'] - gp_refund
         shopEmbed.title = f"Shop (Sell): {char_dict['Name']}"
-        shopEmbed.description = f"Are you sure you want to sell {amount}x **{item_record['Name']}** for **{gp_refund} GP**?\nCurrent GP: {charRecords['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
+        shopEmbed.description = f"Are you sure you want to sell {amount}x **{item_record['Name']}** for **{gp_refund} GP**?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
         await core.send()
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
@@ -888,25 +888,25 @@ class Shop(commands.Cog):
       skillRate -> Because the two versions have different rates at which skill proficiencies can be 
                     gained this is passed through instead of creating an if-else
       gpNeeded -> how much gold the purchase will cost
-      charRecords -> the database information of the character being purchased for
+      char_dict -> the database information of the character being purchased for
       shopEmbed -> the embed message for the shop
       shopEmbedmsg -> the message which is being used to display shopEmbed
       channel -> the channel the interaction is being made in
       author -> who is doing the purchase
     """
-    async def purchaseProficiency(self, core: InteractionCore, purchaseOption, trainingType, specificationText, purchasePossibilities, gpNeeded, charRecords):
-        if gpNeeded > charRecords['GP']:
-            await core.send(f"***{charRecords['Name']}*** does not have enough GP to learn a language or gain proficiency in a tool in this way.")
+    async def purchaseProficiency(self, core: InteractionCore, purchaseOption, trainingType, specificationText, purchasePossibilities, gpNeeded, char_dict):
+        if gpNeeded > char_dict['GP']:
+            await core.send(f"***{char_dict['Name']}*** does not have enough GP to learn a language or gain proficiency in a tool in this way.")
             return None
         #calculate gp after purchase
-        newGP = charRecords['GP'] - gpNeeded
+        newGP = char_dict['GP'] - gpNeeded
         
         #increase the purchase level of the specific option
-        charRecords[purchaseOption] += 1
+        char_dict[purchaseOption] += 1
 
         #update embed text to ask for confirmation
-        shopEmbed.title = f"Downtime {trainingType} Training: {charRecords['Name']}"
-        shopEmbed.description = f"Are you sure you want to learn your **{specificationText}** {purchasePossibilities} for {gpNeeded} GP?\nCurrent GP: {charRecords['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
+        shopEmbed.title = f"Downtime {trainingType} Training: {char_dict['Name']}"
+        shopEmbed.description = f"Are you sure you want to learn your **{specificationText}** {purchasePossibilities} for {gpNeeded} GP?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
         await core.send()
 
         #set up menu interaction
@@ -926,13 +926,13 @@ class Shop(commands.Cog):
             elif tReaction.emoji == '✅':
                 #update the appropriate DB value corresponding to the purchase and update the gold
                 try:
-                    db.players.update_one({'_id': charRecords['_id']}, {"$inc": {purchaseOption: 1, 'GP': gpNeeded}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$inc": {purchaseOption: 1, 'GP': gpNeeded}})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
                 else:
                     #Inform of the purchase success
-                    shopEmbed.description = f"***{charRecords['Name']}*** has been trained by an instructor and can learn a {purchasePossibilities} of your choice. :tada:\n\nCurrent GP: {newGP} GP\n"
+                    shopEmbed.description = f"***{char_dict['Name']}*** has been trained by an instructor and can learn a {purchasePossibilities} of your choice. :tada:\n\nCurrent GP: {newGP} GP\n"
                     await core.send()
                     
     @downtime.command()
@@ -943,27 +943,27 @@ class Shop(commands.Cog):
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         #create the data entry if it doesnt exist yet
-        if 'Proficiency' not in charRecords:
-            charRecords['Proficiency'] = 0
+        if 'Proficiency' not in char_dict:
+            char_dict['Proficiency'] = 0
 
         #limit to 5 purchases
-        if charRecords['Proficiency'] > 4:
-            await core.send(f"***{charRecords['Name']}*** cannot learn any more languages or gain proficiency in any more tools in this way.")
+        if char_dict['Proficiency'] > 4:
+            await core.send(f"***{char_dict['Name']}*** cannot learn any more languages or gain proficiency in any more tools in this way.")
             return None
 
         # calculate the scaling cost
-        gpNeeded = 500+ charRecords['Proficiency'] * 250
+        gpNeeded = 500+ char_dict['Proficiency'] * 250
 
         # text used to inform the user which purchase they are making
         textArray = ["1st", "2nd", "3rd", "4th", "5th"]
 
         #pick which text to show for the possibility of Skill being an option
         purchasePossibilities = "Weapon/Language/Tool"
-        if charRecords["Proficiency"] == 4:
+        if char_dict["Proficiency"] == 4:
             purchasePossibilities = purchasePossibilities+"/Skill"
 
         #call the extracted function
-        await self.purchaseProficiency(core, 'Proficiency', 'Friend', textArray[charRecords['Proficiency']], purchasePossibilities, gpNeeded, charRecords)
+        await self.purchaseProficiency(core, 'Proficiency', 'Friend', textArray[char_dict['Proficiency']], purchasePossibilities, gpNeeded, char_dict)
         return None
 
     @downtime.command(aliases=["n"])
@@ -977,23 +977,23 @@ class Shop(commands.Cog):
             return None
         noodle_name, noodle_data, noodle_role = findNoodleDataFromRoles(author.roles)
         if not noodle_role:
-            await channel.send(f"***{author.display_name}***, you don't have any Noodle roles! A Noodle role is required in order for ***{charRecords['Name']}*** to learn a language or gain proficiency in a tool in this way.")
+            await channel.send(f"***{author.display_name}***, you don't have any Noodle roles! A Noodle role is required in order for ***{char_dict['Name']}*** to learn a language or gain proficiency in a tool in this way.")
             return None
         noodleLimit = noodle_data['training']
         #establish the data record if it does not exist yet
-        if 'NoodleTraining' not in charRecords:
-            charRecords['NoodleTraining'] = 0
-        training_level = charRecords['NoodleTraining']
+        if 'NoodleTraining' not in char_dict:
+            char_dict['NoodleTraining'] = 0
+        training_level = char_dict['NoodleTraining']
         #limit the purchase to only the rank
         if training_level >= noodleLimit:
-            await channel.send(f"**{author.display_name}**, your current **{noodle_name}** role does not allow ***{charRecords['Name']}*** to learn a language or gain proficiency in a tool in this way.")
+            await channel.send(f"**{author.display_name}**, your current **{noodle_name}** role does not allow ***{char_dict['Name']}*** to learn a language or gain proficiency in a tool in this way.")
             return None
 
         #all purchases past the 5th are free, but the formular can never go negative
         gpNeeded = max(0, 500 - training_level * 100)
 
         #call the extracted function
-        await self.purchaseProficiency(core, 'NoodleTraining', 'Noodle', list(noodle_roles.keys())[training_level+1], training_options[training_level-1], gpNeeded, charRecords)
+        await self.purchaseProficiency(core, 'NoodleTraining', 'Noodle', list(noodle_roles.keys())[training_level+1], training_options[training_level-1], gpNeeded, char_dict)
         return None
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)

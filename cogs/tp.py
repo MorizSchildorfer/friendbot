@@ -5,7 +5,7 @@ import re
 from discord.utils import get        
 from discord.ext import commands
 from bfunc import db, commandPrefix, roleArray, traceBack, alphaEmojis, settingsRecord, liner_dic
-from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary
+from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary, check_for_char_with_end
 import traceback as traces
 from random import *
 

@@ -1003,7 +1003,7 @@ class Character(commands.Cog):
             char_embed.clear_fields()
             char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
             await core.send()
-            self.bot.get_command('applyTime').reset_cooldown(ctx)
+            bot.get_command('applyTime').reset_cooldown(ctx)
             return None
         transferred_time = cp_transferred * 3600
         treasureArray  = calculateTreasure(char_dict["Level"], char_dict["CP"], transferred_time)
@@ -1016,7 +1016,7 @@ class Character(commands.Cog):
         decision = await confirm(confirm_message, ctx.author)
         if decision != 1:
             await core.send(f"*Time transfer cancelled*")
-            self.bot.get_command('applyTime').reset_cooldown(ctx)
+            bot.get_command('applyTime').reset_cooldown(ctx)
             return None
         try:
             db.players.update_one({"_id": char_dict["_id"]}, {"$inc": inc_dic})
@@ -1026,7 +1026,7 @@ class Character(commands.Cog):
         except Exception as e:
             traceback.print_exc()
             
-        self.bot.get_command('applyTime').reset_cooldown(ctx)
+        bot.get_command('applyTime').reset_cooldown(ctx)
         return None
 
     @commands.cooldown(1, 5, type=commands.BucketType.user)
@@ -1779,7 +1779,7 @@ class Character(commands.Cog):
     async def image(self,ctx, char, url):
         channel = ctx.channel
         command_name = ctx.command.name
-        char_dict, char_embed, core = await check_for_char_with_end(ctx, name)
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None

@@ -645,6 +645,8 @@ class Character(commands.Cog):
         char_dict["Starting Class"] = starting_class
         # check bg and gp
         bRecord, core = await callAPI(core, 'backgrounds', bg)
+        if not core.isActive():
+            return None
         stat_bonus_record = race_record
         if system == '5R':
             stat_bonus_record = bRecord
@@ -668,6 +670,8 @@ class Character(commands.Cog):
         if not core.hasError():
             core, char_dict = await self.selectClassFeats(core, classes, char_dict)
 
+        if not core.isActive():
+            return None
         #HP
         hp_records = []
         for class_name, entry in classes.items():
@@ -677,7 +681,9 @@ class Character(commands.Cog):
         if len(classes) > 1:
             # TODO: pass a new dictionary
             core = self.check_multiclass(core, classes, char_dict)
-        if not core.isActive() or core.hasError():
+        if not core.isActive():
+            return None
+        if core.hasError():
             await core.delete()
             if not core.isActive():
                 core.addError('Command cancelled')

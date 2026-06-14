@@ -892,18 +892,19 @@ class Character(commands.Cog):
             char_dict["GP"] += bRecord["GP"]
             char_dict["Feats"] = [bRecord["Feat"]]
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
-
+        if not core.isActive():
+            return None
         stats = {}
         # Stats - Point Buy
         if not core.hasError():
             core, stats = await self.starting_stat_modification(core,
                                                                 [stats["STR"], stats["DEX"], stats["CON"], stats["INT"],
                                                                  stats["WIS"], stats["CHA"]], bRecord)
-            if not core.isActive():
-                return None
+        if not core.isActive():
+            return None
 
         # Stats - Feats
-        if not core.hasError():
+        if core.isActive() and not core.hasError():
             core, char_dict = await self.selectClassFeats(core, classes, char_dict)
 
         # HP
@@ -917,7 +918,9 @@ class Character(commands.Cog):
         if len(classes) > 1:
             # TODO: pass a new dictionary
             core = self.check_multiclass(core, classes, char_dict)
-        if not core.isActive() or core.hasError():
+        if not core.isActive():
+            return None
+        if core.hasError():
             await core.delete()
             if not core.isActive():
                 core.addError('Command cancelled')

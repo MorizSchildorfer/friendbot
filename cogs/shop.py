@@ -204,7 +204,7 @@ class Shop(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return None
         else:
-            await embed.clear_reactions()
+            await core.message.clear_reactions()
             if tReaction.emoji == '❌':
                 await shopEmbedmsg.edit(embed=None, content=f"Shop cancelled. Try again using the same command!")
                 await shopEmbedmsg.clear_reactions()

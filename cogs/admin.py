@@ -12,7 +12,7 @@ from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers, connection
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, add_to_inventory, add_to_dictionary
 
 
 def add_5e(item):
@@ -47,6 +47,91 @@ def change_stat_bonus(item):
             for i in range(0, len( item["Predecessor"]["Stat Bonuses"])):
                 item["Predecessor"]["Stat Bonuses"][i] = convert_bonus_string(item["Predecessor"]["Stat Bonuses"][i])
     return item
+
+def fix_hp(player, class_entries):
+    total_hp = class_entries[char_dict['Starting Class']]['Hit Die Max']
+    for name, c in player["Classes"].items():
+        level = int(c['Level'])
+        total_hp += class_entries[name]['Hit Die Average'] * level
+    total_hp += ((int(player['Stats']['CON']) - 10) // 2) * player["Level"]
+    return total_hp
+
+def change_player(player, all_item_records):
+    if "Max Stats" in player:
+        del player["Max Stats"]
+    if player["Feats"] == "None":
+        player["Feats"] = []
+    else:
+        player["Feats"] = player["Feats"].split(", ")
+    new_inventory = {}
+    for name, count in player["Inventory"]:
+        new_inventory[name] = {"CREATED": count}
+    player["Inventory"] = new_inventory
+    if player["Consumables"] == "None":
+        player["Consumables"] = {}
+    else:
+        new_consumables = {}
+        for consumable in player["Consumables"].split(", "):
+            add_to_inventory(new_consumables, consumable, 1, "CREATED")
+    new_stats = {}
+    for stat in ["STR", "DEX", "WIS", "INT", "CON", "CHA"]:
+        new_stats[stat] = player[stat]
+        del player[stat]
+    player["Stats"] = new_stats
+    new_class = {}
+    old_classes = player["Class"].split(", ")
+    player["Starting Class"] = old_classes[0].split(" ")[0].strip()
+    for multi_class in old_classes:
+        entry = {"Subclass": None, "Level": player["Level"]}
+        split_subclass = multi_class.split("(")
+        if len(split_subclass) > 1:
+            entry["Subclass"] = split_subclass[1].split(")")[0]
+        split_level = split_subclass[0].split(" ")
+        if len(split_level) > 1:
+            entry["Level"] = int(split_level[1])
+        new_class[split_level[0]] = entry
+    if player["Magic Items"] == "None":
+        player["Magic Items"] = {}
+    else:
+        old_items = player["Magic Items"].split(", ")
+        new_items = {}
+        grouped = {}
+        predecessors = {}
+        if "Predecessor" in player:
+            predecessors = player["Predecessor"]
+            del player["Predecessor"]
+        if "Grouped" in player:
+            for pair in player["Grouped"]:
+                grouped[pair.split(":")[1].strip()] = pair.split(":")[0].strip()
+            del player["Predecessor"]
+        for magic_item in old_items:
+            entry = {}
+            key = magic_item
+            if magic_item not in all_item_records:
+                add_to_dictionary(new_items, key, "CREATED", 1)
+                new_items[key]["Name"] = key
+                continue
+            entry["BUY"] = 1
+            if magic_item in grouped:
+                key = grouped[key]
+            entry["Name"] = key
+            if magic_item in predecessors:
+                entry["Stage"] = predecessors[magic_item]["Stage"]
+                entry["Stage Name"] = predecessors[magic_item]["Names"][entry["Stage"]]
+            item_db_entry = all_item_records[magic_item]
+            if "Attunement" in item_db_entry:
+                entry["Attunement"] = item_db_entry["Attunement"]
+                entry["Attuned"] = "Attuned" in player and magic_item in player["Attuned"]
+            entry["Item Spend"] = player["Item Spend"][magic_item]
+            if "Stat Bonuses" in item_db_entry:
+                entry["Stat Bonuses"] = item_db_entry["Stat Bonuses"]
+                if "Attunement" not in item_db_entry:
+                    for bonus in entry["Stat Bonuses"]:
+                        new_stats[bonus["Stat"]] -= bonus["Value"]
+            new_items[key] = entry
+    del player["Attunement"]
+    del player["Item Spend"]
+    return player
 
 def is_log_channel():
     async def predicate(ctx):
@@ -216,8 +301,31 @@ class Admin(commands.Cog, name="Admin"):
                 # if it fails, we need to cancel and use the error details
                 return
             await ctx.channel.send(content=f"Transferred {collection}")
-        
-     
+
+    @commands.command()
+    @admin_or_owner()
+    async def transferPlayers(self, ctx):
+        unchanged = ["mit"]
+        item_entries = connection.dnd5r["mit"].find({"System": "5E"})
+        item_records = {}
+        for entry in item_entries:
+            if isinstance(entry["Name"], list):
+                item_records[entry["Name"]] = entry
+            else:
+                for name in entry["Name"]:
+                    item_records[name] = entry
+        class_entries = {c["Name"]: c for x in connection.dnd5r["classes"].find({"System": "5E"})}
+        for collection in unchanged:
+            entries = list(map(lambda x: fix_hp(x, class_entries), map(lambda x: change_player(x, item_records), map(add_5e, connection.dnd[collection].find()))))
+            try:
+                if len(entries) > 0:
+                    connection.dnd5r[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Transferred {collection}")
+
     @commands.command()
     @admin_or_owner()
     async def delete5e(self, ctx, table):

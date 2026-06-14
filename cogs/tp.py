@@ -299,7 +299,8 @@ class Tp(commands.Cog):
             if 'Predecessor' in item_record:
                 new_item['Stage'] = 0
                 new_item['Stage Name'] = item_record["Predecessor"]['Names'][0]
-            character_items.append(item_record['Name'])
+            if 'Stat Bonuses' in item_record:
+                new_item['Stat Bonuses'] = item_record["Stat Bonuses"]
             tpEmbed.set_footer(text=None)
             await core.send()
             await core.message.add_reaction('✅')

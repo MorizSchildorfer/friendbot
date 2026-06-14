@@ -544,7 +544,6 @@ class Character(commands.Cog):
           'Consumables': {},
           'Feats': [],
           'Inventory': {},
-          'Predecessor': {},
           'Stat Bonuses': {},
           'Games': 0
         }

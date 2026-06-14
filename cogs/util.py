@@ -71,6 +71,9 @@ class InteractionCore:
         embed_to_send = self.embed
         if embed:
             embed_to_send = embed
+        if not embed.description:
+            embed.description = main_text
+            main_text = ""
         if not self.message:
             self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
         else:

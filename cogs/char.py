@@ -390,9 +390,9 @@ class Character(commands.Cog):
                     classes[class_name] = {'Class': class_entry, 'Level': int(class_level), 'Subclass': None}
                 total_level += int(class_level)
         else:
-            starting_class = class_string
             single_class, core = await callAPI(core, 'classes', starting_class)
             if single_class:
+                starting_class = single_class["Name"]
                 classes[single_class["Name"]] = {'Class':single_class, 'Level': int(level), 'Subclass': None}
             else:
                 broken.append(starting_class)

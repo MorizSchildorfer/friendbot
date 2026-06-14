@@ -55,7 +55,8 @@ class InteractionCore:
         return self.status == "ACTIVE"
         
     def cancel(self):
-        return self.status == "CANCELLED"
+        self.status = "CANCELLED"
+        return True
         
     def hasError(self) -> bool:
         return len(self.errors) != 0
@@ -240,7 +241,6 @@ async def select_inventory_choices(core: InteractionCore, startingOptions: list,
                 elif 'Pack' in top_key:
                     remaining_options.append({top_key: top_values})
                 else:
-                    print({top_key: top_values})
                     remaining_options.append({top_key: top_values})
                 embed.clear_fields()
     return core, inventory

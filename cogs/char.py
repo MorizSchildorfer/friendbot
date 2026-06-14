@@ -433,7 +433,6 @@ class Character(commands.Cog):
         else:
             single_class, core = await callAPI(core, 'classes', class_string)
             if single_class:
-                print(single_class)
                 starting_class = single_class["Name"]
                 classes[single_class["Name"]] = {'Class':single_class, 'Level': int(level), 'Subclass': None}
             else:
@@ -441,7 +440,6 @@ class Character(commands.Cog):
         if len(broken)>0:
             core.addError(f':warning: **{broken}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
         if is_multi_class and total_level != level:
-            print(total_level, level)
             core.addError(':warning: Your classes do not add up to the total level. Please double-check your multiclasses.')
         if not core.hasError():
             is_multi_class = len(classes) > 1

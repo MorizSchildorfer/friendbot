@@ -1013,7 +1013,7 @@ class Character(commands.Cog):
         confirm_embed.title = f"Please confirm the **{timeConversion(transferred_time, True)}** minute deduction."
         confirm_embed.description = f"\n**{char_dict['Name']}** will receive **{treasureArray[0]} CP, {sum(treasureArray[1].values())} TP, {treasureArray[2]} GP**"
         await core.send(embed=confirm_embed)
-        decision = await confirm(confirm_message, ctx.author)
+        decision = await confirm(core.message, ctx.author)
         if decision != 1:
             await core.send(f"*Time transfer cancelled*")
             bot.get_command('applyTime').reset_cooldown(ctx)

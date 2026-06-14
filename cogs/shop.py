@@ -191,6 +191,7 @@ class Shop(commands.Cog):
                 else:
                     pack_contents += f"{pk} x{pv}\n"
             pack_contents += "\n"
+        new_gp = char_dict['GP']-gpNeeded
         embed.description = f"Are you sure you want to purchase {amount}x **{item_record['Name']}** for **{gpNeeded} GP**?\n\n{pack_contents}Current GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
 
         await core.send(embed=embed)
@@ -222,7 +223,7 @@ class Shop(commands.Cog):
                 if "Consumable" in item_record:
                     kind = "Consumable"
                 increase = {kind: inventory_increase,
-                            "GP": gpNeeded}
+                            "GP": -gpNeeded}
                 try:
                     db.players.update_one({'_id': char_dict['_id']}, {"$inc": increase})
                 except Exception as e:

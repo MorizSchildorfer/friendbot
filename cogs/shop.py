@@ -222,13 +222,16 @@ class Shop(commands.Cog):
                 kind = "Inventory"
                 if "Consumable" in item_record:
                     kind = "Consumable"
-                increase = {kind: inventory_increase,
-                            "GP": -gpNeeded}
+                        
+                increase = {"GP": -gpNeeded}
+                for key, value in inventory_increase:
+                    for source, amount in value:
+                        increase[f"{kind}.{key}.{source}": amount]
                 try:
                     db.players.update_one({'_id': char_dict['_id']}, {"$inc": increase})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
-                    await core.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
+                    await core.send("Uh oh, looks like something went wrong. Please try shop buy again.")
                 else:
                     embed.description = f"{amount}x **{item_record['Name']}** purchased for **{gpNeeded} GP**!\n\n{pack_contents}Current GP: {new_gp} GP\n"
                     await core.send()

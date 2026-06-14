@@ -176,6 +176,47 @@ class Character(commands.Cog):
     
         except Exception as e:
             traceback.print_exc()  
+    
+    # todo refactor
+    @commands.command()
+    @commands.cooldown(1, 60, type=commands.BucketType.user)
+    @is_log_channel()
+    async def backgrounds(self, ctx, system):
+        system = system.strip().upper()
+        try:
+            items = list(db.backgrounds.find(
+               {"System" : system},
+            ))
+            race_embed = discord.Embed()
+            race_embed.title = f"All Valid Backgrounds:\n"
+            def group_sort(x):
+                if "Grouped" in x:
+                    return x["Grouped"]
+                return x["Name"]
+            items.sort(key = group_sort)
+            character = ""
+            out_strings = []
+            collector_string = ""
+            for race in items:
+                if "Grouped" in race:
+                    race = race["Grouped"]
+                else:
+                    race = race["Name"]
+                if race[0] == character:
+                    collector_string += f"{race}\n"
+                else:
+                    if collector_string:
+                        out_strings.append(collector_string)
+                    collector_string = f"{race}\n"
+                    character = race[0]
+            if collector_string:
+                out_strings.append(collector_string)
+            for i in out_strings:
+                race_embed.add_field(name=i[0], value= i, inline = True)
+            await ctx.channel.send(embed=race_embed)
+    
+        except Exception as e:
+            traceback.print_exc()  
 
 
     def getLeveLimit(self, roles):

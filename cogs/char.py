@@ -1783,7 +1783,7 @@ class Character(commands.Cog):
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
-        charID = infoRecords['_id']
+        charID = char_dict['_id']
         data = {
             'Image': url
         }

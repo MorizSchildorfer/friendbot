@@ -704,7 +704,7 @@ class Character(commands.Cog):
             tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']), timeout=60)
         except asyncio.TimeoutError:
             await core.delete()
-            await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+            await channel.send(f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         else:
@@ -949,7 +949,7 @@ class Character(commands.Cog):
         except asyncio.TimeoutError:
             await core.delete()
             await channel.send(
-                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         else:
@@ -957,7 +957,7 @@ class Character(commands.Cog):
             if tReaction.emoji == '❌':
                 core.cancel()
                 await core.message.edit(embed=None,
-                                        content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                                        content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"system\" \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
                 self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None
@@ -2018,7 +2018,7 @@ class Character(commands.Cog):
             return None
 
         elif cp < cp_bound_array[tier-1][0]:
-            await channel.send(f'***{char_name}*** is not ready to level up. They currently have **{cp}/{cp_bound_array[tier_num-1][1]}** CP.')
+            await channel.send(f'***{char_name}*** is not ready to level up. They currently have **{cp}/{cp_bound_array[tier-1][1]}** CP.')
             self.bot.get_command('levelup').reset_cooldown(ctx)
             return None
 
@@ -2089,12 +2089,12 @@ class Character(commands.Cog):
                     choice = await disambiguate(len(new_class_options), core.message, author)
                     if choice is None:
                         await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     elif choice == -1:
                         await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     await core.message.clear_reactions()
@@ -2117,12 +2117,12 @@ class Character(commands.Cog):
                     choice = await disambiguate(len(char_class), core.message, author)
                     if choice is None:
                         await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     elif choice == -1:
                         await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     await core.message.clear_reactions()
@@ -2181,7 +2181,7 @@ class Character(commands.Cog):
         except asyncio.TimeoutError:
             await core.delete()
             await channel.send(
-                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         else:

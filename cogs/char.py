@@ -2378,9 +2378,9 @@ class Character(commands.Cog):
         description = f"**{key}**: {base_stat}"
         # TODO handle all constellations (bonus, reduced to max, exactly max?, set beyond max)
         if final_stat != base_stat:
-            if final_stat == max_stat:
-                description += f"({max_stat} MAX)"
-            elif stat_setters[key] > max_stat:
+            if final_stat == max_value:
+                description += f"({max_value} MAX)"
+            elif stat_setters[key] > max_value:
                 description += f"(set to {stat_setters[key]})"
             elif bonus > 0:
                 description += f"(+{bonus})"

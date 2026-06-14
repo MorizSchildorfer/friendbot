@@ -140,11 +140,11 @@ def show_inventory(inventory: dict) -> list:
 def sum_sources(entry: dict) -> int:
     return sum([entry[source] for source in source_types if source in entry])
 
-async def check_for_char_with_end(ctx, name: str) -> tuple[dict, any, InteractionCore]:
+async def check_for_char_with_end(ctx, name: str, mod = False, author_check = None) -> tuple[dict, any, InteractionCore]:
     char_embed = discord.Embed()
     command_name = ctx.command.name
     core = InteractionCore(ctx, None, char_embed)
-    char_dict, core = await checkForChar(core, name)
+    char_dict, core = await checkForChar(core, name, mod=mod, authorCheck=author_check)
     if not core.isActive():
         await core.send("Character search cancelled")
         bot.get_command(command_name).reset_cooldown(ctx)

@@ -1280,7 +1280,7 @@ class Character(commands.Cog):
         if mod_override:
             mod = "Mod Friend" in [role.name for role in author.roles]
 
-        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char, mod=mod)
         if not core.isActive():
             await core.send("Character search cancelled")
             self.bot.get_command('inv').reset_cooldown(ctx)
@@ -1670,13 +1670,13 @@ class Character(commands.Cog):
         author = ctx.author
         guild = ctx.guild
         mod= False
-        authorCheck = None
+        author_check = None
         if mod_override:
             mod = "Mod Friend" in [role.name for role in author.roles]
             if ctx.message.mentions:
-                authorCheck = ctx.message.mentions[0]
+                author_check = ctx.message.mentions[0]
                 mod = False
-        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char, mod, author_check)
         if not core.isActive():
             await core.send("Character search cancelled")
             self.bot.get_command('info').reset_cooldown(ctx)

@@ -192,6 +192,7 @@ async def select_inventory_choices(core: InteractionCore, startingOptions: list,
                 # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
                 if len(choice_values) > 1:
                     embed.add_field(name=f"{ek} lets you choose one.", value=choice_string, inline=False)
+                    core.embed= embed
                     await core.send()
                     await core.message.add_reaction('❌')
                     try:
@@ -202,7 +203,7 @@ async def select_inventory_choices(core: InteractionCore, startingOptions: list,
                                                           timeout=60)
                     except asyncio.TimeoutError:
                         core.cancel()
-                        return core, inventory, 0
+                        return core, inventory
                     else:
                         await core.message.clear_reactions()
                         if tReaction.emoji == '❌':

@@ -2514,10 +2514,10 @@ class Character(commands.Cog):
                 choice = await disambiguate(len(uniqueArray), core.message, author)
                 if choice is None:
                     core.cancel()
-                    return None, None
+                    return core, None
                 elif choice == -1:
                     core.cancel()
-                    return None, None 
+                    return core, None 
 
                 core.embed.clear_fields()
                 if 'AOU' in bonus:

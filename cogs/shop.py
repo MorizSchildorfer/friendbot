@@ -6,7 +6,7 @@ from discord.utils import get
 from discord.ext import commands
 from bfunc import db, commandPrefix,  alphaEmojis, traceBack, settingsRecord
 from cogs.util import callAPI, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles, \
-    add_to_inventory, check_for_char_with_end, find_matching, sum_sources, InteractionCore
+    add_to_inventory, check_for_char_with_end, find_matching, sum_sources, InteractionCore, reaction_response_control
 from math import floor
 
 def ordinal(n): 

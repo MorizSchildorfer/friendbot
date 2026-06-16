@@ -2632,7 +2632,7 @@ class Character(commands.Cog):
                     # allow only origin feats for extra feats in 5R
                     if is_extra_feat and core.system == '5R' and "Origin" not in feat:
                         continue
-                    if "Epic Boon" in feat and epic_boons_count >= epic_boons_limit and level < 19:
+                    if "Epic Boon" in feat and (epic_boons_count >= epic_boons_limit or level < 19):
                         continue
                     meets_restriction = False
                     level_only = True
@@ -2659,7 +2659,7 @@ class Character(commands.Cog):
                             restrictions = [x.strip() for x in feat['Class Restriction'].split(', ')]
                             level_only = False
                             for name, entry in classes.items():
-                                if name in restrictions or entry["Class"]['Subclass'] in restrictions:
+                                if name in restrictions or entry['Subclass'] in restrictions:
                                     meets_restriction = True
                         if 'Stat Restriction' in feat:
                             level_only = False

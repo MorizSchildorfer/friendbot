@@ -258,12 +258,12 @@ def convert_to_seconds(s):
 def find_matching(items: list[T], predicate: Callable[T, bool]) -> T:
     return next((x for x in items if predicate(x)), None)
 
-def reaction_response_control(message, author, options: list):
+def reaction_response_control(message, author, options: list, cancel=True):
     def predicate(reaction, user):
         same_message = False
         if message.id == reaction.message.id:
             same_message = True
-        return same_message and ((reaction.emoji in options) or (str(reaction.emoji) == '❌')) and user == author
+        return same_message and ((reaction.emoji in options) or (cancel and str(reaction.emoji) == '❌')) and user == author
     return predicate
 
 def format_classname(name, character_class: dict):
@@ -356,11 +356,16 @@ async def texttest(msg, author):
     return view.value
 
 async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
-    view = AlphaView(options, author, emojies, cancel)
-    msg = await msg.edit(view = view)
-    await view.wait()
-    await msg.edit(view = None)
-    return view.state
+    reaction_response_control(msg, author, emojies[:options])
+    try:
+        reaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
+    except asyncio.TimeoutError:
+        return None
+    else:
+        await msg.clear_reactions()
+        if reaction.emoji == '❌':
+            return -1
+    return emojies.index(reaction.emoji)
 
 def timeConversion (time,hmformat=False):
     hours = time//3600

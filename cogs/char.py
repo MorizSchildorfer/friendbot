@@ -639,7 +639,7 @@ class Character(commands.Cog):
                 if not core.isActive():
                     return core, None
 
-        core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
+        core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
         char_dict["Starting Class"] = starting_class
         # check bg and gp

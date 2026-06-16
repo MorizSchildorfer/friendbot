@@ -395,7 +395,7 @@ class Character(commands.Cog):
                 core.addError(f":warning: You already have a character by the name of ***{name}***! Please use a different name.")
         return core
     
-    async def handle_class(self, core: InteractionCore, class_string: str, level: int, inventory: dict):
+    async def handle_class(self, core: InteractionCore, char_dict: dict, class_string: str, level: int, inventory: dict):
         class_string = class_string.strip()
         # Check Character's class
         starting_class = None
@@ -887,7 +887,7 @@ class Character(commands.Cog):
                 if not core.isActive():
                     return core, None
         inventory = char["Inventory"]
-        core, classes, starting_class = await self.handle_class(core, character_class, lvl, inventory)
+        core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in
                               classes.items()}
         char_dict["Starting Class"] = starting_class

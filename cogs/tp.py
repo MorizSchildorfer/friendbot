@@ -5,7 +5,7 @@ import re
 from discord.utils import get        
 from discord.ext import commands
 from bfunc import db, commandPrefix, roleArray, traceBack, alphaEmojis, settingsRecord, liner_dic
-from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary, check_for_char_with_end
+from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary, check_for_char_with_end, reaction_response_control
 import traceback as traces
 from random import *
 
@@ -127,7 +127,7 @@ class Tp(commands.Cog):
                 used_tp[f"T{tp} TP"] = tp_reduction
 
         # display the cost of the item to the user
-        tpEmbed.title = f"Upgrading a Magic Item: {char_dict['Name']}"
+        level_up_embed.title = f"Upgrading a Magic Item: {char_dict['Name']}"
 
         # if the user doesnt have the resources for the purchases, inform them and cancel
         if tpNeeded > 0:
@@ -136,9 +136,9 @@ class Tp(commands.Cog):
             return None
 
         used_tp_text = ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
-        tpEmbed.description = f"Are you sure you want to upgrade **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage]})** to **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage + 1]})** for **{tpNeeded_copy} TP**?\n\nLeftover TP: {used_tp_text}\n\n✅: Yes\n\n❌: Cancel"
-        tpEmbed.set_footer(text=None)
-        await core.send(embed=tpEmbed)
+        level_up_embed.description = f"Are you sure you want to upgrade **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage]})** to **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage + 1]})** for **{tpNeeded_copy} TP**?\n\nLeftover TP: {used_tp_text}\n\n✅: Yes\n\n❌: Cancel"
+        level_up_embed.set_footer(text=None)
+        await core.send(embed=level_up_embed)
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
@@ -154,7 +154,7 @@ class Tp(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
             elif tReaction.emoji == '✅':
-                tpEmbed.clear_fields()
+                level_up_embed.clear_fields()
                 try:
                     setData = {}
                     incData = {f'Magic Items.{item_key}.Stage': 1}
@@ -169,13 +169,12 @@ class Tp(commands.Cog):
                     await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
                     ctx.command.reset_cooldown(ctx)
                 else:
-                    tpEmbed.description = f"You have upgraded **{item_name}** for {tpNeeded_copy} TP! :tada:\n\nCurrent TP: {used_tp_text}\n\n"
+                    level_up_embed.description = f"You have upgraded **{item_name}** for {tpNeeded_copy} TP! :tada:\n\nCurrent TP: {used_tp_text}\n\n"
                     await core.send()
                     ctx.command.reset_cooldown(ctx)
 
     async def acquireKernel(self, ctx , char, magic_item, source, sourcePast, sourceString, oneLiner):
         author = ctx.author
-        tpEmbed = discord.Embed()
         channel = ctx.channel
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
@@ -185,7 +184,7 @@ class Tp(commands.Cog):
         level = char_dict["Level"]
         tier = determine_tier(level)
         #make the call to the bfunc function to retrieve an item matching with magic_item
-        item_record = await callAPI(core, 'mit', magic_item,  tier=tier)
+        item_record, core = await callAPI(core, 'mit', magic_item,  tier=tier)
         #if an item was found
         if not item_record:
             await channel.send(f'''**{magic_item}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Magic Item Table, what tier it is, and your spelling.''')
@@ -198,7 +197,7 @@ class Tp(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return None
         # check if the requested item is already in the inventory
-        if item_record['Name'] in character_items: 
+        elif item_record['Name'] in character_items: 
             await core.send(f"You already have **{item_record['Name']}** and cannot spend TP or GP on another one.")
             ctx.command.reset_cooldown(ctx)
             return None
@@ -233,7 +232,7 @@ class Tp(commands.Cog):
                 used_tp[f"T{tp} TP"] = tp_reduction
 
         # display the cost of the item to the user
-        tpEmbed.title = f"{sourceString}: {char_dict['Name']}"
+        level_up_embed.title = f"{sourceString}: {char_dict['Name']}"
         
         # if the user doesnt have the resources for the purchases, inform them and cancel
         if tpNeeded > 0 and float(char_dict['GP']) < gpNeeded:
@@ -243,11 +242,11 @@ class Tp(commands.Cog):
           
         # get confirmation from the user for the purchase
         elif tpNeeded > 0:
-            tpEmbed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have don't have enough TP and **{char_dict[f'GP']} GP**.\n\n1️⃣: ~~{item_record['TP']} TP (Treasure Points)~~ You do not have enough TP.\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
+            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have don't have enough TP and **{char_dict[f'GP']} GP**.\n\n1️⃣: ~~{item_record['TP']} TP (Treasure Points)~~ You do not have enough TP.\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
         elif float(char_dict['GP']) < gpNeeded:
-            tpEmbed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: ~~{item_record['GP']} GP (gold pieces)~~ You do not have enough GP.\n\n❌: Cancel"                 
+            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: ~~{item_record['GP']} GP (gold pieces)~~ You do not have enough GP.\n\n❌: Cancel"                 
         else:
-            tpEmbed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
+            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
         
         await core.send()
         choices = []
@@ -280,15 +279,15 @@ class Tp(commands.Cog):
                 newGP = round(char_dict['GP'] - gpNeeded,2)
                 remaining_resources_text = f"New GP: {newGP} GP"
                 #search for the item in the items currently worked towards
-                tpEmbed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['GP']} GP**?\n\nCurrent GP: {char_dict['GP']}\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
+                level_up_embed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['GP']} GP**?\n\nCurrent GP: {char_dict['GP']}\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
 
             # If user decides to buy item with TP:
             elif tReaction.emoji == '1️⃣':
                 bought_with_tp = True
                 remaining_resources_text = 'Leftover TP: ' + ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
-                tpEmbed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['TP']} TP**?\n\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
+                level_up_embed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['TP']} TP**?\n\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
 
-            new_item = {'Name': item_record['Name']}
+            new_item = {'Name': item_record['Name'], "BUY": 1}
             item_key = item_record['Name']
             if 'Attunement' in item_record:
                 new_item['Attunement'] = item_record['Attunement']
@@ -301,7 +300,7 @@ class Tp(commands.Cog):
                 new_item['Stage Name'] = item_record["Predecessor"]['Names'][0]
             if 'Stat Bonuses' in item_record:
                 new_item['Stat Bonuses'] = item_record["Stat Bonuses"]
-            tpEmbed.set_footer(text=None)
+            level_up_embed.set_footer(text=None)
             await core.send()
             await core.message.add_reaction('✅')
             await core.message.add_reaction('❌')
@@ -319,7 +318,7 @@ class Tp(commands.Cog):
                     ctx.command.reset_cooldown(ctx)
                     return None
                 elif tReaction.emoji == '✅':
-                    tpEmbed.clear_fields()
+                    level_up_embed.clear_fields()
                     try:
                         setData = {f"Magic Items.{item_key}": new_item}
                         item_spend = {}
@@ -342,9 +341,9 @@ class Tp(commands.Cog):
                     else:
                         outputLiner = oneLiner.replace("<magic item>", str(item_record['Name'])).replace(f"a {str(item_record['Name'])}", f"{indefinite} {str(item_record['Name'])}")
                         if bought_with_tp != "":
-                            tpEmbed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['TP']} TP! :tada:\n\n{remaining_resources_text}\n\n"
+                            level_up_embed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['TP']} TP! :tada:\n\n{remaining_resources_text}\n\n"
                         elif newGP != "":
-                            tpEmbed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['GP']} GP! :tada:\n\n{remaining_resources_text}\n"
+                            level_up_embed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['GP']} GP! :tada:\n\n{remaining_resources_text}\n"
                         await core.send()
                         ctx.command.reset_cooldown(ctx)
 

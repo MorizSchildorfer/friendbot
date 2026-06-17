@@ -73,7 +73,7 @@ class InteractionCore:
         if embed:
             embed_to_send = embed
         if not embed_to_send.description:
-            embed = None
+            embed_to_send.description = " "
         if not self.message:
             self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
         else:
@@ -763,8 +763,6 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod: bo
     else:
         filterDic["User ID"] = str(search_author.id)
         char_records = list(players_collection.find(filterDic))
-    print(filterDic)
-    print(char_records)
     if char_records == list():
         core.addError(f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
         return None, core

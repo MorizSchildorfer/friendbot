@@ -475,7 +475,7 @@ class Character(commands.Cog):
             for i in range(2, classes["Wizard"]['Level'] + 1):
                 if i % 2 != 0:
                     index += 1
-                char_dict['Free Spells'][index] += 2
+                char_dict['Free Spells'][min(8, index)] += 2
 
         return core, classes, starting_class
 
@@ -637,6 +637,7 @@ class Character(commands.Cog):
                 core, feats_chosen, char_dict = await self.choose_feat(core, {}, ["Extra Feat"], char_dict)
 
                 if not core.isActive():
+                    self.bot.get_command(command_name).reset_cooldown(ctx)
                     return core, None
 
         core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
@@ -1820,7 +1821,7 @@ class Character(commands.Cog):
         for stat_name, stat_value in stats.items():
             _, description = self.determine_stat(stat_value, stat_name, max_stat_bonuses, stat_bonuses, stat_setters)
             stat_string += description + "\n"
-        char_embed.add_field(name='Stats', value=f":heart: {display_hp} Max HP\n• STR: {stats['STR']} \n• DEX: {stats['DEX']} \n• CON: {stats['CON']} \n• INT: {stats['INT']} \n• WIS: {stats['WIS']} \n• CHA: {stats['CHA']}", inline=False)
+        char_embed.add_field(name='Stats', value=f":heart: {display_hp} Max HP\n{stat_string}", inline=False)
         char_embed.set_footer(text=footer)
         if 'Image' in char_dict:
             char_embed.set_thumbnail(url=char_dict['Image'])
@@ -2375,21 +2376,24 @@ class Character(commands.Cog):
         core, item_name = await self.select_magic_item(char_dict, core, item_name)
         if item_name is None:
             return None
+        magic_items = char_dict['Magic Items']
+        attuned_items = {key: value for key, value in magic_items.items() if "Attuned" in value and value["Attuned"]}
         if item_name not in attuned_items.keys():
             await core.send(f"You are not attuned to **{item_name}**!")
             return None
         magic_items[item_name]["Attuned"] = False
         data = char_dict
         try:
-            db.players.update_one({'_id': char_id}, {"$set": data})
+            db.players.update_one({'_id': char_dict["_id"]}, {"$set": data})
         except Exception as e:
             print('MONGO ERROR: ' + str(e))
             await channel.send(embed=None,
                                content="Uh oh, looks like something went wrong while saving your changes. Please try again.")
         else:
-            await core.send(f"You successfully attuned to **{item_name}**!")
+            await core.send(f"You successfully unattuned to **{item_name}**!")
 
     async def select_magic_item(self, char_dict, core, item_name) -> any:
+        magic_items = char_dict["Magic Items"]
         matches = search_magic_item(item_name, magic_items)
         # IF multiple matches, check which one the player meant.
         if len(matches) == 0:
@@ -2423,22 +2427,21 @@ class Character(commands.Cog):
         return total_hp
 
     def determine_stat(self, base_stat: int, key: str, max_stat_bonuses, stat_bonuses, stat_setters):
-        max_value = 20
+        max_value = 20 + max_stat_bonuses[key]
         final_stat = base_stat
-        if max_stat_bonuses[key] > 0:
-            max_value += max_stat_bonuses[key]
         bonus = stat_bonuses[key]
         final_stat += bonus
         final_stat = max(min(final_stat, max_value), stat_setters[key])
         description = f"**{key}**: {base_stat}"
+        print(key, base_stat, max_value, final_stat) 
         # TODO handle all constellations (bonus, reduced to max, exactly max?, set beyond max)
         if final_stat != base_stat:
             if final_stat == max_value:
-                description += f"({max_value} MAX)"
+                description += f" ({max_value} MAX)"
             elif stat_setters[key] > max_value:
-                description += f"(set to {stat_setters[key]})"
+                description += f" (set to {stat_setters[key]})"
             elif bonus > 0:
-                description += f"(+{bonus})"
+                description += f" (+{bonus})"
         return final_stat, description
 
     def calculate_stat_bonuses(self, char_dict: dict, system: str):
@@ -2465,19 +2468,19 @@ class Character(commands.Cog):
             if applies:
                 applicable_entries.extend(record["Stat Bonuses"])
 
-        for item in char_dict["Magic Items"]:
+        for item in char_dict["Magic Items"].values():
             if "Stat Bonuses" in item and (not "Attuned" in item or item["Attuned"]):
                 applicable_entries.extend(item["Stat Bonuses"])
         for bonus in applicable_entries:
-            type = bonus["Type"]
+            types = bonus["Type"]
             stat = bonus["Stat"]
             value = bonus["Value"]
-            if type == "MAX":
+            if types == "MAX":
                 stat_bonuses[stat] += value
                 max_stat_bonuses[stat] += value
-            if type == "FIXED":
+            if types == "FIXED":
                 stat_setters[stat] = max(value, stat_setters[stat])
-            if type == "BONUS":
+            if types == "BONUS":
                 stat_bonuses[stat] += value
         return stat_bonuses, max_stat_bonuses, stat_setters
 
@@ -2626,6 +2629,7 @@ class Character(commands.Cog):
                 if feat_records == list():
                     feat_records, core = await callAPI(core,'feats')
                 featChoices = []
+                print(epic_boons_count, epic_boons_limit)
                 for feat in feat_records:
                     if feat['Name'] in char_feats or feat['Name'] in feats_picked:
                         continue
@@ -2691,6 +2695,8 @@ class Character(commands.Cog):
                 featPicked = featChoices[choice]
                 if "Spellcasting" in featPicked:
                     spellcasting = True
+                if "Epic Boon" in featPicked:
+                    epic_boons_count += 1
                 feats_picked[featPicked["Name"]] = featPicked
                 if featPicked['Name'] == "Ritual Caster":
                     ritualClasses = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"]
@@ -2723,7 +2729,7 @@ class Character(commands.Cog):
                         if '/' in feat_bonus:
                             feat_bonus_list = feat_bonus[:len(feat_bonus) - 3].split('/')
                         elif 'ANY' in feat_bonus:
-                            feat_bonus_list = statNames
+                            feat_bonus_list = stat_names
                         content=f"The {featPicked['Name']} feat lets you choose between {feat_bonus}. React with [{alphaEmojis[0]}-{alphaEmojis[len(feat_bonus_list)-1]}] below with the stat(s) you would like to choose."
                         core, choice = await paginate_options(core, self.bot, "Feat Stats", feat_bonus_list, content)
                         if not core.isActive():

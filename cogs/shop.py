@@ -835,7 +835,7 @@ class Shop(commands.Cog):
             char_dict[book_choice].append({'Name':spell_record['Name'], 'School':spell_record['School']})
         to_set[book_choice] = char_dict[book_choice]
         level_up_embed.title = f"Copying a Spell: {char_dict['Name']}"
-
+        new_gp = char_dict['GP']-gp_needed
         if fsIndex != 0:
             level_up_embed.description = f"""Are you sure you want to copy the **{spell_record['Name']}** spell? This will consume a {ordinal(spell_record['Level'])}-level free spell.\n\n✅: Yes\n\n❌: Cancel"""
         else:

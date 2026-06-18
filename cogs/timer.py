@@ -15,7 +15,7 @@ from discord.ext import commands
 from bfunc import numberEmojis, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, settingsRecord
 from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, confirm, \
     spell_item_search, findNoodleDataFromRoles, cp_bound_array, InteractionCore, determine_tier, find_matching, \
-    sum_sources, format_classes
+    sum_sources, format_classes, reaction_response_control
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
@@ -1555,7 +1555,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                         decision = await confirm(stop_confirm_message, ctx.author)
                         await stop_confirm_message.delete()
                         if decision == 1:
-                            await self.stop(ctx, userInfo=userInfo)
+                            await self.stop(core, userInfo=userInfo)
                             timer_stopped = True
                 # this behaves just like add below, but skips the ambiguity check of addme since only the author of the message could be added
                 elif self.starts_with_check(msg, "addme "):
@@ -1629,7 +1629,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 pass
             if userInfo["Paused"] and time.time()-60 - userInfo["Last Pause"] > 1800 * (userInfo["Pause Type"]+1):
                 await channel.send(f"Pause limit exceeded. Timer has been stopped") 
-                await self.stop(ctx, userInfo=userInfo)
+                await self.stop(core, userInfo=userInfo)
                 timer_stopped = True
                
 async def setup(bot):

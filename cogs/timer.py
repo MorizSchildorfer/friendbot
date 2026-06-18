@@ -1559,7 +1559,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                             timer_stopped = True
                 # this behaves just like add below, but skips the ambiguity check of addme since only the author of the message could be added
                 elif self.starts_with_check(msg, "addme "):
-                    userInfo = await self.addme(ctx, user_info=userInfo, msg=msg, user=msg.author)
+                    userInfo = await self.addme(core, user_info=userInfo, msg=msg, user=msg.author)
                     await self.stamp(core, userInfo)
                 # @player is a protection from people copying the command
                 elif (self.starts_with_check(msg, "add ")) and '@player' not in msg.content:

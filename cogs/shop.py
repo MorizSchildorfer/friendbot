@@ -98,7 +98,6 @@ class Shop(commands.Cog):
         command_name = ctx.command.name
         char_dict, embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         #If player is trying to buy spell scroll, search for spell scroll in DB, and find level it can be bought at
         if "spell scroll" in buyItem.lower():
@@ -114,18 +113,14 @@ class Shop(commands.Cog):
                 await core.send(f'**{buyItem}** doesn\'t exist or is an unbuyable item! Check to see if it is a valid item and check your spelling.')
                 ctx.command.reset_cooldown(ctx)
                 return None
-
-            if spell_record['Level'] > 5:
+            
+            spell_level = spell_record['Level']
+            if spell_level > 5:
                 await core.send(f"You cannot purchase a spell scroll of **{spell_record['Name']}**. Spell scrolls higher than 5th level cannot be purchased.")
                 ctx.command.reset_cooldown(ctx)
                 return None
-
-            item_record, core = await callAPI(core, 'shop', 'spell scroll')
+            item_record, core = await callAPI(core, 'shop', f'spell scroll (level {spell_level})')
             item_record['Name'] = f"Spell Scroll ({spell_record['Name']})"
-            # GP Prices for Spell Scrolls
-            spell_scroll_costs = [25, 75, 150, 300, 500, 1000]
-
-            item_record['GP'] = spell_scroll_costs[spell_record['Level']]
 
         elif "misc" == buyItem.lower() or "miscellaneous" == buyItem.lower():
             item_record= {"GP" : amount, "Misc" : True, "Name": "Miscellaneous"}
@@ -170,22 +165,22 @@ class Shop(commands.Cog):
                     try:
                         tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:alphaIndex]), timeout=60)
                     except asyncio.TimeoutError:
-                        await level_up_embedmsg.delete()
+                        await core.delete()
                         await channel.send(f'Shop cancelled. Try again using the same command:\n```yaml\n{commandPrefix}shop buy \"character name\" \"item\" #```')
                         self.bot.get_command('buy').reset_cooldown(ctx)
                         return None
                     else:
-                        await level_up_embedmsg.clear_reactions()
+                        await core.message.clear_reactions()
                         if tReaction.emoji == '❌':
-                            await level_up_embedmsg.edit(embed=None, content=f"Shop cancelled. Try again using the same command:\n```yaml\n{commandPrefix}shop buy \"character name\" \"item\" #```")
-                            await level_up_embedmsg.clear_reactions()
+                            await core.send(f"Shop cancelled. Try again using the same command:\n```yaml\n{commandPrefix}shop buy \"character name\" \"item\" #```")
+                            await core.message.clear_reactions()
                             self.bot.get_command('buy').reset_cooldown(ctx)
 
                     unpackChoice = unpackDict[alphaEmojis.index(tReaction.emoji)]
                     del item_record["Unpack"][pk]
                     item_record['Unpack'][unpackChoice] = pvv
 
-                    await level_up_embedmsg.clear_reactions()
+                    await core.message.clear_reactions()
                     embed.clear_fields()
                     pack_contents += f"{unpackChoice} x{pvv}\n"
                 else:
@@ -206,8 +201,8 @@ class Shop(commands.Cog):
         else:
             await core.message.clear_reactions()
             if tReaction.emoji == '❌':
-                await level_up_embedmsg.edit(embed=None, content=f"Shop cancelled. Try again using the same command!")
-                await level_up_embedmsg.clear_reactions()
+                await core.send(f"Shop cancelled. Try again using the same command!")
+                await core.message.clear_reactions()
                 ctx.command.reset_cooldown(ctx)
                 return None
             elif tReaction.emoji == '✅':
@@ -346,7 +341,7 @@ class Shop(commands.Cog):
             # create the resulting item name
             fullItemName = "Silvered " + buyItem
             # call the function that handles the purchase calculations
-            await self.coat(ctx, 100, "silver", buyItem, amount, fullItemName, char_dict, bRecord, embed, level_up_embedmsg)
+            await self.coat(core, 100, "silver", buyItem, amount, fullItemName, char_dict, bRecord)
 
         # if the item couldnt be found in the DB, cancel
         else:
@@ -893,8 +888,6 @@ class Shop(commands.Cog):
                     gained this is passed through instead of creating an if-else
       gpNeeded -> how much gold the purchase will cost
       char_dict -> the database information of the character being purchased for
-      level_up_embed -> the embed message for the shop
-      level_up_embedmsg -> the message which is being used to display level_up_embed
       channel -> the channel the interaction is being made in
       author -> who is doing the purchase
     """

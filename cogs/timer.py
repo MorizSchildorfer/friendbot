@@ -15,7 +15,7 @@ from discord.ext import commands
 from bfunc import numberEmojis, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, settingsRecord
 from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, confirm, \
     spell_item_search, findNoodleDataFromRoles, cp_bound_array, InteractionCore, determine_tier, find_matching, \
-    sum_sources
+    sum_sources, format_classes
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
@@ -116,6 +116,7 @@ class Timer(commands.Cog):
         author = ctx.author
         #the name shown on the server
         user = author.display_name
+        print("i am here")
         #information on how to use the command, set up here for ease of reading and repeatability
         prepFormat =  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep system "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
         #prevent the command if not in a proper channel (game/campaign)

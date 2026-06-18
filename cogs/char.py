@@ -815,7 +815,7 @@ class Character(commands.Cog):
             'WIS': sWis,
             'CHA': sCha}
         command_name = ctx.command.name
-        char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
+        char_dict, level_up_embed, core = await check_for_char_with_end(ctx, name)
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
@@ -1458,6 +1458,7 @@ class Character(commands.Cog):
 
         if not userRecords: 
             userRecords = {'User ID': str(search_author.id), 'Games' : 0}
+            usersData = db.users.insert_one(userRecords)  
             await channel.send(f'A user profile has been created.') 
         playersCollection = db.players
         charRecords = list(playersCollection.find({"User ID": str(search_author.id)}))

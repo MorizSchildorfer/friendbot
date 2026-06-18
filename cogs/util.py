@@ -73,7 +73,7 @@ class InteractionCore:
         if embed:
             embed_to_send = embed
         if not embed_to_send.description:
-            embed_to_send.description = " "
+            embed_to_send.description = "Info"
         if not self.message:
             self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
         else:
@@ -145,18 +145,20 @@ def sum_sources(entry: dict) -> int:
 
 async def check_for_char_with_end(ctx, name: str, mod = False, author_check = None) -> tuple[dict, any, InteractionCore]:
     char_embed = discord.Embed()
-    command_name = ctx.command.name
+    command_name = ctx.command.qualified_name
     core = InteractionCore(ctx, None, char_embed)
     char_dict, core = await checkForChar(core, name, mod=mod, authorCheck=author_check)
     if not core.isActive():
         await core.send("Character search cancelled")
-        bot.get_command(command_name).reset_cooldown(ctx)
+        print(command_name)
+        ctx.command.reset_cooldown(ctx)
         return None, char_embed, core
     char_embed.clear_fields()
     if core.hasError():
         char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
         await core.send()
-        bot.get_command(command_name).reset_cooldown(ctx)
+        print(command_name)
+        ctx.command.reset_cooldown(ctx)
         return None, char_embed, core
     core.system = char_dict["System"]
     return char_dict, char_embed, core

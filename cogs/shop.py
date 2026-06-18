@@ -220,7 +220,7 @@ class Shop(commands.Cog):
                         
                 increase = {"GP": -gpNeeded}
                 for key, value in inventory_increase.items():
-                    for source, amount in value:
+                    for source, amount in value.items():
                         increase[f"{kind}.{key}.{source}": amount]
                 try:
                     db.players.update_one({'_id': char_dict['_id']}, {"$inc": increase})

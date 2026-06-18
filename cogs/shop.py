@@ -216,12 +216,13 @@ class Shop(commands.Cog):
                     add_to_inventory(inventory_increase, item_record['Name'], amount, "BUY")
                 kind = "Inventory"
                 if "Consumable" in item_record:
-                    kind = "Consumable"
+                    kind = "Consumables"
                         
                 increase = {"GP": -gpNeeded}
                 for key, value in inventory_increase.items():
                     for source, amount in value.items():
-                        increase[f"{kind}.{key}.{source}": amount]
+                        print(kind, key, source, amount)
+                        increase[f"{kind}.{key}.{source}"]=amount
                 try:
                     db.players.update_one({'_id': char_dict['_id']}, {"$inc": increase})
                 except Exception as e:

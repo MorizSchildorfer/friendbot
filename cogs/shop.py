@@ -219,7 +219,7 @@ class Shop(commands.Cog):
                     kind = "Consumable"
                         
                 increase = {"GP": -gpNeeded}
-                for key, value in inventory_increase:
+                for key, value in inventory_increase.items():
                     for source, amount in value:
                         increase[f"{kind}.{key}.{source}": amount]
                 try:

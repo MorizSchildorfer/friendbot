@@ -1536,12 +1536,12 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 #unpause the timer
                 if self.starts_with_check(msg, "unpause"):
                     if await self.permissionCheck(msg, author):
-                        await self.unpause(ctx, userInfo=userInfo)
+                        await self.unpause(core, userInfo=userInfo)
                         await self.stamp(core, userInfo)
                 #pause the timer
                 elif self.starts_with_check(msg, "pause"):
                     if await self.permissionCheck(msg, author):
-                        await self.pause(ctx, userInfo, msg)
+                        await self.pause(core, userInfo, msg)
                         await self.stamp(core, userInfo)
                 # this is the command used to stop the timer
                 # it invokes the stop command with the required information, explanations for the parameters can be found in the documentation
@@ -1566,45 +1566,45 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         # update the userInfo with the new added player
-                        await self.addDuringTimer(ctx, userInfo=userInfo, msg=msg)
+                        await self.addDuringTimer(core, userInfo=userInfo, msg=msg)
                         # update the msg with the new stamp
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "removeme"):
-                    userInfo = await self.removeme(ctx, userInfo, msg.author)
+                    userInfo = await self.removeme(core, userInfo, msg.author)
                     await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "remove "):
                     if await self.permissionCheck(msg, author): 
-                        await self.removeDuringTimer(ctx, msg, userInfo)
+                        await self.removeDuringTimer(core, msg, userInfo)
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "stamp"):
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "reward"):
                     if await self.permissionCheck(msg, author):
-                        userInfo = await self.reward(ctx, msg, userInfo)
+                        userInfo = await self.reward(core, msg, userInfo)
                 elif self.starts_with_check(msg, "major"):
                     if await self.permissionCheck(msg, author):
-                        rewardItem = await self.randomRew(ctx, msg=msg, userInfo=userInfo, rewardType="Major")
+                        rewardItem = await self.randomRew(core, msg=msg, userInfo=userInfo, rewardType="Major")
                         if rewardItem is not None:
                             msg.content = msg.content + " " + f'"{rewardItem}"'
-                            userInfo = await self.reward(ctx, msg, userInfo, exact=True)
+                            userInfo = await self.reward(core, msg, userInfo, exact=True)
                 elif self.starts_with_check(msg, "minor"):
                     if await self.permissionCheck(msg, author):
-                        rewardItem = await self.randomRew(ctx, msg=msg, userInfo=userInfo, rewardType="Minor")
+                        rewardItem = await self.randomRew(core, msg=msg, userInfo=userInfo, rewardType="Minor")
                         if rewardItem is not None:
                             msg.content = msg.content + " " + f'"{rewardItem}"'
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "death"):
                     if await self.permissionCheck(msg, author):
-                        await self.death(ctx, msg=msg, userInfo=userInfo)
+                        await self.death(core, msg=msg, userInfo=userInfo)
                         await self.stamp(core, userInfo)
                 elif msg.content.startswith('-') and msg.author != userInfo["DM"]["Member"]:
-                    await self.deductConsumables(ctx, msg=msg, userInfo=userInfo)
+                    await self.deductConsumables(core, msg=msg, userInfo=userInfo)
                     await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "undo rewards"):
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         # update the userInfo with the new added player
-                        await self.undoConsumables(ctx, msg, userInfo)
+                        await self.undoConsumables(core, msg, userInfo)
                         # update the msg with the new stamp
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "guild"):

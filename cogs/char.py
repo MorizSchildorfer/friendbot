@@ -2192,7 +2192,7 @@ class Character(commands.Cog):
             free_spells[fs_lvl] += 2
         selected_record = records_dict[choice_level_class]
         if selected_record['Subclass Level'] == select_class['Level']:
-            subclasses = selected_record['Class']['Subclasses']
+            subclasses = selected_record['Subclasses']
             core, subclass = await self.choose_subclass(core, subclasses, selected_record['Name'])
             if not subclass:
                 return None

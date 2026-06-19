@@ -936,7 +936,7 @@ class Timer(commands.Cog):
                 await core.message.add_reaction('❌')
                 try:
                     # wait for a response from the user
-                    tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(main_core.message, dmChar["Member"], ['✅', '❌']), timeout=60)
+                    tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, dmChar["Member"], ['✅', '❌']), timeout=60)
                 # cancel when the user doesnt respond within the timefram
                 except asyncio.TimeoutError:
                     await core.send(f'Timer addme cancelled. Try again using the following command:\n```yaml\n{commandPrefix}timer addme "character name" "consumable1, consumable2, [...]"```')
@@ -1192,6 +1192,7 @@ Command Checklist
         dbEntry["End"] = end
         dbEntry["Game"] = game
         dbEntry["Status"] = "Processing"
+        dbEntry["Type"] = userInfo["Type"]
         dbEntry["Players"] = {}
         
         dbEntry["DDMRW"] = settingsRecord["ddmrw"] or userInfo["DDMRW"]
@@ -1381,7 +1382,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
             # if it fails, we need to cancel and use the error details
             await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
             return
-        await core.send(embed=stopEmbed)
+        await ctx.channel.send(embed=stopEmbed)
         try:
             # create a bulk write entry for the players
             usersData = list(map(lambda item: UpdateOne({'User ID':str(item["Member"].id) }, {'$set': {'User ID':str(item["Member"].id) }}, upsert=True), playerList))
@@ -1536,12 +1537,12 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 #unpause the timer
                 if self.starts_with_check(msg, "unpause"):
                     if await self.permissionCheck(msg, author):
-                        await self.unpause(core, userInfo=userInfo)
+                        await self.unpause(ctx, userInfo=userInfo)
                         await self.stamp(core, userInfo)
                 #pause the timer
                 elif self.starts_with_check(msg, "pause"):
                     if await self.permissionCheck(msg, author):
-                        await self.pause(core, userInfo, msg)
+                        await self.pause(ctx, userInfo, msg)
                         await self.stamp(core, userInfo)
                 # this is the command used to stop the timer
                 # it invokes the stop command with the required information, explanations for the parameters can be found in the documentation
@@ -1604,7 +1605,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         # update the userInfo with the new added player
-                        await self.undoConsumables(core, msg, userInfo)
+                        await self.undoConsumables(ctx, msg, userInfo)
                         # update the msg with the new stamp
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "guild"):

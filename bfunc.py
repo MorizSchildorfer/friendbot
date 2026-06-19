@@ -42,10 +42,12 @@ async def traceBack (ctx,error,silent=False):
             x = traceback_text[:1994]
             x = x.rsplit("\n", 1)[0]
             await dorfer.send(content=f"```{x}```")
+            #await context.channel.send(content=f"```{x}```")
             traceback_text = traceback_text[len(x):]
             length -= len(x)
         await dorfer.send(content=f"```{traceback_text}```")
         await ctx.channel.send(f"Uh oh, looks like this is some unknown error I have ran into. {dorfer.mention} has been notified.")
+        await ctx.channel.send(f"Cause: {error}")
     raise error
 
         

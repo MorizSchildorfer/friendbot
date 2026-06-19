@@ -12,9 +12,9 @@ async def randomReward(self, core: InteractionCore, tier, rewardType, block=[], 
         author = ctx.author
         rewardCollection = db.rit
         if not block:
-            rewardTable = list(rewardCollection.find({"Tier": int(tier), "Minor/Major": rewardType}))
+            rewardTable = list(rewardCollection.find({"System": core.system, "Tier": int(tier), "Minor/Major": rewardType}))
         else:
-            rewardTable = list(rewardCollection.find({"Tier": tier, "Minor/Major": rewardType, "Name": {"$nin": block}, "Grouped": {"$nin": block}}))
+            rewardTable = list(rewardCollection.find({"System": core.system, "Tier": tier, "Minor/Major": rewardType, "Name": {"$nin": block}, "Grouped": {"$nin": block}}))
 
         if int(amount) > 0:
             if len(rewardTable) < int(amount): # size restriction check if used from rewardtable, which varies based on tier.

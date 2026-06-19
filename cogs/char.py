@@ -532,6 +532,7 @@ class Character(commands.Cog):
             else:
                 if int(stats[stat_req[0]]) < int(stat_req[1]):
                     failed_requirement = f'{stat_req[0]} {stats[stat_req[0]]}'
+        print(entry['Class']['Name'], failed_requirement)
         return failed_requirement
 
     @is_log_channel()
@@ -830,12 +831,12 @@ class Character(commands.Cog):
             if c in char_dict:
                 del char_dict[c]
         name = char_dict["Name"]
-        for key, value in char_dict["Magic Items"]:
+        for key, value in char_dict["Magic Items"].items():
             del value["BUY"]
-        for key, value in char_dict["Inventory"]:
+        for key, value in char_dict["Inventory"].items():
             del value["BUY"]
             del value["CREATE"]
-        for key, value in char_dict["Consumables"]:
+        for key, value in char_dict["Consumables"].items():
             del value["BUY"]
         char_id = char_dict['_id']
         char_dict['GP'] = 0
@@ -2092,7 +2093,7 @@ class Character(commands.Cog):
         records_dict = {}
         for cRecord in class_records:
             records_dict[cRecord['Name']] = cRecord
-            if check_multiclass_requirement(cRecord, stats) is not None:
+            if self.check_multiclass_requirement({'Class': cRecord}, stats) is not None:
                 continue
             class_options[cRecord['Name']] = cRecord
 
@@ -2106,12 +2107,13 @@ class Character(commands.Cog):
             multi_class_blocker = "There are no classes available to multiclass into. \n"
 
         if multi_class_blocker is not None:
-            level_up_embed.add_field(name=f"""~~Would you like to choose a new multiclass?~~\nPlease react with "No" to proceed.""", value=f'{multi_error}✅: ~~Yes~~\n\n🚫: No\n\n❌: Cancel')
+            level_up_embed.add_field(name=f"""~~Would you like to choose a new multiclass?~~\nPlease react with "No" to proceed.""", value=f'{multi_class_blocker}✅: ~~Yes~~\n\n🚫: No\n\n❌: Cancel')
         else:
             level_up_embed.add_field(name="Would you like to choose a new multiclass?", value='✅: Yes\n\n🚫: No\n\n❌: Cancel')
         await core.send()
         emoji_options = ['🚫', '❌']
-        if multi_class_blocker is not None:
+        print(multi_class_blocker)
+        if multi_class_blocker is None:
             emoji_options.append('✅')
             await core.message.add_reaction('✅')
         await core.message.add_reaction('🚫')
@@ -2119,38 +2121,36 @@ class Character(commands.Cog):
         try:
             tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, core.context.author, emoji_options), timeout=60)
         except asyncio.TimeoutError:
-            await core.send(content=f'Level up timed out. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
+            await core.send(f'Level up timed out. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
             self.bot.get_command('levelup').reset_cooldown(ctx)
             return None
         else:
             await core.message.clear_reactions()
             level_up_embed.clear_fields()
             if tReaction.emoji == '❌':
-                await core.send(content=f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
+                await core.send(f"Level up cancelled. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup \"character name\"\n{commandPrefix}lvlup \"character name\"\n{commandPrefix}lvl \"character name\"\n{commandPrefix}lv \"character name\"```")
                 self.bot.get_command('levelup').reset_cooldown(ctx)
                 return None
             elif tReaction.emoji == '✅':
-                level_up_embed.add_field(name="Pick a new class that you would like to multiclass into.", value=chooseClassString)
                 if len(new_class_options) == 1:
                     choice = 0
                 else:
                     option_text = ""
                     alpha_index = 0
-                    for name, entry in new_class_options.keys():
+                    for name in new_class_options.keys():
                         option_text += f"{alphaEmojis[alpha_index]}: {name} Level 1\n"
                         alpha_index += 1
                     level_up_embed.clear_fields()
                     level_up_embed.add_field(name=f"Which class would you like to level up?", value=option_text,
                                              inline=False)
+                    await core.send()
                     choice = await disambiguate(len(new_class_options), core.message, author)
                     if choice is None:
-                        await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        await core.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     elif choice == -1:
-                        await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        await core.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     await core.message.clear_reactions()
@@ -2161,7 +2161,7 @@ class Character(commands.Cog):
                     free_spells[0] += 6
                     char_dict["Free Spells"] = free_spells
             elif tReaction.emoji == '🚫':
-                choice_level_class = char_class.keys()[0]
+                choice_level_class = list(char_class.keys())[0]
                 if len(char_class) > 1:
                     option_text = ""
                     alpha_index = 0
@@ -2172,13 +2172,11 @@ class Character(commands.Cog):
                     level_up_embed.add_field(name=f"Which class would you like to level up?", value=option_text, inline=False)
                     choice = await disambiguate(len(char_class), core.message, author)
                     if choice is None:
-                        await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        await core.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     elif choice == -1:
-                        await core.send(
-                            content=f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
+                        await core.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     await core.message.clear_reactions()
@@ -2204,7 +2202,7 @@ class Character(commands.Cog):
         char_class[choice_level_class] = select_class
         # Feat
         feat_levels = []
-        if select_class['Level'] in (4, 8, 12, 16, 19) or ('Fighter' == select_class['Name'] and select_class['Level'] in (6, 14)) or ('Rogue' == select_class['Name'] and select_class['Level']) == 10:
+        if select_class['Level'] in (4, 8, 12, 16, 19) or ('Fighter' == choice_level_class and select_class['Level'] in (6, 14)) or ('Rogue' == choice_level_class and select_class['Level']) == 10:
             feat_levels.append(int(select_class['Level']))
         char_feats_gained_str = ''
         if feat_levels != list():
@@ -2224,8 +2222,7 @@ class Character(commands.Cog):
         level_up_embed.clear_fields()
 
         core.embed.set_footer(text=None)
-        await core.send(
-            "**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
+        await core.send("**Double-check** your character information.\nIf this is correct, please react with one of the following:\n✅ to finish creating your character.\n❌ to cancel.")
 
         # TODO refactor this behavior?
         await core.message.add_reaction('✅')
@@ -2244,30 +2241,28 @@ class Character(commands.Cog):
             await  core.message.clear_reactions()
             if tReaction.emoji == '❌':
                 core.cancel()
-                await core.message.edit(embed=None,
-                                        content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                await core.send(f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
                 self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None
-
         try:
-            db.players.update_one({'_id': char_id}, {"$set": data})
+            db.players.update_one({'_id': char_id}, {"$set": char_dict})
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
-            await core.send(content="Uh oh, looks like something went wrong while saving your data")
+            await core.send("Uh oh, looks like something went wrong while saving your data")
 
         role_name = await self.level_check(ctx, next_level, char_name)
         level_up_embed.clear_fields()
-        await levelUpEmbedmsg.edit(content=f":arrow_up:   __**L E V E L   U P!**__\n\n:warning:   **Don't forget to spend your TP!** Use one of the following commands to do so:\n```yaml\n$tp find \"{char_name}\" \"magic item\"\n$tp craft \"{char_name}\" \"magic item\"\n$tp meme \"{char_name}\" \"magic item\"```", embed=level_up_embed)
+        await core.message.edit(content=f":arrow_up:   __**L E V E L   U P!**__\n\n:warning:   **Don't forget to spend your TP!** Use one of the following commands to do so:\n```yaml\n$tp find \"{char_name}\" \"magic item\"\n$tp craft \"{char_name}\" \"magic item\"\n$tp meme \"{char_name}\" \"magic item\"```", embed=level_up_embed)
 
         if role_name != "":
             level_up_embed.title = f":tada: {role_name} role acquired! :tada:\n" + level_up_embed.title
-            await levelUpEmbedmsg.edit(embed=level_up_embed)
-            await levelUpEmbedmsg.add_reaction('🎉')
-            await levelUpEmbedmsg.add_reaction('🎊')
-            await levelUpEmbedmsg.add_reaction('🥳')
-            await levelUpEmbedmsg.add_reaction('🍾')
-            await levelUpEmbedmsg.add_reaction('🥂')
+            await core.message.edit(embed=level_up_embed)
+            await core.message.add_reaction('🎉')
+            await core.message.add_reaction('🎊')
+            await core.message.add_reaction('🥳')
+            await core.message.add_reaction('🍾')
+            await core.message.add_reaction('🥂')
 
         self.bot.get_command('levelup').reset_cooldown(ctx)
         return None
@@ -2472,6 +2467,7 @@ class Character(commands.Cog):
         for item in char_dict["Magic Items"].values():
             if "Stat Bonuses" in item and (not "Attuned" in item or item["Attuned"]):
                 applicable_entries.extend(item["Stat Bonuses"])
+        print(applicable_entries)
         for bonus in applicable_entries:
             types = bonus["Type"]
             stat = bonus["Stat"]
@@ -2483,6 +2479,9 @@ class Character(commands.Cog):
                 stat_setters[stat] = max(value, stat_setters[stat])
             if types == "BONUS":
                 stat_bonuses[stat] += value
+        print(stat_bonuses)
+        print(max_stat_bonuses)
+        print(stat_setters)
         return stat_bonuses, max_stat_bonuses, stat_setters
 
     #TODO switch to giving the stats dict

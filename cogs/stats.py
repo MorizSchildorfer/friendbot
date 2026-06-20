@@ -376,15 +376,15 @@ class Stats(commands.Cog):
     @commands.command()
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @stats_special()
-    async def playtime(self,ctx, limit = 10):
-        q = { "$query": {"Playtime": {"$exists": True}, "Test" : {"$exists" : False}}, 
+    async def playtime(self,ctx, system, limit = 10):
+        q = { "$query": {"System": system.upper(), "Playtime": {"$exists": True}, "Test" : {"$exists" : False}}, 
                "$orderby": { "Playtime": -1}}
         await self.rank_shell(ctx, "Playtime", q, limit)
     @commands.command()
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @stats_special()
-    async def top(self,ctx, limit = 10):
-        q = { "$query": {"Test" : {"$exists" : False}}, 
+    async def top(self,ctx, system, limit = 10):
+        q = { "$query": {"System": system.upper(), "Test" : {"$exists" : False}}, 
               "$orderby": { "Level": -1, "CP" : -1 }}
         await self.rank_shell(ctx, "CP", q, limit)
 

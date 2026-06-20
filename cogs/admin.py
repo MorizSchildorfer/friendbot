@@ -12,7 +12,7 @@ from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers, connection
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, add_to_inventory, add_to_dictionary
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, add_to_inventory, add_to_dictionary, check_for_char_with_end
 
 
 def add_5e(item):
@@ -593,19 +593,21 @@ class Admin(commands.Cog, name="Admin"):
     @commands.command()
     @commands.has_any_role('Mod Friend', 'A d m i n')
     async def removeImage(self, ctx, charName):
-        charEmbed = discord.Embed()
-        cRecord, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, mod=True)
+        author_check= None
+        if ctx.message.mentions:
+            author_check =ctx.message.mentions[0]
+        mod = not author_check
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, charName, mod, author_check)
         channel = ctx.channel
-        if not cRecord:
-            await channel.send(content=f'I was not able to find the character ***"{charName}"***!')
+        if not char_dict:
+            await core.send(f'I was not able to find the character ***"{charName}"***!')
             return False
 
-        if charEmbedmsg:
-            await charEmbedmsg.delete()
+        await core.delete()
             
         try:
             db.players.update_one(
-               {"Name": cRecord["Name"], "User ID": cRecord["User ID"]},
+               {"_id": char_dict["_id"]},
                 {"$unset" : {"Image": 1}}
             )
             await channel.send(content=f"Successfully deleted the image.")
@@ -616,21 +618,23 @@ class Admin(commands.Cog, name="Admin"):
     @commands.command()
     @commands.has_any_role('A d m i n')
     async def removeCharacter(self, ctx, charName):
-        charEmbed = discord.Embed()
-        cRecord, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, mod=True)
+        author_check= None
+        if ctx.message.mentions:
+            author_check =ctx.message.mentions[0]
+        mod = not author_check
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, charName, mod, author_check)
         channel = ctx.channel
-        if not cRecord:
-            await channel.send(content=f'I was not able to find the character ***"{charName}"***!')
+        if not char_dict:
+            await core.send(f'I was not able to find the character ***"{charName}"***!')
             return False
 
-        if charEmbedmsg:
-            await charEmbedmsg.delete()
+        await core.delete()
             
         try:
             db.players.delete_one(
-               {"Name": cRecord["Name"], "User ID": cRecord["User ID"]}
+               {"_id": char_dict["_id"]}
             )
-            await channel.send(content=f"Successfully deleted {cRecord['Name']}.")
+            await channel.send(content=f"Successfully deleted {char_dict['Name']}.")
     
         except Exception as e:
             traceback.print_exc()
@@ -638,25 +642,23 @@ class Admin(commands.Cog, name="Admin"):
     @commands.command()
     @commands.has_any_role('Mod Friend')
     async def permitRespec(self, ctx, charName):
-        charEmbed = discord.Embed()
-        authorCheck= None
+        author_check= None
         if ctx.message.mentions:
-            authorCheck =ctx.message.mentions[0]
-        mod= not authorCheck
-        cRecord, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, authorCheck = authorCheck, mod=mod)
+            author_check =ctx.message.mentions[0]
+        mod = not author_check
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, charName, mod, author_check)
         channel = ctx.channel
-        if not cRecord:
-            await channel.send(content=f'I was not able to find the character ***"{charName}"***!')
+        if not char_dict:
+            await core.send(f'I was not able to find the character ***"{charName}"***!')
             return False
 
-        if charEmbedmsg:
-            await charEmbedmsg.delete()
+        await core.delete()
             
         try:
             db.players.update_one(
-               {"Name": cRecord["Name"], "User ID": cRecord["User ID"]}, {"$set" : {"Respecc": 1}}
+               {"_id": char_dict["_id"]}, {"$set" : {"Respecc": 1}}
             )
-            await channel.send(content=f"Successfully updated {cRecord['Name']}.")
+            await channel.send(content=f"Successfully updated {char_dict['Name']}.")
     
         except Exception as e:
             traceback.print_exc()
@@ -978,69 +980,6 @@ class Admin(commands.Cog, name="Admin"):
             returnData.append(entry)
         return returnData, playerIDs
             
-    #@commands.command()
-    #@admin_or_owner()
-    async def rebuild(self, ctx):
-        characters = list( db.players.find({"Item Spend" : {"$exists" : false}}))
-        mass_updates = []
-        count = 0
-        refunded = 0
-        for char in characters:
-            char_update = {"$inc" :{"Reformatted": 1, }, "$set" : {"HP" : char["HP"]},
-                            "$unset" : {"Current Item": 1}}
-            print(char["Name"])
-            if "None" != char["Current Item"]:
-                items = char["Current Item"].split(", ")
-                refunded += len(items)
-                for item in items:
-                    print(item)
-                    nameSplit = item.rsplit("(", 1)
-                    removeItem = db.mit.find_one({"Name" : nameSplit[0].strip()})
-                    refundTP = float(nameSplit[1].split("/")[0])
-                    if("Grouped" in removeItem):
-                        groupedPair = removeItem["Grouped"]+" : "+nameSplit[0].strip()
-                        print(list(char["Grouped"]))
-                        print(groupedPair)
-                        updatedGrouped = list(char["Grouped"])
-                        updatedGrouped.remove(groupedPair)
-                        char_update["$set"]["Grouped"] = updatedGrouped
-                    targetTP = f"T{removeItem['Tier']} TP"
-                    if targetTP in char_update["$inc"]:
-                        char_update["$inc"][targetTP] += refundTP
-                    else:
-                        char_update["$inc"][targetTP] = refundTP
-            if "None" != char["Magic Items"]:
-                items = char["Magic Items"].split(", ")
-                
-                for item_name in items:
-                    item = db.mit.find_one({"Name" : item_name})
-                    print(item_name, item)
-                    if not item:
-                        continue
-                    char_update["$inc"][f"Item Spend.{item_name}.T{item['Tier']} TP"] = int(item["TP"])
-                    if "Predecessor" in item and item["Name"] in char["Predecessor"]:
-                        for x in range(0, char["Predecessor"][item["Name"]]["Stage"]):
-                            
-                            targetTP = f"Item Spend.{item_name}.T{item['Predecessor']['Tiers'][x]} TP"
-                            if targetTP in char_update["$inc"]:
-                                char_update["$inc"][targetTP] += int(item['Predecessor']["Costs"][x])
-                            else:
-                                char_update["$inc"][targetTP] = int(item['Predecessor']["Costs"][x])
-                    count +=1
-
-            
-            
-            mass_updates.append(UpdateOne({'_id': char['_id']}, char_update))
-        try:
-            if(len(mass_updates)>0):
-                db.players.bulk_write(mass_updates)
-        except BulkWriteError as bwe:
-            print(bwe.details)
-            await ctx.channel.send(content=f"Error")
-            # if it fails, we need to cancel and use the error details
-            return
-        await ctx.channel.send(content=f"Tracked {count} and refunded {refunded} items.")
-    
     async def doubleVerify(self, ctx, embedMsg):
         def apiEmbedCheck(r, u):
             sameMessage = False

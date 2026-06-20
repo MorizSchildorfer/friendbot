@@ -421,7 +421,7 @@ class Tp(commands.Cog):
             elif tReaction.emoji == '✅':
                 tp_embed.clear_fields()
                 try:
-                    db.players.update_one({'_id': char_dict['_id']}, {"set": {f"T{role} TP": 0}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": {f"T{role} TP": 0}})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await core.send("Uh oh, looks like something went wrong. Try again using the same command!")

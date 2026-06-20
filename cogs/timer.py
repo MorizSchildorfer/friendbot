@@ -22,7 +22,7 @@ from cogs.logs import generateLog
 from pymongo.errors import BulkWriteError
 from cogs.reward import randomReward
 
-time_bonus = 3600 * 0
+time_bonus = 3600 * 3
 def lowerLimit(value):
     if value > 0:
         value = max(value // 2, 1)
@@ -839,10 +839,11 @@ class Timer(commands.Cog):
                             await ctx.channel.send(core.showErrors())
                             return userInfo
 
+                    print("query", query)
                     # search for the item in the DB with the function from bfunc
                     # this does disambiguation already so if there are multiple results for the item they will have already selected which one specifically they want
                     rewardConsumable, core = await callAPI(core ,'rit',query, tier=tierNum, exact=exact)
-                
+                    print("rewardConsumable", rewardConsumable)
                     #if no item could be found, return the unchanged parameters and inform the user
                     if not rewardConsumable:
                         await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
@@ -1382,7 +1383,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
             # if it fails, we need to cancel and use the error details
             await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
             return
-        await ctx.channel.send(embed=stopEmbed)
+        await sessionMessage.edit(embed=stopEmbed)
         try:
             # create a bulk write entry for the players
             usersData = list(map(lambda item: UpdateOne({'User ID':str(item["Member"].id) }, {'$set': {'User ID':str(item["Member"].id) }}, upsert=True), playerList))

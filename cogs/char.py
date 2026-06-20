@@ -601,6 +601,7 @@ class Character(commands.Cog):
         time_transfer_success = False
         if timeTransfer:
             lvl, cp, cp_transferred, error_messages = self.time_transfer(timeTransfer, lvl, str(author.id))
+            char_dict["Level"] = lvl
             core.addError(error_messages)
         
         char_dict['CP'] = cp
@@ -644,6 +645,7 @@ class Character(commands.Cog):
         core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in classes.items()}
         char_dict["Starting Class"] = starting_class
+        
         # check bg and gp
         bRecord, core = await callAPI(core, 'backgrounds', bg)
         if not core.isActive():
@@ -776,7 +778,7 @@ class Character(commands.Cog):
         try:
             db.players.insert_one(char_dict)
             if time_transfer_success:
-                db.users.update_one({"User ID": str(author.id)}, {"$inc" : {"Time Bank": -cpTransfered *3600}})
+                db.users.update_one({"User ID": str(author.id)}, {"$inc" : {"Time Bank": -cp_transferred *3600}})
                 await self.level_check(ctx, char_dict["Level"], char_dict["Name"])
             stats_collection.update_one({'Life':1, 'System': system}, {"$inc": stat_increase}, upsert=True)
         except Exception as e:
@@ -817,9 +819,11 @@ class Character(commands.Cog):
             'CHA': sCha}
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, name)
+        char_dict["Stats"] = stats
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
+        system = char_dict["System"]
         char_remove_key_list = ['Image', 'Spellbook', 'Guild', 'Guild Rank']
         
         guild_name = ""
@@ -832,12 +836,19 @@ class Character(commands.Cog):
                 del char_dict[c]
         name = char_dict["Name"]
         for key, value in char_dict["Magic Items"].items():
-            del value["BUY"]
+            if "BUY" in value:
+                del value["BUY"]
         for key, value in char_dict["Inventory"].items():
-            del value["BUY"]
-            del value["CREATE"]
+            if "BUY" in value:
+                del value["BUY"]
+            if "CREATE" in value:
+                del value["CREATE"]
         for key, value in char_dict["Consumables"].items():
-            del value["BUY"]
+            if "BUY" in value:
+                del value["BUY"]
+        char_dict["Magic Items"] = {name: entry for name, entry in char_dict["Magic Items"].items() if sum_sources(entry) > 0}
+        char_dict["Consumables"] = {name: entry for name, entry in char_dict["Consumables"].items() if sum_sources(entry) > 0}
+        char_dict["Inventory"] = {name: entry for name, entry in char_dict["Inventory"].items() if sum_sources(entry) > 0}
         char_id = char_dict['_id']
         char_dict['GP'] = 0
 
@@ -855,7 +866,7 @@ class Character(commands.Cog):
             self.bot.get_command('respec').reset_cooldown(ctx) 
             return None
         if char_dict['Name'] != new_name:
-            core = self.nameVerification(core, name, author)
+            core = self.nameVerification(core, new_name, author)
         char_dict['Name'] = new_name
 
         extra_cp = char_dict['CP']
@@ -888,7 +899,7 @@ class Character(commands.Cog):
                 core, feats_chosen, char_dict = await self.choose_feat(core, {}, ["Extra Feat"], char_dict)
                 if not core.isActive():
                     return core, None
-        inventory = char["Inventory"]
+        inventory = char_dict["Inventory"]
         core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
         char_dict["Class"] = {name: {"Subclass": entry["Subclass"], "Level": entry["Level"]} for name, entry in
                               classes.items()}
@@ -905,7 +916,6 @@ class Character(commands.Cog):
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
         if not core.isActive():
             return None
-        stats = {}
         # Stats - Point Buy
         if not core.hasError():
             core, stats = await self.starting_stat_modification(core,
@@ -1019,14 +1029,14 @@ class Character(commands.Cog):
                 return None
         try:
             if len(guild_name)>0:
-                guild_members = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": guild_name, '$options': 'i' }}))
+                guild_members = list(db.players.find({"User ID": str(author.id), "Guild": {"$regex": guild_name, '$options': 'i' }}))
                 # If there is only one of user's character in the guild remove the role.
                 if len(guild_members) <= 1:
                     await author.remove_roles(get(guild.roles, name = guild_name), reason=f" Respecced")
             # Extra to unset
             if "Respecc" in char_dict:
                 del char_dict["Respecc"]
-            playersCollection.replace_one({'_id': char_id}, char_dict, upsert=True)
+            db.players.replace_one({'_id': char_id}, char_dict, upsert=True)
             
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
@@ -2096,7 +2106,6 @@ class Character(commands.Cog):
             if self.check_multiclass_requirement({'Class': cRecord}, stats) is not None:
                 continue
             class_options[cRecord['Name']] = cRecord
-
         base_class = records_dict[starting_class]
         # New Multiclass
         multi_class_blocker = None
@@ -2205,8 +2214,9 @@ class Character(commands.Cog):
         if select_class['Level'] in (4, 8, 12, 16, 19) or ('Fighter' == choice_level_class and select_class['Level'] in (6, 14)) or ('Rogue' == choice_level_class and select_class['Level']) == 10:
             feat_levels.append(int(select_class['Level']))
         char_feats_gained_str = ''
+        classes = {name: {"Class": records_dict[name], "Level": value['Level'], "Subclass": value["Subclass"]} for name, value in char_class.items()}
         if feat_levels != list():
-            core, feats_picked, char_dict = await self.choose_feat(core, char_class, feat_levels, char_dict)
+            core, feats_picked, char_dict = await self.choose_feat(core, classes, feat_levels, char_dict)
             if len(feats_picked) > 0:
                 char_feats_gained_str = f"Feats Gained: **{''.join(feats_picked.keys())}**"
 

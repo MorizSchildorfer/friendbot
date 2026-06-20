@@ -242,7 +242,7 @@ class Reward(commands.Cog):
             return
             
     @commands.command()
-    async def random(self,ctx, tier, rewardType, size=1):
+    async def random(self,ctx, system, tier, rewardType, size=1):
         rewardCommand = f"\nPlease follow this format:\n```yaml\n{commandPrefix}random tier major/minor #```\n"
 
         channel = ctx.channel

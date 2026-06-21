@@ -14,16 +14,10 @@ class Help(commands.Cog):
         if ctx.channel.type == discord.ChannelType.private:
             await ctx.channel.send("Sorry, the `$help` command cannot be used in the DMs of the bot. Use one of the log channels on the D&D Friends Server")
             return
-        def helpCheck(r,u):
-            sameMessage = False
-            if helpMsg.id == r.message.id:
-                sameMessage = True
-            return (r.emoji in alphaEmojis[:numPages]) and u == ctx.author and sameMessage
-        bot = self.bot
+
         helpEmbedMenu = discord.Embed()
         helpEmbedGen = discord.Embed()
         helpEmbedChar = discord.Embed()
-        helpEmbedItems = discord.Embed() 
         helpEmbedTimerOne = discord.Embed()
         helpEmbedTimerTwo = discord.Embed()
         helpEmbedTimerThree = discord.Embed()
@@ -236,7 +230,7 @@ class Help(commands.Cog):
     # DM COMMANDS
 
         helpEmbedTimerThree.add_field(name=f'▫️ Submitting a Session Log (DM)', value=f'{commandPrefix}session log gameID summary', inline=False)
-        helpEmbedTimerThree.add_field(name=f'▫️ Set Gold Modifier (DM)', value=f'{commandPrefix}session setGuild gameID percentage', inline=False)
+    #    helpEmbedTimerThree.add_field(name=f'▫️ Set Gold Modifier (DM)', value=f'{commandPrefix}session setGuild gameID percentage', inline=False)
 
     #    helpEmbedTimerThree.add_field(name=f'▫️ Approve Guild 2x Rewards (DM)', value=f'{commandPrefix}session approveRewards gameID #guild-channel', inline=False)
 

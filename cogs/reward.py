@@ -242,48 +242,54 @@ class Reward(commands.Cog):
             return
             
     @commands.command()
-    async def random(self,ctx, system, tier, rewardType, size=1):
-        rewardCommand = f"\nPlease follow this format:\n```yaml\n{commandPrefix}random tier major/minor #```\n"
+    async def random(self, ctx, system, tier, reward_type, size=1):
+        rewardCommand = f"\nPlease follow this format:\n```yaml\n{commandPrefix}random system tier major/minor #```\n"
 
         channel = ctx.channel
-        author = ctx.author
+        system = system.upper()
+        if system not in ["5E", "5R"]:
+            ctx.channel.send("System must be 5E or 5R.")
+            return None
 
         if tier not in ('0', '1','2','3','4', '5') and tier.lower() not in [r.lower() for r in roleArray]:
             errorMessage = f"**{tier}** is not a valid tier. Please try again with **New** or **0**, **Junior** or **1**, **Journey** or **2**, **Elite** or **3**, **True** or **4**, or **Ascended** or **5**."
             await channel.send(errorMessage)
-            return
+            return None
 
-        if rewardType.lower() == "major":
-            rewardType = "Major"
-        elif rewardType.lower() == "minor":
-            rewardType = "Minor"
+        if reward_type.lower() == "major":
+            reward_type = "Major"
+        elif reward_type.lower() == "minor":
+            reward_type = "Minor"
         else:
             await channel.send(content="The reward type must be Major or Minor." + rewardCommand)
-            return
+            return None
 
-        tierNum = 1
         if tier == 'new':
-            tierNum = 1
+            tier_num = 1
         elif tier == 'junior':
-            tierNum = 1
+            tier_num = 1
         elif tier == "journey":
-            tierNum = 2
+            tier_num = 2
         elif tier == "elite":
-            tierNum = 3
+            tier_num = 3
         elif tier == "true":
-            tierNum = 4
+            tier_num = 4
         elif tier == "ascended":
-            tierNum = 5
+            tier_num = 5
         else:
-            tierNum = int(tier)
-        tierNum = max(tierNum, 1)
-        reward = await randomReward(self, ctx, tier=int(tierNum), rewardType=rewardType, amount=size)
-        if reward == None:
-            return
+            tier_num = int(tier)
 
-        outputString = f"{rewardType.capitalize()}s: "+", ".join(reward[i] for i in range(0, len(reward)))
+        tier_num = max(tier_num, 1)
+        core = InteractionCore(ctx, None, None, system)
+        reward = await randomReward(self, core, tier=int(tier_num), rewardType=reward_type, amount=size)
+        if reward is None:
+            return None
+
+        outputString = f"{reward_type.capitalize()}s: " + ", ".join(reward[i] for i in range(0, len(reward)))
 
         await channel.send(outputString)
-            
+        return None
+
+
 async def setup(bot):
     await bot.add_cog(Reward(bot))

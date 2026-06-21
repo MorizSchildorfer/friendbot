@@ -1,42 +1,40 @@
-import discord
-import decimal
-import pytz
-import re
-import random
-import requests
 import asyncio
 import collections
-from discord.utils import get        
-from math import floor
-from datetime import datetime, timezone, timedelta 
+import decimal
+import discord
+import pytz
+import random
+import re
+import requests
+from datetime import datetime, timezone, timedelta
 from discord.ext import commands
+from discord.utils import get
+from math import floor
+
+from bfunc import alphaEmojis, timezoneVar, left, right, db, traceBack, settingsRecord
 from cogs.util import paginate, disambiguate, timeConversion
-from bfunc import alphaEmojis, timezoneVar, commandPrefix, left,right,back, db, traceBack, settingsRecord
+
+
+def stats_special():
+    async def predicate(ctx):
+        if ctx.channel.type == discord.ChannelType.private:
+            return False
+        return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or
+                ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"] or
+                ctx.channel.id == 564994370416410624 or
+                ctx.channel.id == 548991524386373633 or
+                "A d m i n" in [r.name for r in ctx.author.roles])
+    return commands.check(predicate)
 
 
 class Stats(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
-        
-    def stats_special():
-        async def predicate(ctx):
-            if ctx.channel.type == discord.ChannelType.private:
-                return False
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Player Logs"] or 
-                    ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"] or
-                    ctx.channel.id == 564994370416410624 or
-                    ctx.channel.id == 548991524386373633 or
-                    "A d m i n" in [r.name for r in ctx.author.roles])
-        return commands.check(predicate) 
-        
-    
-    
+
     async def cog_command_error(self, ctx, error):
         msg = None
         
-        
         if isinstance(error, commands.UnexpectedQuoteError) or isinstance(error, commands.ExpectedClosingQuoteError) or isinstance(error, commands.InvalidEndOfQuotedStringError):
-
              return
         elif isinstance(error, commands.CheckFailure):
             msg = "This channel or user does not have permission for this command. "
@@ -298,7 +296,7 @@ class Stats(commands.Cog):
         if not year:
             year = currentDate.split("-")[1]
         if month:
-            if month.isnumeric() and int(month)>0 and int(month) < 13:
+            if month.isnumeric() and 0 < int(month) < 13:
                 currentDate = datetime.now(pytz.timezone(timezoneVar)).replace(year=2000+int(year), month= int(month), day=1).strftime("%b-%y")
                 
             else:
@@ -377,14 +375,22 @@ class Stats(commands.Cog):
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @stats_special()
     async def playtime(self,ctx, system, limit = 10):
-        q = { "$query": {"System": system.upper(), "Playtime": {"$exists": True}, "Test" : {"$exists" : False}}, 
+        system = system.upper()
+        if system not in ["5E", "5R"]:
+            ctx.channel.send("System must be 5E or 5R.")
+            return
+        q = { "$query": {"System": system, "Playtime": {"$exists": True}, "Test" : {"$exists" : False}},
                "$orderby": { "Playtime": -1}}
         await self.rank_shell(ctx, "Playtime", q, limit)
     @commands.command()
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @stats_special()
     async def top(self,ctx, system, limit = 10):
-        q = { "$query": {"System": system.upper(), "Test" : {"$exists" : False}}, 
+        system = system.upper()
+        if system not in ["5E", "5R"]:
+            ctx.channel.send("System must be 5E or 5R.")
+            return
+        q = { "$query": {"System": system, "Test" : {"$exists" : False}},
               "$orderby": { "Level": -1, "CP" : -1 }}
         await self.rank_shell(ctx, "CP", q, limit)
 

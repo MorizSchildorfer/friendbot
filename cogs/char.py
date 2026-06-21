@@ -444,6 +444,8 @@ class Character(commands.Cog):
         if not core.hasError():
             is_multi_class = len(classes) > 1
             starting_entry = classes[starting_class]['Class']
+            if "GP" in starting_entry:
+                char_dict["GP"] += starting_entry["GP"]
             if 'Starting Equipment' in starting_entry:
                 options = []
                 for item in starting_entry['Starting Equipment']:
@@ -685,7 +687,6 @@ class Character(commands.Cog):
 
         # Multiclass Requirements
         if len(classes) > 1:
-            # TODO: pass a new dictionary
             core = self.check_multiclass(core, classes, char_dict)
         if not core.isActive():
             self.bot.get_command(command_name).reset_cooldown(ctx)

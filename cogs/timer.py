@@ -900,7 +900,7 @@ class Timer(commands.Cog):
     msg -> the message that caused the invocation, used to find the name of the character being added
     user -> the user being added, required since this command is invoked by add as well where the author is not the user necessarily
     """
-    async def addme(self, main_core, msg, user_info, user):
+    async def addme(self, main_core: InteractionCore, msg, user_info, user):
         # user found is used to check if the user can be found in one of the current entries in start
         userFound = user.id in user_info["Players"]
         # the user to add
@@ -1103,7 +1103,7 @@ class Timer(commands.Cog):
             consumablesString = ""
             rewardsString = ""
             # if the game were without rewards we would not have to check for consumables
-            if player["Brought"] != []:
+            if player["Brought"]:
                 consumablesString = "\nConsumables: " + ', '.join(player["Brought"])
             rList = player["Inventory"]["Add"]+player["Consumables"]["Add"]+player["Magic Items"]
             if rList != list():
@@ -1157,7 +1157,7 @@ Command Checklist
             await core.send(stampHelp)
         return None
 
-    async def stop(self, core, userInfo):
+    async def stop(self, core: InteractionCore, userInfo):
         ctx = core.context
         if userInfo["Paused"]:
             await self.unpause(ctx, userInfo=userInfo, silent=True)
@@ -1572,11 +1572,11 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                         # update the msg with the new stamp
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "removeme"):
-                    userInfo = await self.removeme(core, userInfo, msg.author)
+                    userInfo = await self.removeme(ctx, userInfo, msg.author)
                     await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "remove "):
                     if await self.permissionCheck(msg, author): 
-                        await self.removeDuringTimer(core, msg, userInfo)
+                        await self.removeDuringTimer(ctx, msg, userInfo)
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "stamp"):
                         await self.stamp(core, userInfo)
@@ -1597,10 +1597,10 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                         await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "death"):
                     if await self.permissionCheck(msg, author):
-                        await self.death(core, msg=msg, userInfo=userInfo)
+                        await self.death(ctx, msg=msg, userInfo=userInfo)
                         await self.stamp(core, userInfo)
                 elif msg.content.startswith('-') and msg.author != userInfo["DM"]["Member"]:
-                    await self.deductConsumables(core, msg=msg, userInfo=userInfo)
+                    await self.deductConsumables(ctx, msg=msg, userInfo=userInfo)
                     await self.stamp(core, userInfo)
                 elif self.starts_with_check(msg, "undo rewards"):
                     # check if the author of the message has the right permissions for this command

@@ -43,7 +43,9 @@ source_types = ["BUY", "CREATE", "REWARD"]
 
 
 class InteractionCore:
-    def __init__(self, context, message, embed, system: str = None):
+    def __init__(self, context, message, embed = None, system: str = None):
+        if embed is None:
+            embed = discord.Embed()
         self.context = context
         self.message = message
         self.embed = embed
@@ -784,10 +786,9 @@ async def checkForChar(core: InteractionCore, char, authorOverride=None, mod: bo
             return char_records[choice], core
     return char_records[0], core
 
-async def checkForGuild(ctx, name, guildEmbed="" ):
+async def checkForGuild(ctx, name, guildEmbed=""):
     channel = ctx.channel
     author = ctx.author
-    guild = ctx.guild
 
     name = name.strip()
 

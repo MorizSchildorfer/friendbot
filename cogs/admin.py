@@ -12,7 +12,8 @@ from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 from bfunc import db, traceBack, settingsRecord, liner_dic, currentTimers, connection
-from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, add_to_inventory, add_to_dictionary, check_for_char_with_end
+from cogs.util import calculateTreasure, callAPI, checkForChar, paginate, admin_or_owner, noodle_roles, \
+    add_to_inventory, add_to_dictionary, check_for_char_with_end, determine_tier, InteractionCore, find_reward_item
 
 
 def add_5e(item):
@@ -1055,138 +1056,82 @@ class Admin(commands.Cog, name="Admin"):
     
     @commands.command()
     @commands.has_any_role("Mod Friend")
-    async def xfer(self, ctx, charName, level : int, cp :float, user, items = ""):
+    async def xfer(self, ctx, system, char_name, level : int, cp :float, user, items =""):
+        system = system.upper()
+        if system not in ["5E", "5R"]:
+            ctx.channel.send("System must be 5E or 5R.")
+            return
         msg = ctx.message
         rewardList = msg.raw_mentions
-        rewardUser = ""
-        # create an embed text object
-        charEmbed = discord.Embed()
-        charEmbedmsg = None
-        guild = ctx.guild
         
         # if nobody was listed, inform the user
         if rewardList == list():
             await ctx.channel.send(content=f"I could not find any mention of a user to hand out a reward item.") 
-            #return the unchanged parameters
             return
-        else:
-            rewardUser = rewardList[0]
-            
-            levelCP = (((level - 5) * 8) + 16)
-            if level < 5:
-                levelCP = ((level - 1) * 4)
-            cp += levelCP
-            level = 1
-            maxCP = 4
-            while(cp >= maxCP and level <20):
-                cp -= maxCP
-                level += 1
-                if level > 4:
-                  maxCP = 10
-            
-            charDict = {
-              'User ID': str(rewardUser),
-              'Name': charName,
-              'Level': level,
-              'HP': 0,
-              'Class': "Friend",
-              'Race': "Friend",
-              'Background': "D&D Friend",
-              'STR': 0,
-              'DEX': 0,
-              'CON': 0,
-              'INT': 0,
-              'WIS': 0,
-              'CHA': 0,
-              'CP' : cp,
-              'Current Item': 'None',
-              'GP': 0,
-              'Magic Items': 'None',
-              'Consumables': 'None',
-              'Feats': 'None',
-              'Inventory': {},
-              'Predecessor': {},
-              'Games': 0,
-              'Respecc' : "Transfer"
-            }
-            
-            
-            # character level
-            # since this checks for multiple things, this cannot be avoided
-            tierNum=5
-            # calculate the tier of the rewards
-            if level < 5:
-                tierNum = 1
-            elif level < 11:
-                tierNum = 2
-            elif level < 17:
-                tierNum = 3
-            elif level < 20:
-                tierNum = 4
-                    
-            items = items.strip()
-            consumablesList = []
-            if items != "":
-                consumablesList = items.split(',')
-            rewardList = {"Magic Items": [], "Consumables": [], "Inventory": []}
-            for query in consumablesList:
-                query = query.strip()
-                # if the player is getting a spell scoll then we need to determine which spell they are going for
-                # we do this by searching in the spell table instead
-                if 'spell scroll' in query.lower():
-                    # extract the spell
-                    spellItem = query.lower().replace("spell scroll", "").replace('(', '').replace(')', '')
-                    # use the callAPI function from bfunc to search the spells table in the DB for the spell being rewarded
-                    sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem)
-                    
-                    # if no spell was found then we inform the user of the failure and stop the command
-                    if not sRecord:
-                        await ctx.channel.send(f'''**{query}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.''')
-                        return 
+        rewardUser = rewardList[0]
 
-                    else:
-                        ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
-                        # change the query to be an accurate representation
-                        query = f"Spell Scroll ({ordinal(sRecord['Level'])} Level)"
-                
+        levelCP = (((level - 5) * 8) + 16)
+        if level < 5:
+            levelCP = ((level - 1) * 4)
+        cp += levelCP
+        level = 1
+        maxCP = 4
+        while cp >= maxCP and level <20:
+            cp -= maxCP
+            level += 1
+            if level > 4:
+              maxCP = 10
 
-                # search for the item in the DB with the function from bfunc
-                # this does disambiguation already so if there are multiple results for the item they will have already selected which one specifically they want
-                rewardConsumable, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg ,'rit',query, tier=tierNum) 
-            
-                #if no item could be found, return the unchanged parameters and inform the user
-                if not rewardConsumable:
-                    await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
-                    return 
-                else:
-                    if 'spell scroll' in query.lower():
-                        rewardConsumable['Name'] = f"Spell Scroll ({sRecord['Name']})"
-                    rewardList[rewardConsumable["Type"]].append(rewardConsumable["Name"])
-            
-            # turn the list of added items into the new string
-            consumablesString = ", ".join(rewardList["Consumables"])
-               
-            # if the string is empty, turn it into none
-            consumablesString += "None"*(consumablesString=="")
-            
-            # magic items cannot be removed so we only care about addtions
-            # if we have no items and no additions, string is None
-            magicItemString = ", ".join(rewardList["Magic Items"])
+        char_dict = {
+          'User ID': str(rewardUser),
+          'Name': char_name,
+          'Level': level,
+            'System': system,
+          'HP': 0,
+          'Class': "Friend",
+          'Race': "Friend",
+          'Background': "D&D Friend",
+          'Stats': {'STR': 0,
+                    'DEX': 0,
+                    'CON': 0,
+                    'INT': 0,
+                    'WIS': 0,
+                    'CHA': 0 },
+          'CP' : cp,
+          'GP': 0,
+          'Magic Items': {},
+          'Consumables': {},
+          'Feats': 'None',
+          'Inventory': {},
+          'Games': 0,
+          'Respecc' : "Transfer"
+        }
 
-            # if the string is empty, turn it into none
-            magicItemString += "None"*(magicItemString=="")
-                
-            
-            # increase the relevant inventory entries and create them if necessary
-            for i in rewardList["Inventory"]:
-                if i in charDict["Inventory"]:
-                    charDict["Inventory"][i] += 1
-                else:
-                    charDict["Inventory"][i] = 1
-            out = {"Magic Items":magicItemString, "Consumables":consumablesString, "Inventory":charDict["Inventory"]}
-            charDict["Transfer Set"] = out
+        items = items.strip()
+        consumablesList = []
+        if items != "":
+            consumablesList = items.split(',')
+        core: InteractionCore = InteractionCore(ctx, None)
+        rewardItemsList = {"Magic Items": [], "Consumables": [], "Inventory": []}
+        for query in consumablesList:
+            item_record, core = await find_reward_item(core, query, level)
+            if not core.isActive():
+                return None
+            allRewardItems.append(item_record)
+            if core.hasError():
+                ctx.channel.send(content=core.showErrors())
+                return None
+            #if no item could be found, return the unchanged parameters and inform the user
+            if not item_record:
+                await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
+                return None
+            rewardItemsList[item_record["Type"]].append(item_record["Name"])
+
+        for key, values in rewardItemsList.items():
+            for item in values:
+                add_to_inventory(char_dict[key], item["Name"], 1, "CREATE")
         try:
-            db.players.insert_one(charDict)
+            db.players.insert_one(char_dict)
             await ctx.channel.send(content=f"Transfer Character has been created.")
     
         except Exception as e:
@@ -1204,7 +1149,7 @@ class Admin(commands.Cog, name="Admin"):
             #return the unchanged parameters
             return 
         usersCollection = db.users
-        userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$set" : {"Noodles" : noodles}, "$inc" : {"Games" : 0}}, upsert= True)
+        usersCollection.update_one({"User ID": str(rewardList[0])}, {"$set" : {"Noodles" : noodles}, "$inc" : {"Games" : 0}}, upsert= True)
         await channel.send(f"Noodles set for <@!{rewardList[0]}>")
     
     @commands.has_any_role("Bot Friend", "A d m i n")
@@ -1219,7 +1164,7 @@ class Admin(commands.Cog, name="Admin"):
             #return the unchanged parameters
             return 
         usersCollection = db.users
-        userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Double" : count}})
+        usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Double" : count}})
         await channel.send(f"Increased Double Rewards for <@{rewardList[0]}> by {count}")
 
     @commands.has_any_role("Bot Friend", "A d m i n")
@@ -1228,16 +1173,13 @@ class Admin(commands.Cog, name="Admin"):
         msg = ctx.message
         rewardList = msg.raw_mentions
         channel = ctx.channel
-        guild = ctx.guild
-        charEmbed = discord.Embed()
-        charEmbedmsg = None
         # if nobody was listed, inform the user
         if rewardList == list():
             await ctx.channel.send(content=f"I could not find any mention of a user.") 
             #return the unchanged parameters
             return 
         usersCollection = db.users
-        userRecords = usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Time Bank" : time}})
+        usersCollection.update_one({"User ID": str(rewardList[0])}, {"$inc" : {"Time Bank" : time}})
         await channel.send(f"Increased Time Bank for <@{rewardList[0]}> by {time}")
     
     @commands.command()

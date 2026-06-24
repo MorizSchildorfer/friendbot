@@ -58,29 +58,29 @@ async def randomReward(self, core: InteractionCore, tier, rewardType, block=[], 
                 else: #full caster list
                     spellClasses = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"]
                     charEmbed.add_field(name="Please pick the spell list you want the scroll to be from:", value=f"{alphaEmojis[0]}: Bard\n{alphaEmojis[1]}: Cleric\n{alphaEmojis[2]}: Druid\n{alphaEmojis[3]}: Sorcerer\n{alphaEmojis[4]}: Warlock\n{alphaEmojis[5]}: Wizard\n", inline=False)
-                charEmbedmsg = await channel.send(embed=charEmbed)
-                await charEmbedmsg.add_reaction('❌')
+                await core.send(embed=charEmbed)
+                await core.message.add_reaction('❌')
 
                 try:
-                    await charEmbedmsg.edit(embed=charEmbed)
-                    await charEmbedmsg.add_reaction('❌')
+                    await core.message.edit(embed=charEmbed)
+                    await core.message.add_reaction('❌')
                     tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, alphaEmojis[:len(spellClasses)]), timeout=60)
                 except asyncio.TimeoutError:
-                    await charEmbedmsg.delete()
+                    await core.delete()
                     await channel.send(f'Spell list selection timed out! Try again using the same command:\n')
                     return None
                 else:
                     if tReaction.emoji == '❌':
-                        await charEmbedmsg.edit(embed=None, content=f"Spell list selection cancelled.\n")
-                        await charEmbedmsg.clear_reactions()
+                        await core.message.edit(embed=None, content=f"Spell list selection cancelled.\n")
+                        await core.message.clear_reactions()
                         return None
-                await charEmbedmsg.clear_reactions()
+                await core.message.clear_reactions()
                 classList = spellClasses[alphaEmojis.index(tReaction.emoji)]
                 output = list(db.spells.find({"$and": [{"Classes": {"$regex": classList, '$options': 'i' }, "Level": spellLevel, "System": core.system}]}))
                 spellReward = sample(output, 1)[0] # results in the entire spell's entry
                 spellRewardStr = []  
                 spellRewardStr.append(f"{item_type} ({spellReward['Name']})")
-                await charEmbedmsg.delete()
+                await core.delete()
                 rewardString.append(spellRewardStr[0])
             else:
                 rewardString.append(randomItem[i]['Name'])

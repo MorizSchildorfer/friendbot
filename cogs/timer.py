@@ -88,7 +88,7 @@ class Timer(commands.Cog):
             
         if msg:
             if ctx.command.name == "prep":
-                msg +=  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
+                msg +=  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep "system" "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
             
             ctx.command.reset_cooldown(ctx)
             await ctx.channel.send(content=msg)

@@ -1088,7 +1088,7 @@ class Admin(commands.Cog, name="Admin"):
           'Level': level,
             'System': system,
           'HP': 0,
-          'Class': "Friend",
+          'Class': {"Friend": {"Level": level, "Subclass": None}},
           'Race': "Friend",
           'Background': "D&D Friend",
           'Stats': {'STR': 0,
@@ -1101,7 +1101,7 @@ class Admin(commands.Cog, name="Admin"):
           'GP': 0,
           'Magic Items': {},
           'Consumables': {},
-          'Feats': 'None',
+          'Feats': [],
           'Inventory': {},
           'Games': 0,
           'Respecc' : "Transfer"
@@ -1111,21 +1111,20 @@ class Admin(commands.Cog, name="Admin"):
         consumablesList = []
         if items != "":
             consumablesList = items.split(',')
-        core: InteractionCore = InteractionCore(ctx, None)
+        core: InteractionCore = InteractionCore(ctx, None, system=system)
         rewardItemsList = {"Magic Items": [], "Consumables": [], "Inventory": []}
         for query in consumablesList:
             item_record, core = await find_reward_item(core, query, level)
             if not core.isActive():
                 return None
-            allRewardItems.append(item_record)
             if core.hasError():
-                ctx.channel.send(content=core.showErrors())
+                await ctx.channel.send(content=core.showErrors())
                 return None
             #if no item could be found, return the unchanged parameters and inform the user
             if not item_record:
                 await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
                 return None
-            rewardItemsList[item_record["Type"]].append(item_record["Name"])
+            rewardItemsList[item_record["Type"]].append(item_record)
 
         for key, values in rewardItemsList.items():
             for item in values:

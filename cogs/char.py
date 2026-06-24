@@ -20,6 +20,19 @@ def search_magic_item(search: str, items: dict) -> list:
     return results
 
 
+def render_magic_item(magic_item: dict) -> str:
+    print(magic_item)
+    output = magic_item["Name"]
+    if "Stat Bonuses" in magic_item:
+        output += " [" + ", ".join([render_stat_bonus(bonus) for bonus in magic_item["Stat Bonuses"]]) + "]"
+    return output
+
+def render_stat_bonus(stat_bonus: dict):
+    prefix = "+"
+    if stat_bonus["Type"] == "FIXED":
+        prefix = "->"
+    return f"{stat_bonus['Stat']}{prefix}{stat_bonus['Value']}"
+
 def is_log_channel():
     async def predicate(ctx):
         if ctx.channel.type == discord.ChannelType.private:
@@ -99,7 +112,7 @@ class Character(commands.Cog):
 
         if msg:
             if ctx.command.name == "create":
-                msg += f'Please follow this format:\n```yaml\n{commandPrefix}create "name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```\n'
+                msg += f'Please follow this format:\n```yaml\n{commandPrefix}create "system" "name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```\n'
             elif ctx.command.name == "respec":
                 msg += f'Please follow this format:\n```yaml\n{commandPrefix}respec "name" "new name" "race" "class" "background" STR DEX CON INT WIS CHA```\n'
             elif ctx.command.name == "retire":
@@ -505,12 +518,13 @@ class Character(commands.Cog):
         return core, char_dict
 
     def check_multiclass(self, core, classes: dict, stats: dict):
+        req_fulfill_list = []
         for class_name, entry in classes.items():
             failed_requirement = self.check_multiclass_requirement(entry, stats)
-            if req_fulfill_list is not None:
+            if failed_requirement:
                 req_fulfill_list.append(failed_requirement)
-            if len(req_fulfill_list) > 0:
-                core.addError(f":warning: In order to multiclass to or from **{class_name}** you need at least **{entry['Class']['Multiclass']}**. Your character only has **{' and '.join(req_fulfill_list)}**!")
+        if len(req_fulfill_list) > 0:
+            core.addError(f":warning: In order to multiclass to or from **{class_name}** you need at least **{entry['Class']['Multiclass']}**. Your character only has **{' and '.join(req_fulfill_list)}**!")
         return core
 
     def check_multiclass_requirement(self, entry, stats):
@@ -767,7 +781,7 @@ class Character(commands.Cog):
             await  core.message.clear_reactions()
             if tReaction.emoji == '❌':
                 core.cancel()
-                await core.message.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                await core.message.edit(embed=None, content=f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"system\" \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
                 self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None
@@ -939,7 +953,7 @@ class Character(commands.Cog):
         # Multiclass Requirements
         if len(classes) > 1:
             # TODO: pass a new dictionary
-            core = self.check_multiclass(core, classes, char_dict)
+            core = self.check_multiclass(core, classes, stats)
         if not core.isActive():
             return None
         if core.hasError():
@@ -1636,9 +1650,6 @@ class Character(commands.Cog):
         mPageStops = [0]
         magic_items = char_dict['Magic Items']
         attune_list = list([key for key, value in magic_items.items() if 'Attuned' in value and value['Attuned']])
-        if 'Attuned' in char_dict:
-            for attune_item in char_dict['Attuned'].split(", "):
-                attune_list.append(attune_item.split(" [", 1)[0])
         if mits:
             magic_item_list = list(map(lambda x: x.strip(), mits.split(',')))
             found = self.check_item_availability(magic_items, magic_item_list, core)
@@ -1817,6 +1828,13 @@ class Character(commands.Cog):
             char_embed.add_field(name='Guild', value=f"{char_dict['Guild']}: Rank {char_dict['Guild Rank']}", inline=True)
         char_embed.add_field(name='Feats', value=", ".join(char_dict['Feats']), inline=False)
 
+        attune_list = list([value for key, value in char_dict["Magic Items"].items() if 'Attuned' in value and value['Attuned']])
+        attune_info = "None"
+        print(attune_list)
+        if len(attune_list) > 0:
+            attune_info = ", ".join([render_magic_item(magic_item) for magic_item in attune_list])
+        char_embed.add_field(name='Attunement', value=attune_info, inline=True)
+        
         if 'Free Spells' in char_dict:
             fsString = ""
             fsIndex = 0
@@ -2252,7 +2270,7 @@ class Character(commands.Cog):
             await  core.message.clear_reactions()
             if tReaction.emoji == '❌':
                 core.cancel()
-                await core.send(f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
+                await core.send(f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"system\" \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
                 self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None

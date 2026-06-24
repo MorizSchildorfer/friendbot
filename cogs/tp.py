@@ -101,7 +101,7 @@ class Tp(commands.Cog):
             await channel.send(f"You do not have **{item_name}**.")
             ctx.command.reset_cooldown(ctx)
             return None
-        upgrade_stage = char_dict[item_name]["Stage"]
+        upgrade_stage = char_dict["Magic Items"][item_name]["Stage"]
         if upgrade_stage + 1 >= len(item_record['Predecessor']["Names"]):
             await channel.send(f"**{item_name}** is already at its highest stage.")
             ctx.command.reset_cooldown(ctx)
@@ -158,9 +158,9 @@ class Tp(commands.Cog):
                 try:
                     setData = {}
                     incData = {f'Magic Items.{item_key}.Stage': 1}
-                    setData[f'Magic Items.{item_key}.Stage Name'] = mRecord["Predecessor"]["Names"][upgrade_stage]
-                    if 'Stat Bonuses' in mRecord["Predecessor"]:
-                        setData[f'Magic Items.{item_key}.Stat Bonuses'] = mRecord["Predecessor"]["Stat Bonuses"][upgrade_stage]
+                    setData[f'Magic Items.{item_key}.Stage Name'] = item_record["Predecessor"]["Names"][upgrade_stage]
+                    if 'Stat Bonuses' in item_record["Predecessor"]:
+                        setData[f'Magic Items.{item_key}.Stat Bonuses'] = item_record["Predecessor"]["Stat Bonuses"][upgrade_stage]
                     for tp, value in used_tp.items():
                         incData[f"Magic Items.{item_key}.Item Spend.{tp}"] = value
                     db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})

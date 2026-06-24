@@ -760,7 +760,7 @@ class Log(commands.Cog):
             for source, amount in temp.items():
                 add_to_inventory(used_inventory, i, source, amount)
         for i in player["Inventory"]["Add"]:
-            add_to_inventory(used_inventory, i, -1, "REWARD")
+            add_to_inventory(used_inventory, i, 1, "REWARD")
 
         for item, data in used_consumables.items():
             for source, amount in data.items():

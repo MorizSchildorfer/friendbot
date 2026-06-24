@@ -68,7 +68,7 @@ class InteractionCore:
             self.errors.append(error)
 
     def showErrors(self) -> str:
-        return '\n'.join(core.errors)
+        return '\n'.join(self.errors)
     
     async def send(self, main_text: str = "", embed = None):
         embed_to_send = self.embed
@@ -127,13 +127,14 @@ def remove_from_inventory(core: InteractionCore, inventory: dict, item: str, amo
         core.addError("You are trying to remove more than you own")
         return reductions
     for source in source_types:
-        from_source = item_entry[source]
-        if from_source >= amount:
-            reductions[source] = -amount
-            break
-        else:
-            reductions[source] = -from_source
-            amount -= from_source
+        if source in item_entry:
+            from_source = item_entry[source]
+            if from_source >= amount:
+                reductions[source] = -amount
+                break
+            else:
+                reductions[source] = -from_source
+                amount -= from_source
     return reductions
 
 def show_inventory(inventory: dict) -> list:

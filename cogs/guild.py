@@ -5,7 +5,7 @@ from discord.utils import get
 from discord.ext import commands
 from bfunc import  timezoneVar, commandPrefix, db, traceBack, alphaEmojis, settingsRecord
 from datetime import datetime, timezone,timedelta
-from cogs.util import checkForChar, checkForGuild, paginate, noodle_roles, check_for_char_with_end
+from cogs.util import checkForChar, checkForGuild, paginate, noodle_roles, check_for_char_with_end, reaction_response_control
 
 
 async def pin_control(self, ctx, goal):
@@ -205,12 +205,13 @@ class Guild(commands.Cog):
                         noodleRepStr += f"{alphaEmojis[i]}: {noodleRep[i]}\n"
 
                     char_embed.add_field(name=f"Choose the Noodle role which you would like to use to create this guild. This will affect the amount of reputation which the guild starts with.", value=noodleRepStr, inline=False)
-                    core.send(char_embed)
+                    await core.send()
 
                     await core.message.add_reaction('❌')
-
+                    emojis = alphaEmojis[:len(noodleRep)]
+                    emojis.append('❌')
                     try:
-                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']), timeout=60)
+                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, emojis), timeout=60)
                     except asyncio.TimeoutError:
                         await core.delete()
                         await channel.send('Guild command timed out! Try using the command again.')
@@ -253,7 +254,7 @@ class Guild(commands.Cog):
 
                     char_embed.title = f"Guild Creation: {guildName}"
                     char_embed.description = f"***{char_dict['Name']}*** has created ***{guildName}***!\n\nThe guild's status can be checked using the following command:\n```yaml\n{commandPrefix}guild info #guild-channel```"
-                    await core.send(char_embed)
+                    await core.send()
                           
             else:
                 await channel.send(f'***{author.display_name}*** you will need to play at least one game with a character before you can create a guild.')
@@ -466,7 +467,7 @@ class Guild(commands.Cog):
                 char_embed.title = f"Joining Guild: {guild_records['Name']}"
                 char_embed.description = f"Are you sure you want to join ***{guild_records['Name']}*** for {gpNeeded} GP{' (Discounted)' * drive}? \n\nCurrent GP: {char_dict['GP']} GP\nNew GP: {newGP} GP\n\n✅: Yes\n\n❌: Cancel"
 
-                await core.send(char_embed)
+                await core.send()
                 await core.message.add_reaction('✅')
                 await core.message.add_reaction('❌')
 
@@ -477,7 +478,7 @@ class Guild(commands.Cog):
                     await channel.send(f'Guild cancelled. Try again using the following command:\n```yaml\n{commandPrefix}guild join "character name" #guild-channel```')
                     return
                 else:
-                    await core.mesasge.clear_reactions()
+                    await core.message.clear_reactions()
                     if tReaction.emoji == '❌':
                         await core.send(f"Guild join cancelled. Try again using the following command:\n```yaml\n{commandPrefix}guild join \"character name\" #guild-channel```")
                         await core.message.clear_reactions()
@@ -499,8 +500,7 @@ class Guild(commands.Cog):
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
                 else:
                     char_embed.description = f"***{char_dict['Name']}*** has joined ***{guild_records['Name']}*** for {gpNeeded} GP!\n\n**Previous GP**: {char_dict['GP']} GP\n**Current GP**: {newGP} GP\n"
-                    await core.send(char_embed)
-                
+                    await core.send()
             else:
                 await channel.send(f'The guild ***{guildName}*** does not exist. Please try again.')
                 return
@@ -582,7 +582,7 @@ class Guild(commands.Cog):
 
             char_embed.title = f"Leaving Guild: {char_dict['Guild']}"
             char_embed.description = f"Are you sure you want to leave ***{char_dict['Guild']}***?\n\n✅: Yes\n\n❌: Cancel"
-            await core.send(char_embed)
+            await core.send()
             await core.message.add_reaction('✅')
             await core.message.add_reaction('❌')
 
@@ -612,7 +612,7 @@ class Guild(commands.Cog):
                 await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
             else:
                 char_embed.description = f"***{char_dict['Name']}*** has left ***{char_dict['Guild']}***."
-                await core.send(char_embed)
+                await core.send()
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()

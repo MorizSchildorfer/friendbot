@@ -125,7 +125,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.add_field(name=f'▫️ Leveling Up', value=f'{commandPrefix}levelup "character name"\n[{commandPrefix}lvlup, {commandPrefix}lvl, {commandPrefix}lv]', inline=False)
 
-        helpEmbedChar.add_field(name=f'▫️ Creating a Multiclass Character', value=f'{commandPrefix}create "character name" total level "race" "class1 level / class2 level, [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Creating a Multiclass Character', value=f'{commandPrefix}create "system" "character name" total level "race" "class1 level / class2 level, [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
 
         helpEmbedChar.add_field(name=f'▫️ Respecing a Character', value=f'{commandPrefix}respec "character name" "new character name" "race" "class" "background" STR DEX CON INT WIS CHA', inline=False)
 
@@ -167,7 +167,7 @@ class Help(commands.Cog):
 
     # DM COMMANDS
 
-        helpEmbedTimerOne.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}timer prep "@player1, @player2, [...]" "quest name" #guild-channel-1 #guild-channel-2', inline=False)
+        helpEmbedTimerOne.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}timer prep "system" "@player1, @player2, [...]" "quest name" #guild-channel-1 #guild-channel-2', inline=False)
 
         helpEmbedTimerOne.add_field(name=f'▫️ Adding Players to the Roster (DM)', value=f'{commandPrefix}timer add @player', inline=False)
 

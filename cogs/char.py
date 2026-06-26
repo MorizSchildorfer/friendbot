@@ -2452,8 +2452,6 @@ class Character(commands.Cog):
         for c in classes.values():
             level = int(c['Level'])
             total_hp += c['Class']['Hit Die Average'] * level
-
-        total_hp += ((int(char_dict['Stats']['CON']) - 10) // 2) * lvl
         return total_hp
 
     def calculate_bonus_hp(self, level: int, con: int, stat_bonuses: dict, max_stat_bonuses: dict, stat_setters: dict):

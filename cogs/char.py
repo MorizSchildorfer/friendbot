@@ -1115,6 +1115,9 @@ class Character(commands.Cog):
     async def export(self, ctx, char):
         channel = ctx.channel
         command_name = ctx.command.name
+        if True:
+            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
+            return
         char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
@@ -1139,7 +1142,9 @@ class Character(commands.Cog):
         author = ctx.author
         guild = ctx.guild
         command_name = ctx.command.name
-        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
+        if True:
+            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
+            return
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
@@ -1208,6 +1213,9 @@ class Character(commands.Cog):
         author = ctx.author
         guild = ctx.guild
         command_name = ctx.command.name
+        if True:
+            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
+            return
         char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)

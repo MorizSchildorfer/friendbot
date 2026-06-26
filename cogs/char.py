@@ -701,7 +701,7 @@ class Character(commands.Cog):
 
         # Multiclass Requirements
         if len(classes) > 1:
-            core = self.check_multiclass(core, classes, char_dict)
+            core = self.check_multiclass(core, classes, stats)
         if not core.isActive():
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None

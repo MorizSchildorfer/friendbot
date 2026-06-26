@@ -93,6 +93,7 @@ class Help(commands.Cog):
         helpEmbedGen.add_field(name=f'▫️ Creating and Viewing Your User Profile', value=f'{commandPrefix}user', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}races "system"', inline=False)
+        helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Backgrounds', value=f'{commandPrefix}backgrounds "system"', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Calculating Rewards', value=f'{commandPrefix}reward XhYm tier', inline=False)
 

@@ -153,14 +153,12 @@ async def check_for_char_with_end(ctx, name: str, mod = False, author_check = No
     char_dict, core = await checkForChar(core, name, mod=mod, authorCheck=author_check)
     if not core.isActive():
         await core.send("Character search cancelled")
-        print(command_name)
         ctx.command.reset_cooldown(ctx)
         return None, char_embed, core
     char_embed.clear_fields()
     if core.hasError():
         char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
         await core.send()
-        print(command_name)
         ctx.command.reset_cooldown(ctx)
         return None, char_embed, core
     core.system = char_dict["System"]

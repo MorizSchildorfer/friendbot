@@ -873,13 +873,14 @@ class Character(commands.Cog):
 
         if 'Death' in char_dict.keys():
             await core.send(f"You cannot respec a dead character. Use the following command to decide their fate:\n```yaml\n$death \"{char_dict['Name']}\"```")
+            ctx.command.reset_cooldown(ctx)
             return None
         
         # level check
         if lvl > 4 and "Respecc" not in char_dict:
             msg += "• Your character's level is way too high to respec.\n"
             await core.send(msg)
-            self.bot.get_command('respec').reset_cooldown(ctx) 
+            ctx.command.reset_cooldown(ctx)
             return None
         if char_dict['Name'] != new_name:
             core = self.nameVerification(core, new_name, author)
@@ -905,6 +906,7 @@ class Character(commands.Cog):
         # check race
         race_record, core = await callAPI(core, 'races', race)
         if not core.isActive():
+            ctx.command.reset_cooldown(ctx)
             return None
         if not race_record:
             core.addError(
@@ -914,6 +916,7 @@ class Character(commands.Cog):
             if "Extra Feat" in race_record:
                 core, feats_chosen, char_dict = await self.choose_feat(core, {}, ["Extra Feat"], char_dict)
                 if not core.isActive():
+                    ctx.command.reset_cooldown(ctx)
                     return core, None
         inventory = char_dict["Inventory"]
         core, classes, starting_class = await self.handle_class(core, char_dict, character_class, lvl, inventory)
@@ -934,6 +937,7 @@ class Character(commands.Cog):
             char_dict["Feats"] = [bRecord["Feat"]]
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
         if not core.isActive():
+            ctx.command.reset_cooldown(ctx)
             return None
         # Stats - Point Buy
         if not core.hasError():
@@ -942,6 +946,7 @@ class Character(commands.Cog):
                                                                  stats["WIS"], stats["CHA"]], bRecord)
             char_dict["Stats"] = stats
         if not core.isActive():
+            ctx.command.reset_cooldown(ctx)
             return None
 
         # Stats - Feats
@@ -960,6 +965,7 @@ class Character(commands.Cog):
             # TODO: pass a new dictionary
             core = self.check_multiclass(core, classes, stats)
         if not core.isActive():
+            ctx.command.reset_cooldown(ctx)
             return None
         if core.hasError():
             await core.delete()
@@ -968,7 +974,7 @@ class Character(commands.Cog):
             error_text = '\n'.join(core.errors)
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
 
         display_hp = 0

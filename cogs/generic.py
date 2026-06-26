@@ -13,7 +13,7 @@ from discord.errors import Forbidden
 from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta
-from bfunc import commandPrefix, timezoneVar, db, traceBack, settingsRecord
+from bfunc import commandPrefix, timezoneVar, db, traceBack, settingsRecord, currentTimers
 from cogs.util import timeConversion, disambiguate, noodleCheck, noodleBarrier
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError

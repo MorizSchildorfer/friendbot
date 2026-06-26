@@ -6,8 +6,11 @@ from cogs.view import AlphaView, ConfirmView
 from discord.utils import get      
 from math import floor
 from discord.ext import commands
-from bfunc import settingsRecord, alphaEmojis, commandPrefix, db, left,right,back, traceBack, bot
+from bfunc import alphaEmojis, commandPrefix, db, left,right, bot
 import math
+from typing import TypeVar, Sequence, Callable
+
+T = TypeVar('T')
 
 noodle_roles = {'Newdle': {'noodles': 1, 'creation_items': [0, 0, 0], 'creation_level_bonus': 0, 'dm_item_rewards': [1, 0, 0], 'player_item_rewards': [1, 1, 1], 'training': 0},
 'Fresh Noodle': {'noodles': 3, 'creation_items': [1, 0, 0], 'creation_level_bonus': 1, 'dm_item_rewards': [1, 1, 0], 'player_item_rewards': [1, 2, 1], 'training': 0},
@@ -35,11 +38,247 @@ cp_thresh_hold_array = [16, 16+60, 16+60+60, 90000000]
 
 cp_bound_array = [[4, "4"], [10, "10"], [10, "10"], [10, "10"], [9999999999, "∞"]]
 
+#ordered by usage priority
+source_types = ["BUY", "CREATE", "REWARD"]
+
+
+class InteractionCore:
+    def __init__(self, context, message, embed = None, system: str = None):
+        if embed is None:
+            embed = discord.Embed()
+        self.context = context
+        self.message = message
+        self.embed = embed
+        self.status: str = "ACTIVE"
+        self.system: str = system
+        self.errors: list = []
+        
+    def isActive(self):
+        return self.status == "ACTIVE"
+        
+    def cancel(self):
+        self.status = "CANCELLED"
+        return True
+        
+    def hasError(self) -> bool:
+        return len(self.errors) != 0
+        
+    def addError(self, error: str):
+        if error:
+            self.errors.append(error)
+
+    def showErrors(self) -> str:
+        return '\n'.join(self.errors)
+    
+    async def send(self, main_text: str = "", embed = None):
+        embed_to_send = self.embed
+        if embed:
+            embed_to_send = embed
+        if not embed_to_send.description:
+            embed_to_send.description = "Info"
+        if not self.message:
+            self.message = await self.context.channel.send(embed=embed_to_send, content=main_text)
+        else:
+            self.message = await self.message.edit(embed=embed_to_send, content=main_text)
+    
+    async def delete(self):
+        if self.message:
+            await self.message.delete()
+            self.message = None
+    
+    def __str__(self):
+        return "%s(%s)" % (self.__class__.__name__,
+    ", ".join([self.system, self.status, self.errors.__str__()])
+  )
+
+
+# TODO add a function to determine the display name for magic items
+# Todo add a function to check if a text could be referring to a specific item
+
+def determine_tier(level: int):
+    tier = 4
+    if level < 5:
+        tier = 1
+    elif level < 11:
+        tier = 2
+    elif level < 17:
+        tier = 3
+    return tier
+
+def add_to_inventory(inventory: dict, item: str, amount: int, source: str):
+    if item not in inventory:
+        inventory[item] = {source: amount}
+    else:
+        add_to_dictionary(inventory[item], source, amount)
+
+def add_to_dictionary(dictionary: dict, item: str, amount: int):
+    if item not in dictionary:
+        dictionary[item] = amount
+    else:
+        dictionary[item] += amount
+
+def remove_from_inventory(core: InteractionCore, inventory: dict, item: str, amount: int) -> dict:
+    reductions = {}
+    if item not in inventory:
+        core.addError("Item not found in inventory")
+        return reductions
+    item_entry = inventory[item]
+    if sum_sources(item_entry) < amount:
+        core.addError("You are trying to remove more than you own")
+        return reductions
+    for source in source_types:
+        if source in item_entry:
+            from_source = item_entry[source]
+            if from_source >= amount:
+                reductions[source] = -amount
+                break
+            else:
+                reductions[source] = -from_source
+                amount -= from_source
+    return reductions
+
+def show_inventory(inventory: dict) -> list:
+    output = []
+    for name, entry in inventory.items():
+        output.append(f"{name} x{sum_sources(entry)}")
+    return output
+
+def sum_sources(entry: dict) -> int:
+    return sum([entry[source] for source in source_types if source in entry])
+
+async def check_for_char_with_end(ctx, name: str, mod = False, author_check = None) -> tuple[dict, any, InteractionCore]:
+    char_embed = discord.Embed()
+    command_name = ctx.command.qualified_name
+    core = InteractionCore(ctx, None, char_embed)
+    char_dict, core = await checkForChar(core, name, mod=mod, authorCheck=author_check)
+    if not core.isActive():
+        await core.send("Character search cancelled")
+        print(command_name)
+        ctx.command.reset_cooldown(ctx)
+        return None, char_embed, core
+    char_embed.clear_fields()
+    if core.hasError():
+        char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+        await core.send()
+        print(command_name)
+        ctx.command.reset_cooldown(ctx)
+        return None, char_embed, core
+    core.system = char_dict["System"]
+    return char_dict, char_embed, core
+
+
+# Background items: goes through each background and give extra items for inventory.
+async def select_inventory_choices(core: InteractionCore, startingOptions: list, inventory: dict, source: str):
+    embed = core.embed
+    remaining_options = startingOptions
+    while len(remaining_options) > 0:
+        e = remaining_options.pop()
+        for ek, ev in e.items():
+            choice_values = []
+            choice_keys = []
+            alpha_index = 0
+            choice_string = ""
+            if type(ev) == dict:
+                is_choice = "Choice" in ev
+                for key, value in ev.items():
+                    if key == "Choice":
+                        continue
+                    if is_choice:
+                        print(key, value)
+                        choice_keys.append(key)
+                        choice_values.append(value)
+                        choice_string += f"{alphaEmojis[alpha_index]}: {key}\n"
+                        alpha_index += 1
+                    else:
+                        remaining_options.append({key: value})
+            else:
+                choice_keys.append(ek)
+                choice_values.append(ev)
+            if len(choice_values) > 0:
+                # Lets user pick between top choices (ex. Game set or Musical Instrument. Then a followup choice.)
+                if len(choice_values) > 1:
+                    embed.add_field(name=f"{ek} lets you choose one.", value=choice_string, inline=False)
+                    await core.send()
+                    await core.message.add_reaction('❌')
+                    try:
+                        tReaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(core.message,
+                                                                                                          core.context.author,
+                                                                                                          alphaEmojis[
+                                                                                                              :alpha_index]),
+                                                          timeout=60)
+                    except asyncio.TimeoutError:
+                        core.cancel()
+                        return core, inventory
+                    else:
+                        await core.message.clear_reactions()
+                        if tReaction.emoji == '❌':
+                            core.cancel()
+                            return core, inventory
+                    top_values = choice_values[alphaEmojis.index(tReaction.emoji)]
+                    top_key = choice_keys[alphaEmojis.index(tReaction.emoji)]
+                else:
+                    top_values = choice_values[0]
+                    top_key = choice_keys[0]
+
+                if type(top_values) == int:
+                    if '[' in top_key and ']' in top_key:
+                        iType = top_key.split('[')
+                        invCollection = db.shop
+                        if 'Instrument' in iType[1]:
+                            found_options = list(invCollection.find({"System": core.system, "Type": {
+                                '$all': [re.compile(f".*{iType[1].replace(']', '')}.*")]}}))
+                        else:
+                            found_options = list(invCollection.find({"System": core.system, "Type": {
+                                '$all': [re.compile(f".*{iType[0]}.*"),
+                                         re.compile(f".*{iType[1].replace(']', '')}.*")]}}))
+                        found_options = list(filter(
+                            lambda c: 'Yklwa' not in c['Name'] and 'Light Repeating Crossbow' not in c[
+                                'Name'] and 'Double-Bladed Scimitar' not in c['Name'] and 'Oversized Longbow' not in c[
+                                          'Name'], found_options))
+                        found_options = sorted(found_options, key=lambda i: i['Name'])
+                        next_options = {"Choice": True}
+                        for item in found_options:
+                            next_options[item["Name"]] = 1
+                        for i in range(0, int(top_values)):
+                            remaining_options.append({top_key: next_options})
+                    else:
+                        add_to_inventory(inventory, top_key, top_values, source)
+                elif 'Pack' in top_key:
+                    remaining_options.append({top_key: top_values})
+                else:
+                    remaining_options.append({top_key: top_values})
+                embed.clear_fields()
+    return core, inventory
+
 def admin_or_owner():
     async def predicate(ctx):
         output = ctx.message.author.id in [220742049631174656, 203948352973438995] or (get(ctx.message.guild.roles, name = "A d m i n") in ctx.message.author.roles)
         return  output
     return commands.check(predicate)
+
+def convert_to_seconds(s):
+    seconds_per_unit = { "m": 60, "h": 3600 }
+    return int(s[:-1]) * seconds_per_unit[s[-1]]
+
+def find_matching(items: list[T], predicate: Callable[T, bool]) -> T:
+    return next((x for x in items if predicate(x)), None)
+
+def reaction_response_control(message, author, options: list, cancel=True):
+    def predicate(reaction, user):
+        same_message = False
+        if message.id == reaction.message.id:
+            same_message = True
+        return same_message and ((reaction.emoji in options) or (cancel and str(reaction.emoji) == '❌')) and user == author
+    return predicate
+
+def format_classname(name, character_class: dict):
+    if character_class["Subclass"]:
+        return f"{name} ({character_class['Subclass']}) "
+    return name
+
+def format_classes(classes: dict):
+    return '/'.join([f"{format_classname(name, entry)} {entry['Level']}" for name, entry in classes.items()])
+
 
 def uwuize(text):
     vowels = ['a','e','i','o','u']
@@ -98,14 +337,13 @@ async def noodleCheck(ctx, dmID):
     if dmUser:
         dmEntry = db.users.find_one({"User ID" : str(dmID)})
         noodles = dmEntry["Noodles"]
-        noodleString = ""
         noodle_name, noodle_data, _ =  findNoodleDataFromRoles(dmUser.roles)
         # for the relevant noodle role cut-off check if the user would now qualify for the role and if they do not have it and remove the old role
         next_name, next_data = findNoodleData(noodles)
         if noodle_name != next_name:
             noodleRole = get(guild.roles, name = next_name)
             await dmUser.add_roles(noodleRole, reason=f"Hosted {noodles} sessions. This user has {next_data['noodles']}+ Noodles.")
-            if noodle_name != None:
+            if noodle_name is not None:
                 await dmUser.remove_roles(get(guild.roles, name = noodle_name))
 
 async def confirm(msg, author):
@@ -122,7 +360,7 @@ async def texttest(msg, author):
     await msg.edit(view = None)
     return view.value
 
-async def disambiguate(options: int, msg, author, cancel=True, emojies = alphaEmojis):
+async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
     reaction_response_control(msg, author, emojies[:options])
     try:
         reaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
@@ -133,16 +371,6 @@ async def disambiguate(options: int, msg, author, cancel=True, emojies = alphaEm
         if reaction.emoji == '❌':
             return -1
     return emojies.index(reaction.emoji)
-
-
-def reaction_response_control(message, author, options: list, cancel=True):
-    def predicate(reaction, user):
-        same_message = False
-        if message.id == reaction.message.id:
-            same_message = True
-        return same_message and ((reaction.emoji in options) or (cancel and str(reaction.emoji) == '❌')) and user == author
-    return predicate
-
 
 def timeConversion (time,hmformat=False):
     hours = time//3600
@@ -169,7 +397,6 @@ color -> color for the embed, if one is given the embed will use that color
 footer -> custom footer message, is added to page text
 """    
 async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author = None, color= None, content="", footer=""):
-    
     # storage of the elements that will be displayed on a page
     entry_pages =[]
     
@@ -198,7 +425,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         
         # separate the text into different line sections until the full text has been split
         while(length>0):
-            
             if length>1000:
                 # get everything to the limit
                 section_text = text[:1000]
@@ -250,12 +476,6 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         embed.color = color
     if footer:
         embed.set_footer(text=f"{footer}")
-    # check that only original user can use the menu
-    def userCheck(r,u):
-        sameMessage = False
-        if msg.id == r.message.id:
-            sameMessage = True
-        return sameMessage and u == ctx.author and (r.emoji == left or r.emoji == right)
     page = 0
     #add the fields for the page
     for subtitle, section_text, inline in entry_pages[page]:
@@ -275,7 +495,7 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
         
         # wait for interaction
         try:
-            hReact, hUser = await bot.wait_for("reaction_add", check=userCheck, timeout=30.0)
+            hReact, hUser = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, [left, right]), timeout=30.0)
         # end if no reaction was given in time
         except asyncio.TimeoutError:
             await msg.edit(content=f"Your user menu has timed out! I'll leave this page open for you. If you need to cycle through the menu again then use the same command!")
@@ -305,6 +525,67 @@ async def paginate(ctx, bot, title, contents, msg=None, separator="\n", author =
             await msg.edit(embed=embed) 
             await msg.clear_reactions()
 
+
+async def paginate_options(core: InteractionCore, bot, title, options: list, content: str =""):
+    embed = discord.Embed()
+    embed.title = title
+    embed.description = content
+    author = core.context.author
+    
+    page = 0
+    per_page = 24
+    num_pages =((len(options) - 1) // per_page) + 1
+    need_pages = num_pages > 1
+    while True:
+        page_start = per_page*page
+        page_end = per_page * (page + 1)
+        alpha_index = 0
+        range_limit = page_end if page_end <= (len(options) - 1) else (len(options)) 
+        for i in range(page_start, range_limit):
+            embed.add_field(name=alphaEmojis[alpha_index], value=options[i], inline=True)
+            alpha_index+=1
+        if need_pages:
+            embed.set_footer(text= f"Page {page+1} of {num_pages} -- use {left} or {right} to navigate or ❌ to cancel.")
+        await core.send("", embed)
+        emotes = alphaEmojis[:alpha_index]
+        if need_pages:
+            await core.message.add_reaction(left) 
+            await core.message.add_reaction(right)
+            emotes.append(left)
+            emotes.append(right)
+        await core.message.add_reaction('❌')
+
+        try:
+            react, user = await bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, emotes), timeout=90.0)
+        except asyncio.TimeoutError:
+            core.cancel()
+            return core, -1 
+        else:
+            await core.message.clear_reactions()
+            if react.emoji == left:
+                page -= 1
+                if page < 0:
+                  page = num_pages - 1
+            elif react.emoji == right:
+                page += 1
+                if page > num_pages - 1: 
+                  page = 0
+            elif react.emoji == '❌':
+                core.cancel()
+                return core, -1
+            elif react.emoji in alphaEmojis:
+                break
+            embed.clear_fields()
+    return core, (page * per_page) + alphaEmojis.index(react.emoji)
+
+
+#sort elements by either the name, or the first element of the name list in case it is a list
+def sortingEntryAndList(elem):
+    if(isinstance(elem['Name'],list)): 
+        return elem['Name'][0] 
+    else:  
+        return elem['Name']
+
 """
 The purpose of this function is to do a general call to the database
 apiEmbed -> the embed element that the calling function will be using
@@ -312,25 +593,28 @@ apiEmbedmsg -> the message that will contain apiEmbed
 table -> the table in the database that should be searched in, most common tables are RIT, MIT and SHOP
 query -> the word which will be searched for in the "Name" property of elements, adjustments were made so that also a special property "Grouped" also gets searched
 """
-async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, tier=5, exact=False, filter_rit=True):
-    
+async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=False, filter_rit=True) -> tuple[dict, InteractionCore]:
+    ctx = core.context
     #channel and author of the original message creating this call
     channel = ctx.channel
     author = ctx.author
+    embed = core.embed
+    system = core.system
     
     #do nothing if no table is given
     if table is None:
-       return None, apiEmbed, apiEmbedmsg
+       return None, core
 
     collection = db[table]
+    filterDic = {"System" : system}
     
     #get the entire table if no query is given
     if query is None:
-        return list(collection.find()), apiEmbed, apiEmbedmsg
+        return list(collection.find(filterDic)), core
 
     #if the query has no text, return nothing
     if query.strip() == "":
-        return None, apiEmbed, apiEmbedmsg
+        return None, core
 
     #restructure the query to be more regEx friendly
     invalidChars = ["[", "]", "?", '"', "\\", "*", "$", "{", "}", "^", ">", "<", "|"]
@@ -338,7 +622,7 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
     for i in invalidChars:
         if i in query:
             await channel.send(f":warning: Please do not use `{i}` in your query. Revise your query and retry the command.\n")
-            return None, apiEmbed, apiEmbedmsg
+            return None, core
          
     query = query.strip()
     query = query.replace('(', '\\(')
@@ -351,39 +635,22 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
                   }
     if exact:
         query_data["$regex"] = f'^{query_data["$regex"]}$'
-        
+    #limit all queries to their system
     #search through the table for an element were the Name or Grouped property contain the query
     if table == "spells":
-        filterDic = {"Name": query_data}
+        filterDic["Name"] = query_data
     else:
-        filterDic = {"$or": [
-                            {
-                              "Name": query_data
-                            },
-                            {
-                              "Grouped": query_data
-                            }
-                        ]
-                    } 
+        filterDic["$or"] = [{"Name": query_data},
+                            {"Grouped": query_data}]
     if table == "rit" or table == "mit":
         filterDic['Tier'] = {'$lt':tier+1}
-    
-     
-    # Here lies MSchildorfer's dignity. He copy and pasted with abandon and wondered why
-    #  collection.find(collection.find(filterDic)) does not work for he could not read
-    # https://cdn.discordapp.com/attachments/663504216135958558/735695855667118080/New_Project_-_2020-07-22T231158.186.png
+    print(filterDic)
     records = list(collection.find(filterDic))
     
     #turn the query into a regex expression
     r = re.compile(query, re.IGNORECASE)
     #restore the original query
     query = query.replace("\\", "")
-    #sort elements by either the name, or the first element of the name list in case it is a list
-    def sortingEntryAndList(elem):
-        if(isinstance(elem['Name'],list)): 
-            return elem['Name'][0] 
-        else:  
-            return elem['Name']
     
     #create collections to track needed changes to the records
     remove_grouper = [] #track all elements that need to be removes since they act as representative for a group of items
@@ -422,16 +689,15 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
         all_minors = list([record["Name"] for record in filter(lambda record: record["Minor/Major"]== "Minor", records)])
         records = filter(lambda record: record["Minor/Major"]!= "Major" or record["Name"] not in all_minors, records)
 
-    
     #sort all items alphabetically 
     records = sorted(records, key = sortingEntryAndList)    
     #if no elements are left, return nothing
     if records == list():
-        return None, apiEmbed, apiEmbedmsg
+        return None, core
     else:
         #create a string to provide information about the items to the user
         infoString = ""
-        if (len(records) > 1):
+        if len(records) > 1:
             #sort items by tier if the magic item tables were requested
             if table == 'mit' or table == 'rit':
                 records = sorted(records, key = lambda i : i ['Tier'])
@@ -447,38 +713,36 @@ async def callAPI(ctx, apiEmbed="", apiEmbedmsg=None, table=None, query=None, ti
                     pass
                 else:
                     infoString += f"{alphaEmojis[i]}: {records[i]['Name']}\n"
-            apiEmbed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
+            core.embed.description =f"**There seems to be multiple results for `\"{query}\"`! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.**\n\n{infoString}"
             #inform the user of the current information and ask for their selection of an item
-            #apiEmbed.add_field(name=f"There seems to be multiple results for \"**{query}**\"! Please choose the correct one.\nThe maximum number of results shown is {queryLimit}. If the result you are looking for is not here, please react with ❌ and be more specific.", value=infoString, inline=False)
-            if not apiEmbedmsg or apiEmbedmsg == "Fail":
-                apiEmbedmsg = await channel.send(embed=apiEmbed)
-            else:
-                await apiEmbedmsg.edit(embed=apiEmbed)
-            choice = await disambiguate(min(len(records), queryLimit), apiEmbedmsg, author)
+            await core.send()
+            choice = await disambiguate(min(len(records), queryLimit), core.message, author)
             
             if choice is None or choice == -1:
-                await apiEmbedmsg.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
+                await core.message.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
                 ctx.command.reset_cooldown(ctx)
-                return None, apiEmbed, "Fail"
-            apiEmbed.clear_fields()
-            return records[choice], apiEmbed, apiEmbedmsg
+                core.cancel()
+                return None, core
+            core.embed.description = ""
+            embed.clear_fields()
+            return records[choice], core
 
         else:
             #if only 1 item was left, simply return it
-            return records[0], apiEmbed, apiEmbedmsg
+            return records[0], core
 
-async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False, customError=False, authorCheck=None):
-    channel = ctx.channel
-    author = ctx.author
-    guild = ctx.guild
-    if authorOverride != None:
+async def checkForChar(core: InteractionCore, char, authorOverride=None, mod: bool = False, authorCheck=None):
+    author = core.context.author
+    guild = core.context.guild
+    system = core.system
+    if authorOverride is not None:
         author = authorOverride
-        mod=False
+        mod = False
     search_author = author
-    if authorCheck != None:
+    if authorCheck is not None:
         search_author = authorCheck
-        mod=False
-    playersCollection = db.players
+        mod = False
+    players_collection = db.players
 
     query = char.strip()
     query = query.replace('(', '\\(')
@@ -496,45 +760,36 @@ async def checkForChar(ctx, char, charEmbed="", authorOverride=None,  mod=False,
                               "Nickname": query_data
                             }
                         ]
-                    } 
-    if mod == True:
-        charRecords = list(playersCollection.find(filterDic)) 
+                    }
+    if system is not None:
+        filterDic["System"] = system
+    if mod:
+        char_records = list(players_collection.find(filterDic))
     else:
         filterDic["User ID"] = str(search_author.id)
-        charRecords = list(playersCollection.find(filterDic))
-
-    if charRecords == list():
-        if not mod and not customError:
-            await channel.send(content=f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
-        ctx.command.reset_cooldown(ctx)
-        return None, None
-
+        char_records = list(players_collection.find(filterDic))
+    if char_records == list():
+        core.addError(f'I was not able to find your character named "**{char}**". Please check your spelling and try again.')
+        return None, core
     else:
-        if len(charRecords) > 1:
-            infoString = ""
-            
-            charRecords = sorted(list(charRecords), key = lambda i : i ['Name'])
-            for i in range(0, min(len(charRecords), 20)):
-                infoString += f"{alphaEmojis[i]}: {charRecords[i]['Name']} ({guild.get_member(int(charRecords[i]['User ID']))})\n"
-            
-            
-            charEmbed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=infoString, inline=False)
-            charEmbedmsg = await channel.send(embed=charEmbed)
-            choice = await disambiguate(min(len(charRecords), 20), charEmbedmsg, author)
-            
+        if len(char_records) > 1:
+            info_string = ""
+            char_records = sorted(list(char_records), key = lambda i : i ['Name'])
+            for i in range(0, min(len(char_records), 20)):
+                info_string += f"{alphaEmojis[i]}: {char_records[i]['System']} {char_records[i]['Name']} ({guild.get_member(int(char_records[i]['User ID']))})\n"
+            core.embed.add_field(name=f"There seems to be multiple results for \"`{char}`\"! Please choose the correct character. If you do not see your character here, please react with ❌ and be more specific with your query.", value=info_string, inline=False)
+            await core.send()
+            choice = await disambiguate(min(len(char_records), 20), core.message, author)
             if choice is None or choice == -1:
-                await charEmbedmsg.edit(embed=None, content=f"Character information cancelled. Try again using the same command!")
-                ctx.command.reset_cooldown(ctx)
-                return None, None
-            charEmbed.clear_fields()
-            return charRecords[choice], charEmbedmsg
+                core.cancel()
+                return None, core
+            core.embed.clear_fields()
+            return char_records[choice], core
+    return char_records[0], core
 
-    return charRecords[0], None
-
-async def checkForGuild(ctx, name, guildEmbed="" ):
+async def checkForGuild(ctx, name, guildEmbed=""):
     channel = ctx.channel
     author = ctx.author
-    guild = ctx.guild
 
     name = name.strip()
 
@@ -570,33 +825,20 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     # calculate the CP gained during the game
     cp = ((seconds) // 900) / 4
     cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus + tierOneDouble
-    
-    
     # calculate the CP with the bonuses included
     cp *= cp_multiplier
     
     gainedCP = cp
-    
-    #######role = role.lower()
-    
-    tier = 4
-    # calculate the tier of the rewards
-    if level < 5:
-        tier = 1
-    elif level < 11:
-        tier = 2
-    elif level < 17:
-        tier = 3
+
+    tier = determine_tier(level)
         
     # calculate how far into the current level CP the character is after the game
     leftCP = charcp
     gp= 0
     tp = {}
-    reached_tier_four = False
-    charLevel = level
-    levelCP = (((charLevel-5) * 10) + 16)
-    if charLevel < 5:
-        levelCP = ((charLevel -1) * 4)
+    levelCP = ((level-5) * 10) + 16
+    if level < 5:
+        levelCP = (level -1) * 4
         
     under_tier_four = levelCP + leftCP < cp_thresh_hold_array[2]
     consideredCP = 0
@@ -625,14 +867,14 @@ def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=Fa
     return [gainedCP, tp, gp]
 
 
-async def spell_item_search(ctx, search_parameter, item_type, charEmbed, charEmbedmsg, msg=""):    
+async def spell_item_search(core: InteractionCore, search_parameter, item_type):
     spellItem = search_parameter.lower().replace(item_type.lower(), "").replace('(', '').replace(')', '')
-    sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem) 
-    
+    sRecord, core = await callAPI(core, 'spells', spellItem)
+    if not core.isActive():
+        return None, None, core
     spell_item_name = ""
     if not sRecord :
-        msg += f'''**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.'''
-        
+        core.addError(f"\n**{search_parameter}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
     elif sRecord["Level"]==0:
         search_parameter = item_type +" (Cantrip)"
         spell_item_name = f"{item_type} ({sRecord['Name']})"
@@ -641,7 +883,30 @@ async def spell_item_search(ctx, search_parameter, item_type, charEmbed, charEmb
         # change the query to be an accurate representation
         search_parameter = f"{item_type} ({ordinal(sRecord['Level'])} Level)"
         spell_item_name = f"{item_type} ({sRecord['Name']})"
-    return search_parameter, spell_item_name, charEmbed, charEmbedmsg, msg
+    return search_parameter, spell_item_name, core
+
+async def find_reward_item(core: InteractionCore, item: str, level: int):
+    item_type = ""
+    if "spell scroll" in item.lower():
+        item_type = "Spell Scroll"
+    elif "spellwrought tattoo" in item.lower():
+        item_type = "Spellwrought Tattoo"
+    if item_type.lower() == item.lower().strip():
+        core.addError(f"Please be more specific with the type of spell scroll which you're purchasing. You must format {item_type} as follows: \"{item_type} (spell name)\".")
+        return None, core
+    tier = determine_tier(level)
+    if item_type:
+        item, spell_item_name, core = await spell_item_search(core, item, item_type)
+    item_record, core = await callAPI(core, 'rit', item, tier = tier, filter_rit = True)
+    
+    if not core.isActive():
+        return None, core
+    elif item_record is None:
+        core.addError(f" {item} belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.")
+    elif 'spell scroll' in item.lower() or "spellwrought tattoo" in item.lower():
+        item_record['Name'] = spell_item_name
+    return item_record, core
+
 
 class Util(commands.Cog):
     def __init__ (self, bot):

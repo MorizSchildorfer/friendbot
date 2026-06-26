@@ -14,16 +14,10 @@ class Help(commands.Cog):
         if ctx.channel.type == discord.ChannelType.private:
             await ctx.channel.send("Sorry, the `$help` command cannot be used in the DMs of the bot. Use one of the log channels on the D&D Friends Server")
             return
-        def helpCheck(r,u):
-            sameMessage = False
-            if helpMsg.id == r.message.id:
-                sameMessage = True
-            return (r.emoji in alphaEmojis[:numPages]) and u == ctx.author and sameMessage
-        bot = self.bot
+
         helpEmbedMenu = discord.Embed()
         helpEmbedGen = discord.Embed()
         helpEmbedChar = discord.Embed()
-        helpEmbedItems = discord.Embed() 
         helpEmbedTimerOne = discord.Embed()
         helpEmbedTimerTwo = discord.Embed()
         helpEmbedTimerThree = discord.Embed()
@@ -98,7 +92,7 @@ class Help(commands.Cog):
 
         helpEmbedGen.add_field(name=f'▫️ Creating and Viewing Your User Profile', value=f'{commandPrefix}user', inline=False)
 
-        helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}printRaces', inline=False)
+        helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}races "system"', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Calculating Rewards', value=f'{commandPrefix}reward XhYm tier', inline=False)
 
@@ -121,7 +115,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.title = 'Character Commands'
 
-        helpEmbedChar.add_field(name=f'▫️ Creating a Character', value=f'{commandPrefix}create "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Creating a Character', value=f'{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
 
         helpEmbedChar.add_field(name=f'▫️ Viewing a Character\'s Information', value=f'{commandPrefix}info "character name"\n[{commandPrefix}char, {commandPrefix}i]', inline=False)
 
@@ -131,7 +125,7 @@ class Help(commands.Cog):
 
         helpEmbedChar.add_field(name=f'▫️ Leveling Up', value=f'{commandPrefix}levelup "character name"\n[{commandPrefix}lvlup, {commandPrefix}lvl, {commandPrefix}lv]', inline=False)
 
-        helpEmbedChar.add_field(name=f'▫️ Creating a Multiclass Character', value=f'{commandPrefix}create "character name" total level "race" "class1 level / class2 level, [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
+        helpEmbedChar.add_field(name=f'▫️ Creating a Multiclass Character', value=f'{commandPrefix}create "system" "character name" total level "race" "class1 level / class2 level, [...]" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"', inline=False)
 
         helpEmbedChar.add_field(name=f'▫️ Respecing a Character', value=f'{commandPrefix}respec "character name" "new character name" "race" "class" "background" STR DEX CON INT WIS CHA', inline=False)
 
@@ -173,7 +167,7 @@ class Help(commands.Cog):
 
     # DM COMMANDS
 
-        helpEmbedTimerOne.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}timer prep "@player1, @player2, [...]" "quest name" #guild-channel-1 #guild-channel-2', inline=False)
+        helpEmbedTimerOne.add_field(name=f'▫️ Preparing the Timer (DM)', value=f'{commandPrefix}timer prep "system" "@player1, @player2, [...]" "quest name" #guild-channel-1 #guild-channel-2', inline=False)
 
         helpEmbedTimerOne.add_field(name=f'▫️ Adding Players to the Roster (DM)', value=f'{commandPrefix}timer add @player', inline=False)
 
@@ -236,7 +230,7 @@ class Help(commands.Cog):
     # DM COMMANDS
 
         helpEmbedTimerThree.add_field(name=f'▫️ Submitting a Session Log (DM)', value=f'{commandPrefix}session log gameID summary', inline=False)
-        helpEmbedTimerThree.add_field(name=f'▫️ Set Gold Modifier (DM)', value=f'{commandPrefix}session setGuild gameID percentage', inline=False)
+    #    helpEmbedTimerThree.add_field(name=f'▫️ Set Gold Modifier (DM)', value=f'{commandPrefix}session setGuild gameID percentage', inline=False)
 
         helpEmbedTimerThree.add_field(name=f'▫️ Approve Guild 2x Rewards (DM)', value=f'{commandPrefix}session approveRewards gameID #guild-channel', inline=False)
 
@@ -261,8 +255,6 @@ class Help(commands.Cog):
 
         helpEmbedTp.add_field(name=f'▫️ Memeing a Magic Item', value=f'{commandPrefix}tp meme "character name" "magic item"', inline=False)
 
-        helpEmbedTp.add_field(name=f'▫️ Discarding an Incomplete Magic Item', value=f'{commandPrefix}tp discard "character name"', inline=False)
-
         helpEmbedTp.add_field(name=f'▫️ Abandoning Leftover TP', value=f'{commandPrefix}tp abandon "character name" tier', inline=False)
 
         helpEmbedTp.add_field(name=f'▫️ Upgrading a Vestige of Divergence or Arm of the Betrayer', value=f'{commandPrefix}tp upgrade "character name" "item name"', inline=False)
@@ -272,7 +264,7 @@ class Help(commands.Cog):
 
         helpEmbedShop.title = 'Shop Commands'
         
-        helpEmbedShop.add_field(name=f'▫️ Looking for a Shop Item', value=f'{commandPrefix}shop browse/view/peruse', inline=False)
+        helpEmbedShop.add_field(name=f'▫️ Looking for a Shop Item', value=f'{commandPrefix}shop browse/view/peruse "system"', inline=False)
 
         helpEmbedShop.add_field(name=f'▫️ Buying a Shop Item', value=f'{commandPrefix}shop buy "character name" "item" #', inline=False)
 

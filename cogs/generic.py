@@ -7,15 +7,14 @@ import decimal
 import random
 import discord
 import asyncio
-from cogs.guild import pin_control
 from discord.utils import get        
 from discord.ext import commands
 from discord.errors import Forbidden
 from math import ceil, floor
 from itertools import product      
 from datetime import datetime, timezone,timedelta
-from bfunc import gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, roleArray, cp_bound_array, settingsRecord
-from cogs.util import callAPI, paginate, timeConversion, disambiguate, noodleCheck, noodleBarrier
+from bfunc import commandPrefix, timezoneVar, db, traceBack, settingsRecord
+from cogs.util import timeConversion, disambiguate, noodleCheck, noodleBarrier
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
@@ -43,9 +42,6 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, userDBEntriesDic=N
         return None
         
     # get the collections of characters
-    playersCollection = db.players
-    guildCollection = db.guilds
-    statsCollection = db.stats
     usersCollection = db.users
     
     players = sessionInfo["Players"] 
@@ -177,17 +173,20 @@ async def generateLog(self, ctx, num : int, sessionInfo=None, userDBEntriesDic=N
     # if no character signed up then the character parts are excluded
     sessionLogEmbed.add_field(value=f"{dm['Mention']}\n{noodleFinalString}", name=dm_name_text)
     await editMessage.edit(embed=sessionLogEmbed)
-    
-    pass
+
+    return None
+
+
+def is_log_channel():
+    async def predicate(ctx):
+        return ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"]
+    return commands.check(predicate)
+
 
 class GenericTimer(commands.Cog):
     def __init__ (self, bot):
         self.bot = bot
-       
-    def is_log_channel():
-        async def predicate(ctx):
-            return (ctx.channel.category_id == settingsRecord[str(ctx.guild.id)]["Mod Rooms"])
-        return commands.check(predicate)
+
     async def cog_command_error(self, ctx, error):
         msg = None
         if isinstance(error, commands.CommandNotFound):
@@ -1241,8 +1240,8 @@ Link: {editMessage.jump_url}
             playerRewards["Time Bank"] = timeBank
             playerRewards["Double"] = -1 * playerDouble
             data.append({'_id': playerDict['_id'], "fields": {"$inc": playerRewards}})
+        campaignCollection = db.campaigns
         if is_campaign_session(sessionInfo):
-            campaignCollection = db.campaigns
             # get the record of the campaign for the current channel
             campaignRecord = list(campaignCollection.find({"Channel ID": str(sessionInfo["Channel ID"])}))[0]
             campaignPath = "Campaigns."+campaignRecord["Name"]
@@ -1263,9 +1262,9 @@ Link: {editMessage.jump_url}
                 db.stats.update_one({"Life": 1}, {"$inc" : {"Campaigns" : 1}})
             for key in players.keys():
                 c = ctx.guild.get_member(int(key))
-                if(c):
+                if c:
                     try:
-                        if(key != dm["ID"]):
+                        if key != dm["ID"]:
                             await c.send(f"The session log for **{game}** has been approved. Time has been added to the Time Bank.")
                         else:
                             await c.send(f"Your session log for **{game}** has been approved. Time has been added to the Time Bank.")
@@ -1275,7 +1274,7 @@ Link: {editMessage.jump_url}
             logData.update_one({"_id": sessionInfo["_id"]}, {"$set" : {"Status": "Approved"}})
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
-            charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
+            await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
         else:
             sessionLogEmbed.set_footer(text=f"Game ID: {num}\n✅ Log approved! The DM has received their Noodle(s) and time and the players have received their time.")
             await editMessage.edit(embed=sessionLogEmbed)
@@ -1289,15 +1288,15 @@ Link: {editMessage.jump_url}
         sessionInfo = logData.find_one({"Log ID": int(num)})
         if not sessionInfo:
             return await ctx.channel.send("Session could not be found.") 
-        if "Type" not in sessionInfo or sessionInfo["Type"] == "5e":
+        if "Type" not in sessionInfo or sessionInfo["Type"] == "5E":
             await ctx.channel.send(f"Please use $session deny {num} instead")
-            return
+            return None
         if sessionInfo["Status"] == "Approved" or sessionInfo["Status"] == "Denied":
             await ctx.channel.send("This session has already been processed")
-            return
+            return None
         if ctx.message.author.id == int(sessionInfo["DM"]["ID"]):
             await ctx.channel.send("You cannot deny your own log.")
-            return
+            return None
         
         channel = self.bot.get_channel(sessionInfo["Log Channel ID"])
         try:
@@ -1387,16 +1386,16 @@ Link: {editMessage.jump_url}
     async def fanaticOpt(self, ctx, num : int, goal):
         logData =db.logdata
         sessionInfo = logData.find_one({"Log ID": int(num)})
-        if( sessionInfo):
-            if(sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied"):
-                if (ctx.author.id == sessionInfo["DM"]["ID"]):
+        if sessionInfo:
+            if sessionInfo["Status"] != "Approved" and sessionInfo["Status"] != "Denied":
+                if ctx.author.id == sessionInfo["DM"]["ID"]:
                     try:
                         db.logdata.update_one({"_id": sessionInfo["_id"]}, {"$set": {f"DM.Double": goal}})
                         await generateLog(self, ctx, num)
                         await ctx.channel.send("Log has been updated.")
                     except BulkWriteError as bwe:
                         print(bwe)
-                elif(str(ctx.author.id) in sessionInfo["Players"]):
+                elif str(ctx.author.id) in sessionInfo["Players"]:
                     try:
                         db.logdata.update_one({"_id": sessionInfo["_id"]}, {"$set": {f"Players.{str(ctx.author.id)}.Double": goal}})
                         await generateLog(self, ctx, num)

@@ -12,21 +12,43 @@ from itertools import product
 from discord.utils import get        
 from datetime import datetime, timezone,timedelta
 from discord.ext import commands
-from bfunc import numberEmojis, gameCategory, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, settingsRecord
-from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, uwuize, confirm, spell_item_search, findNoodleDataFromRoles, cp_bound_array
+from bfunc import numberEmojis, commandPrefix, roleArray, timezoneVar, currentTimers, db, traceBack, settingsRecord, alphaEmojis, settingsRecord
+from cogs.util import callAPI, checkForChar, disambiguate, timeConversion, noodle_roles, confirm, \
+    spell_item_search, findNoodleDataFromRoles, cp_bound_array, InteractionCore, determine_tier, find_matching, \
+    sum_sources, format_classes, reaction_response_control
 
 from pymongo import UpdateOne
 from cogs.logs import generateLog
 from pymongo.errors import BulkWriteError
 from cogs.reward import randomReward
 
-time_bonus = 3600 * 0
+time_bonus = 3600 * 3
 def lowerLimit(value):
     if value > 0:
-        value = max((value)//2, 1)
+        value = max(value // 2, 1)
     return value
+
 def blocking_type(item):
     return item["_id"]
+
+# the current counts of items rewarded
+def track_counts(item_to_count, counts):
+    if item_to_count['Minor/Major'] == 'Minor':
+        if item_to_count["Type"] == "Magic Items":
+            counts[0] += 1
+        else:
+            counts[1] += 1
+    elif item_to_count['Minor/Major'] == 'Major':
+        counts[2] += 1
+
+def balance_counts(counts, limits):
+    if counts[0] > limits[0]:
+        counts[1] += counts[0] - limits[0]
+        counts[0] = limits[0]
+    if counts[1] > limits[1]:
+        counts[2] += counts[1] - limits[1]
+        counts[1] = limits[1]
+    return counts
 
 class Timer(commands.Cog):
     def __init__ (self, bot):
@@ -66,7 +88,7 @@ class Timer(commands.Cog):
             
         if msg:
             if ctx.command.name == "prep":
-                msg +=  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
+                msg +=  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep "system" "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
             
             ctx.command.reset_cooldown(ctx)
             await ctx.channel.send(content=msg)
@@ -87,28 +109,16 @@ class Timer(commands.Cog):
     @commands.cooldown(1, float('inf'), type=commands.BucketType.channel) 
     @commands.has_any_role('D&D Friend', 'Campaign Friend')
     @timer.command()
-    async def prep(self, ctx, userList, game):
+    async def prep(self, ctx, system:str, userList: str, game: str):
         ctx.message.content = ctx.message.content.replace("“", "\"").replace("”", "\"")
-                
-        #this checks that only the author's response with one of the Tier emojis allows Tier selection
-        #the response is limited to only the embed message
-        def startEmbedcheck(r, u):
-            sameMessage = False
-            if  prepEmbedMsg.id == r.message.id:
-                sameMessage = True
-            return (r.emoji in alphaEmojis[:6] or str(r.emoji) == '❌') and u == author and sameMessage
         #simplifying access to various variables
         channel = ctx.channel
         author = ctx.author
         #the name shown on the server
         user = author.display_name
-        #the general discord name
-        userName = author.name
-        guild = ctx.guild
+        print("i am here")
         #information on how to use the command, set up here for ease of reading and repeatability
-        prepFormat =  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
-        #check if the current channel is a campaign channel
-        isCampaign = "campaign" in channel.category.name.lower()
+        prepFormat =  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep system "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
         #prevent the command if not in a proper channel (game/campaign)
         if channel.category.id != settingsRecord[str(ctx.guild.id)]["Game Rooms"]:
             #exception to the check above in case it is a testing channel
@@ -119,36 +129,49 @@ class Timer(commands.Cog):
                 await channel.send('Try this command in a game channel! ' + prepFormat)
                 #permit the use of the command again
                 self.timer.get_command('prep').reset_cooldown(ctx)
-                return
+                return None
+        system = system.strip().upper()
+        if system not in ["5E", "5R"]:
+            await channel.send(content=f":warning: Unknown System: {system}. Options: 5E, or 5R")
+            self.bot.get_command(command_name).reset_cooldown(ctx)
+            return None
+        if channel.category.id != settingsRecord[str(ctx.guild.id)]["Game Rooms"]:
+            #exception to the check above in case it is a testing channel
+            if not (str(channel.id) in settingsRecord['Test Channel IDs'] or channel.id in [728456736956088420, 757685149461774477, 757685177907413092]):
+                #inform the user of the correct location to use the command and how to use it
+                await channel.send('Try this command in a game channel! ' + prepFormat)
+                #permit the use of the command again
+                self.timer.get_command('prep').reset_cooldown(ctx)
+                return None
         #check if the userList was given in the proper way or if the norewards option was taken, this avoids issues with the game name when multiple players sign up
         if '"' not in ctx.message.content:
             #this informs the user of the correct format
             await channel.send(f"Make sure you put quotes **`\"`** around your list of players and retry the command!\n\n{prepFormat}")
             #permit the use of the command again
             self.timer.get_command('prep').reset_cooldown(ctx)
-            return
+            return None
 
-        #create an Embed object to use for user communication and information
-        prepEmbed = discord.Embed()
-        
         #check if the user mentioned themselves in the command, this is also meant to avoid having the user be listed twice in the roster below
         if author in ctx.message.mentions:
             #inform the user of the proper command syntax
             await channel.send(f"You cannot start a timer with yourself in the player list! {prepFormat}")
             self.timer.get_command('prep').reset_cooldown(ctx)
-            return 
-
-        # create a list of all expected players for the game so far, including the user who will always be the first 
+            return None
+        # create a list of all expected players for the game so far, including the user who will always be the first
         # element creating an invariant of the DM being the first element
         playerRoster = [author] + ctx.message.mentions
 
         # player limit + 1 (includes DM)
-        playerLimit = 7 + 1 
+        playerLimit = 7 + 1
 
         if len(playerRoster) > playerLimit:
             await channel.send(f'You cannot start a timer with more than {playerLimit - 1} players. Please try again.')
             self.timer.get_command('prep').reset_cooldown(ctx)
-            return
+            return None
+
+        # create an Embed object to use for user communication and information
+        prepEmbed = discord.Embed()
+        core: InteractionCore = InteractionCore(ctx, None, prepEmbed, system)
 
         # set up the user communication for tier selection, this is done even if norewards is selected
         prepEmbed.add_field(name=f"React with [0-5] for the tier of your quest: **{game}**.\n", 
@@ -163,12 +186,12 @@ class Timer(commands.Cog):
         # setup the variable to access the message for user communication
         
         #create the message to begin talking to the user
-        prepEmbedMsg = await channel.send(embed=prepEmbed)
-        choice = await disambiguate(6, prepEmbedMsg, author, emojies = numberEmojis)
+        await core.send()
+        choice = await disambiguate(6, core.message, author, emojies = numberEmojis)
         if choice is None or choice == -1:
-            await prepEmbedMsg.edit(embed=None, content=f"""Timer cancelled. {prepFormat}""")
+            await core.send(f"""Timer cancelled. {prepFormat}""")
             self.timer.get_command('prep').reset_cooldown(ctx)
-            return
+            return None
         #create the role variable for future use
         # the array is stored in bfunc and the options are 'New', 'Junior', 'Journey', 'Elite' and 'True' in this order
         role = roleArray[choice]
@@ -190,7 +213,7 @@ class Timer(commands.Cog):
         guildsList = []
         guildCategoryID = settingsRecord[str(ctx.guild.id)]["Guild Rooms"]
 
-        if (len(ctx.message.channel_mentions) > 2):
+        if len(ctx.message.channel_mentions) > 2:
             await channel.send(f"The number of guilds exceeds two. Please follow this format and try again:\n```yaml\n{commandPrefix}timer guild #guild1 #guild2```") 
         elif ctx.message.channel_mentions != list():
             for g in ctx.message.channel_mentions:
@@ -199,9 +222,6 @@ class Timer(commands.Cog):
                     
             if guildsList:
                 prepEmbed.description = f"**Guilds**: {', '.join([g.mention for g in guildsList])}\n\n{command_checklist_string}"
-
-        #setup a variable to store the string showing the current roster for the game
-        rosterString = ""
         #now go through the list of the user/DM and the initially given player list and build a string
         for p in playerRoster:
             #since the author is always the first entry this if statement could be extracted, but the first element would have to be skipped
@@ -214,15 +234,8 @@ class Timer(commands.Cog):
                 prepEmbed.add_field(name=p.display_name, value='Has not yet signed up for the campaign.', inline=False)
         #set up a field to inform the DM on how to start the timer or how to get help with it
         prepEmbed.set_footer(text= f"Use the following command to see a list of timer commands: {commandPrefix}help timer")
+        await core.send()
 
-        # if it is a campaign or the previous message somehow failed then the prepEmbedMsg would not exist yet send we now send another message
-        if not prepEmbedMsg:
-            prepEmbedMsg = await channel.send(embed=prepEmbed)
-        else:
-            #otherwise we just edit the contents
-            await prepEmbedMsg.edit(embed=prepEmbed)
-        
-        
         # create a dictionary of all player and characters they have signed up with
         # this is a nested list where the contained entries are [member object, DB character entry, Consumable list for the game, character DB ID]
         # currently this starts with a dummy initial entry for the DM to enable later users of these entries in the code
@@ -237,7 +250,7 @@ class Timer(commands.Cog):
                                 "Inventory": {"Add": [], "Remove": []},
                                 "Magic Items": []},
                             "Game" : game,
-                            "Type" : "5e",
+                            "Type" : system,
                             "Role" : role,
                             "Guilds" : guildsList,
                             "Started": False}
@@ -275,10 +288,10 @@ class Timer(commands.Cog):
                 # special behavior:
                 playerChar = None
                 if msg.author in playerRoster and msg.author == author:
-                    playerChar = await self.signup(ctx, char=msg, author=author, role='DM') 
+                    playerChar = await self.signup(core, char=msg, author=author, role='DM')
                 # allow for people in the roster to sign up with their characters
                 elif msg.author in playerRoster:
-                    playerChar = await self.signup(ctx, char=msg, author=msg.author, role=role)
+                    playerChar = await self.signup(core, char=msg, author=msg.author, role=role)
                 # if the message author has not been permitted to the game yet, inform them of such
                 # a continue statement could be used to skip the following if statement
                 else:
@@ -292,7 +305,7 @@ class Timer(commands.Cog):
                     # this check is meant to see if the player who is signing up is the DM
                     # Since the DM is always the front element this check will always work and 
                     if playerRoster.index(playerChar["Member"]) == 0:
-                        #update the the specific info about the DM sign up
+                        #update the specific info about the DM sign up
                         prepEmbed.set_field_at(0, name=f"{author.display_name} **(DM)**", value= f"***{playerChar['Character']['Name']}*** will receive DM rewards.", inline=False)
                         # with the dummy element can now be replaced with a more straight forward check
                         signedPlayers["DM"] = playerChar
@@ -300,10 +313,10 @@ class Timer(commands.Cog):
                         consumables_string = "None"
                         if playerChar['Brought']:
                             consumables_string = ', '.join(playerChar['Brought']).strip()
-                        prepEmbed.set_field_at(playerRoster.index(playerChar['Member']), name=f"{playerChar['Character']['Name']}", value= f"{playerChar['Member'].mention}\nLevel {playerChar['Character']['Level']}: {playerChar['Character']['Race']} {playerChar['Character']['Class']}\nConsumables: {consumables_string}\n", inline=False)
+                        prepEmbed.set_field_at(playerRoster.index(playerChar['Member']), name=f"{playerChar['Character']['Name']}", value= f"{playerChar['Member'].mention}\nLevel {playerChar['Character']['Level']}: {playerChar['Character']['Race']} {format_classes(playerChar['Character']['Class'])}\nConsumables: {consumables_string}\n", inline=False)
                         signedPlayers["Players"][msg.author.id] = playerChar
 
-            elif (msg.content.startswith(f"{commandPrefix}timer add ") or msg.content.startswith(f"{commandPrefix}t add ")):
+            elif msg.content.startswith(f"{commandPrefix}timer add ") or msg.content.startswith(f"{commandPrefix}t add "):
                 if await self.permissionCheck(msg, author):
                     if len(playerRoster) + 1 > playerLimit:
                         await channel.send(f'You cannot add more than {playerLimit - 1} players to the timer.')
@@ -326,7 +339,7 @@ class Timer(commands.Cog):
                             if error_users:
                                 await channel.send(f'These players are already on the timer: ***{", ".join(error_users)}***')
 
-            elif (msg.content.startswith(f"{commandPrefix}timer remove ") or msg.content.startswith(f"{commandPrefix}t remove ")) :
+            elif msg.content.startswith(f"{commandPrefix}timer remove ") or msg.content.startswith(f"{commandPrefix}t remove "):
                 if await self.permissionCheck(msg, author):
                     removeList = msg.mentions
                     if len(removeList) == 0:
@@ -347,25 +360,23 @@ class Timer(commands.Cog):
                                     await channel.send('You cannot remove yourself from the timer.')
 
             #the command that starts the timer, it does so by allowing the code to move past the loop
-            elif (msg.content == f"{commandPrefix}timer start" or msg.content == f"{commandPrefix}t start"):
+            elif msg.content == f"{commandPrefix}timer start" or msg.content == f"{commandPrefix}t start":
                 if await self.permissionCheck(msg, author):
                     if len(signedPlayers["Players"]) == -1:
                         await channel.send(f'There are no players signed up! Players, use the following command to sign up to the quest with your character before the DM starts the timer:\n```yaml\n{commandPrefix}timer signup```') 
                     else:
                         signedPlayers["Started"] = True
             #the command that cancels the timer, it does so by ending the command all together                              
-            elif (msg.content == f"{commandPrefix}timer cancel" or msg.content == f"{commandPrefix}t cancel"):
+            elif msg.content == f"{commandPrefix}timer cancel" or msg.content == f"{commandPrefix}t cancel":
                 if await self.permissionCheck(msg, author):
                     await channel.send(f'Timer cancelled! If you would like to prep a new quest {prepFormat.lower()}') 
                     # allow the call of this command again
                     self.timer.get_command('prep').reset_cooldown(ctx)
-                    return
-
-            elif (msg.content.startswith(f'{commandPrefix}timer guild') or msg.content.startswith(f'{commandPrefix}t guild')):
+                    return None
+            elif msg.content.startswith(f'{commandPrefix}timer guild') or msg.content.startswith(f'{commandPrefix}t guild'):
                 if await self.permissionCheck(msg, author):
                     guildCategoryID = settingsRecord[str(ctx.guild.id)]["Guild Rooms"]
-
-                    if (len(msg.channel_mentions) > 2):
+                    if len(msg.channel_mentions) > 2:
                         await channel.send(f"The number of guilds exceeds two. Please follow this format and try again:\n```yaml\n{commandPrefix}timer guild #guild1 #guild2```") 
                     else:
                         guildsList = msg.channel_mentions
@@ -378,29 +389,24 @@ class Timer(commands.Cog):
                         if not invalidChannel:
                             signedPlayers["Guilds"] = guildsList
                             prepEmbed.description = f"**Guilds**: {', '.join([g.mention for g in signedPlayers['Guilds']])}\n\n{command_checklist_string}"
-
-            await prepEmbedMsg.delete()
-            prepEmbedMsg = await channel.send(embed=prepEmbed)
-        await self.start(ctx, signedPlayers)
-
+            await core.delete()
+            await core.send()
+        await self.start(core, signedPlayers)
+        return None
 
     """
     This is the command used to allow people to enter their characters into a game before the timer starts
     char is a message object which makes the default value of "" confusing as a mislabel of the object
     role is a string indicating which tier the game is for or if the player signing up is the DM
     """
-    #@timer.command()
-    async def signup(self,ctx, char="", author="", role=""):
+    async def signup(self, main_core, char, author, role: str):
         #check if the command was called using one of the permitted other commands
         # set up a informative error message for the user
         signupFormat = f'Please follow this format:\n```yaml\n{commandPrefix}timer signup "character name" "consumable1, consumable2, [...]"```'
         # create an embed object
         charEmbed = discord.Embed()
-        # set up the variable for the message for charEmbed
-        charEmbedmsg = None
         #get quicker access to some variables from the context
-        channel = ctx.channel
-        guild = ctx.guild
+        channel = main_core.context.channel
         # set up the string for the consumables list
         consumablesList = ""
         # check if the entire message was just one of the triggering commands which indicates a lack of character
@@ -420,10 +426,8 @@ class Timer(commands.Cog):
                     charList = shlex.split(char.content.split(f'{commandPrefix}t signup ')[1].strip())
                 # since the character is the first parameter after the command name this will get the char name
                 charName = charList[0]
-
             else:
             # this is a similar process to above but with the added adjustment that a player name is also included
-            
                 if 'timer add ' in char.content or 't add ' in char.content:
                     if 'timer add ' in char.content:
                         charList = shlex.split(char.content.split(f'{commandPrefix}timer add ')[1].strip())
@@ -432,8 +436,8 @@ class Timer(commands.Cog):
                     # since two parameters are needed for 'add' we need to inform the user
                     if len(charList) == 1:
                         # again block repeat messages in case of a resume command, the check is different for some reason
-                        await ctx.channel.send("You're missing a character name for the player you're trying to add. Please try again.")
-                        return
+                        await main_core.channel.send("You're missing a character name for the player you're trying to add. Please try again.")
+                        return False
                     # in this case the character name is the second parameter
                     charName = charList[1]
                 # this is the exact same set up as for signup, since a person is adding themselves only one parameter is expected
@@ -444,40 +448,36 @@ class Timer(commands.Cog):
                     charList = shlex.split(char.content.split(f't addme ')[1].strip())
                     charName = charList[0]
                 else:
-                    await ctx.channel.send("I wasn't able to add this character. Please check your format.")
-                    return
+                    await main_core.channel.send("I wasn't able to add this character. Please check your format.")
+                    return False
         except ValueError as e:
-            await ctx.channel.send("Something was off with your character name. Did you miss a quotation mark?")
-            return
+            await main_core.channel.send("Something was off with your character name. Did you miss a quotation mark?")
+            return False
         # if the last parameter is not the character name then we know that the player registered consumables
         if charList[len(charList) - 1] != charName:
             # consumables are separated by ','
             consumablesList = list(map(lambda x: x.strip(), charList[len(charList) - 1].split(',')))
-
-
         # use the bfunc function checkForChar to handle character selection, gives us the DB entry of the character
-        cRecord, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, authorOverride = author, customError=True)
+        core: InteractionCore = InteractionCore(main_core.context, None, charEmbed, main_core.system)
+        cRecord, core = await checkForChar(core, charName, authorOverride = author)
         
         if not cRecord:
             await channel.send(content=f'I was not able to find the character "***{charName}***"!\n\n{signupFormat}')
             return False
-
-        if charEmbedmsg:
-            await charEmbedmsg.delete()
+        await core.delete()
 
         if 'Death' in cRecord:
             await channel.send(content=f'You cannot sign up with ***{cRecord["Name"]}*** because they are dead. Please use the following command to resolve their death:\n```yaml\n{commandPrefix}death {cRecord["Name"]}```')
-            return False 
-
+            return False
         elif 'Respecc' in cRecord:
-            await channel.send(content=f'You cannot sign up with ***{cRecord["Name"]}*** because they need to respec. Please use the following command to resolve their death:\n```yaml\n{commandPrefix}respec {cRecord["Name"]} "new character name" "race" "class1 level / class2 level / class3 level / class4 level" "background" STR DEX CON INT WIS CHA```')
+            await channel.send(content=f'You cannot sign up with ***{cRecord["Name"]}*** because they need to respec. Please use the following command to repsec:\n```yaml\n{commandPrefix}respec {cRecord["Name"]} "new character name" "race" "class1 level / class2 level / class3 level / class4 level" "background" STR DEX CON INT WIS CHA```')
             return False 
         # check if there is any record of a game in charRecords
         elif 'GID' in cRecord:
             await channel.send(content=f'You cannot sign up with ***{cRecord["Name"]}*** because they have not received their rewards from their last quest. Please wait until the session log has been approved.')
             return False    
         # get how much CP the character has and how much they need
-        cpSplit = cRecord['CP']
+        cp = cRecord['CP']
         validLevelStart = 1
         validLevelEnd = 1
         charLevel = cRecord['Level']
@@ -497,17 +497,10 @@ class Timer(commands.Cog):
         elif role == "New":
             validLevelEnd = 4
         elif role == "DM":
-            validLevelEnd = 20
+            validLevelEnd = 99
         
         # calculate the tier of the rewards
-        if charLevel < 5:
-            tierNum = 1
-        elif charLevel < 11:
-            tierNum = 2
-        elif charLevel < 17:
-            tierNum = 3
-        else:
-            tierNum = 4
+        tierNum = determine_tier(charLevel)
         
         # block a character with an invalid level for the tier and inform the user
         if charLevel < validLevelStart or charLevel > validLevelEnd:
@@ -515,7 +508,7 @@ class Timer(commands.Cog):
             return False 
 
         # if the character has more cp than needed for a level up, they need to perform that level up first so we block the command
-        if charLevel <20 and cpSplit >= cp_bound_array[tierNum-1][0]:
+        if charLevel < 20 and cp >= cp_bound_array[tierNum-1][0]:
             await channel.send(content=f'You need to level up ***{cRecord["Name"]}*** before they can join the quest! Use the following command to level up:\n```yaml\n{commandPrefix}levelup "character name"```')
             return False 
 
@@ -523,28 +516,19 @@ class Timer(commands.Cog):
         # there is also a special block for DMs since they can't use consumables
         if consumablesList and role != "DM":
             #get all consumables the character has
-            charConsumables = {}
-            for c in cRecord['Consumables'].split(', '):
-                if c not in charConsumables:
-                    charConsumables[c] = 1
-                else:
-                    charConsumables[c] += 1
-
-            
+            charConsumables = {key: sum_sources(record) for key, record in cRecord['Consumables'].items()}
             gameConsumables = []
-            notValidConsumables = ""
+            invalid_consumables = ""
             # This sets up how many consumables are permitted based on the character level
-            consumableLength = 2 + (charLevel-1)//4
-            if("Ioun Stone (Mastery)" in cRecord['Magic Items']):
-                consumableLength += 1
+            consumable_limit = 2 + (charLevel-1)//4
+            if "Ioun Stone (Mastery)" in cRecord['Magic Items']:
+                consumable_limit += 1
             # block the command if more consumables than allowed (limit or available) are being registed
-            if len(consumablesList) > consumableLength:
-                await channel.send(content=f'You are trying to bring in too many consumables (**{len(consumablesList)}/{consumableLength}**)! The limit for your character is **{consumableLength}**.')
+            if len(consumablesList) > consumable_limit:
+                await channel.send(content=f'You are trying to bring in too many consumables (**{len(consumablesList)}/{consumable_limit}**)! The limit for your character is **{consumable_limit}**.')
                 return False
             
             #loop over all consumable pairs and check if the listed consumables are in the inventory
-
-           
             # consumablesList is the consumable list the player intends to bring
             # charConsumables are the consumables that the character has available.
             # gameConsumables are the final list of consumables characters are bringing
@@ -557,18 +541,12 @@ class Timer(commands.Cog):
                             charConsumables[jk] -= 1
                             itemFound = True
                             break
-
                 if not itemFound:
-                    notValidConsumables += f"`• {i.strip()}`\n"
-                    
-
+                    invalid_consumables += f"`• {i.strip()}`\n"
             # if there were any invalid consumables, inform the user on which ones cause the issue
-            if notValidConsumables:
-                await channel.send(f"These items were not found in your character's inventory:\n{notValidConsumables}")
+            if invalid_consumables:
+                await channel.send(f"These items were not found in your character's inventory:\n{invalid_consumables}")
                 return False
-            # If no consumables were listed, create a special entry
-            if not gameConsumables:
-                gameConsumables = []
             # this sets up the player list of the game, it stores who it is, all the consumables and which character they are using and their stuff
             return {"Member" : author, 
                                 "Character": cRecord,
@@ -587,8 +565,6 @@ class Timer(commands.Cog):
                     "Inventory": {"Add": [], "Remove": []},
                     "Magic Items": []}
 
-
-
     """
     This command is used to remove consumables during play time
     msg -> the msg that caused the invocation
@@ -600,7 +576,6 @@ class Timer(commands.Cog):
         # extract the name of the consumable and transform it into a standardized format
         searchQuery =  msg.content.split('-')[1].strip()
         searchItem = searchQuery.lower().replace(' ', '')
-        removedItem = ""  
         if msg.author.id not in userInfo["Players"]:
             await channel.send(f"Looks like you were trying to remove **{searchItem}** from your inventory. I could not find you on the timer to do that.")
             return userInfo
@@ -650,7 +625,6 @@ class Timer(commands.Cog):
             player["Character"][item_type][item_name] -= 1
         player[item_type]["Remove"].append(item_name)
         await channel.send(f"The item **{item_name}** has been removed from your inventory.")
-
         # this variable is set when the user is found, thus this shows that the player was not on the timer
         return userInfo
     
@@ -659,7 +633,7 @@ class Timer(commands.Cog):
     msg -> the msg that caused the invocation
     userInfo -> a dictionary of strings and player list pairs, the strings are made out of the kind of reward and the duration and the value is a list of players entries (format can be found as the return value in signup)
     """
-    async def undoConsumables(self, ctx, msg=None, userInfo=None): 
+    async def undoConsumables(self, ctx, msg=None, userInfo=None):
         channel = ctx.channel
         if msg and msg.mentions:
             for player in msg.mentions:
@@ -688,8 +662,8 @@ class Timer(commands.Cog):
     This command handles all the intial setup for a running timer
     this includes setting up the tracking variables of user playing times,
     """
-    #@timer.command()
-    async def start(self, ctx, userInfo):
+    async def start(self, core: InteractionCore, userInfo):
+        ctx = core.context
         # access the list of all current timers
         # this is used to enable the list command and as a management tool for seeing if the timers are working
         #global currentTimers
@@ -704,7 +678,7 @@ class Timer(commands.Cog):
         userInfo["DM"]["Noodle"] = 'Junior Noodle'
 
         noodle_name, noodle_data, noodle_role = findNoodleDataFromRoles(userInfo["DM"]["Member"].roles)
-        if noodle_name != None:
+        if noodle_name is not None:
             userInfo["DM"]["Noodle"] = noodle_name
         
         # get the current time for tracking the duration
@@ -735,11 +709,11 @@ class Timer(commands.Cog):
         currentTimers[channel.mention] = userInfo
         
         # set up an embed object for displaying the current duration, help info and DM data
-        stampEmbed = discord.Embed()
+        stampEmbed = core.embed
+        stampEmbed.clear_fields()
         stampEmbed.title = f'**{game}**: 0 Hours 0 Minutes\n'
         stampEmbed.set_footer(text=f'#{ctx.channel}\nUse the following command to see a list of running timer commands: $help timer2')
         stampEmbed.set_author(name=f'DM: {userName}', icon_url=author.display_avatar)
-
         
         # for every player check their consumables and create a field in the embed to display them
         # this field also show the charater name
@@ -749,12 +723,12 @@ class Timer(commands.Cog):
                 consumablesString = "\nConsumables: " + ', '.join(u["Brought"])
             stampEmbed.add_field(name=f"**{u['Member'].display_name}**", value=f"**{u['Character']['Name']}**{consumablesString}\n", inline=False)
         
-        stampEmbedmsg = await channel.send(embed=stampEmbed)
+        await core.send()
 
         userInfo["DDMRW"] = settingsRecord["ddmrw"]
         userInfo["T1RW"] = settingsRecord["t1rw"]
         # During Timer
-        await self.duringTimer(ctx, userInfo, stampEmbed, stampEmbedmsg)
+        await self.during_timer(core, userInfo)
         
         # allow the creation of a new timer
         self.timer.get_command('prep').reset_cooldown(ctx)
@@ -765,12 +739,13 @@ class Timer(commands.Cog):
     """
     userInfo -> a dictionary of strings and player list pairs, the strings are made out of the kind of reward and the duration and the value is a list of players entries (format can be found as the return value in signup)
     """    
-    async def reward(self,ctx,msg, userInfo="", exact=False):
+    async def reward(self, main_core: InteractionCore, msg, userInfo, exact=False):
         # get the list of people receiving rewards
         rewardList = msg.mentions
+        ctx = main_core.context
         # create an embed text object
         charEmbed = discord.Embed()
-        charEmbedmsg = None
+        core : InteractionCore = InteractionCore(ctx, None, charEmbed, main_core.system)
         dmChar = userInfo["DM"]
         # if nobody was listed, inform the user
         if rewardList == list():
@@ -802,7 +777,6 @@ class Timer(commands.Cog):
             if userFound:
                 if '"' in msg.content:
                     consumablesList = msg.content.split('"')[1::2][0].split(', ')
-
                 else:
                     await ctx.channel.send(content=f'You need to include quotes around the reward item in your command. Please follow this format and try again:\n```yaml\n{commandPrefix}timer reward @player "reward item1, reward item2, [...]"```')
                     return userInfo
@@ -811,27 +785,10 @@ class Timer(commands.Cog):
                     playtime = player["Duration"] + time_bonus
                     if player["State"] in ["Full", "Partial"] and not userInfo["Paused"]:
                         playtime += cur_time - player["Latest Join"]
-                    if (playtime)//3600 >= 3:
+                    if playtime //3600 >= 3:
                         half_reward_time_count += 1
                     
                 charLevel = user_dic["Character"]["Level"]
-                # the current counts of items rewarded
-                def track_counts(item_to_count, counts):
-                    if item_to_count['Minor/Major'] == 'Minor':
-                        if (item_to_count["Type"] == "Magic Items"):
-                            counts[0] += 1
-                        else:
-                            counts[1] += 1
-                    elif item_to_count['Minor/Major'] == 'Major':
-                        counts[2] += 1
-                def balance_counts(counts, limits):
-                    if counts[0] > limits[0]:
-                        counts[1] += counts[0] - limits[0]
-                        counts[0] = limits[0]
-                    if counts[1] > limits[1]:
-                        counts[2] += counts[1] - limits[1]
-                        counts[1] = limits[1]
-                    return counts
                 
                 item_rewards = []
                 for player in userInfo["Players"].values():
@@ -844,8 +801,7 @@ class Timer(commands.Cog):
                     track_counts(x, dm_reward_counts)
                 for x in item_rewards:
                     track_counts(x, player_reward_counts)
-                
-                totalDurationTimeMultiplier = int(totalDurationTime // 180)
+
                 # set up the total reward item limits based on noodle roles
                 # check out hosting-a-one-shot for details
                 # Minor limit is the total sum of rewards allowed
@@ -855,14 +811,7 @@ class Timer(commands.Cog):
                     dm_item_limits = noodle_roles[dmChar["Noodle"]]["dm_item_rewards"]
                     player_item_limits = noodle_roles[dmChar["Noodle"]]["player_item_rewards"]
                 
-                tierNum=4
-                # calculate the tier of the rewards
-                if charLevel < 5:
-                    tierNum = 1
-                elif charLevel < 11:
-                    tierNum = 2
-                elif charLevel < 17:
-                    tierNum = 3
+                tierNum = determine_tier(charLevel)
                     
                 if half_reward_time_count < 2:
                     dm_item_limits = [lowerLimit(x) for x in dm_item_limits]
@@ -872,7 +821,7 @@ class Timer(commands.Cog):
                 item_list = []
                 blocking_list_additions = []
                 for query in consumablesList:
-                    # if the player is getting a spell scoll or tattoo then we need to determine which spell they are going for
+                    # if the player is getting a spell scroll or tattoo then we need to determine which spell they are going for
                     # we do this by searching in the spell table instead
                     item_type = ""
                     if "spell scroll" in query.lower():
@@ -884,33 +833,29 @@ class Timer(commands.Cog):
                         await ctx.channel.send(msg)
                         return userInfo
                     if item_type:
-                        query, spell_item_name, charEmbed, charEmbedmsg, msg = await spell_item_search(ctx, query, item_type, charEmbed, charEmbedmsg, "")
+                        query, spell_item_name, core = await spell_item_search(main_core, query, item_type)
                         # if no spell was found then we inform the user of the failure and stop the command
-                        if msg:
-                            await ctx.channel.send(msg)
+                        if core.hasError():
+                            await ctx.channel.send(core.showErrors())
                             return userInfo
-                    
 
+                    print("query", query)
                     # search for the item in the DB with the function from bfunc
                     # this does disambiguation already so if there are multiple results for the item they will have already selected which one specifically they want
-                    rewardConsumable, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg ,'rit',query, tier=tierNum, exact=exact) 
-                
+                    rewardConsumable, core = await callAPI(core ,'rit',query, tier=tierNum, exact=exact)
+                    print("rewardConsumable", rewardConsumable)
                     #if no item could be found, return the unchanged parameters and inform the user
                     if not rewardConsumable:
                         await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
                         return userInfo
                     else:
-                        rewardConsumable_group_type = "Name"
-                        if "Grouped" in rewardConsumable:
-                           rewardConsumable_group_type = "Grouped"
                         # check if the item has already been rewarded to the player
                         if (rewardConsumable["_id"] in used_item_ids or
                             rewardConsumable["_id"] in blocking_list_additions):
                             # inform the user of the issue
                             await ctx.channel.send(f"You cannot award the more than one of the same reward item. Please choose a different reward item.")
                             # return unchanged parameters
-                            return userInfo 
-                        
+                            return userInfo
                             
                         # increase the appropriate counters based on what the reward is and who is receiving it
                         counts_for_limits = player_reward_counts
@@ -921,12 +866,11 @@ class Timer(commands.Cog):
                         
                         track_counts(rewardConsumable, counts_for_limits)
                         counts_for_limits = balance_counts(counts_for_limits, limits)
-                        
-                        # set up error messages based on the allowed item counts inserted appropriately
-                        rewardMajorErrorString = f"You cannot award any more **{rewardConsumable['Minor/Major']}** reward items.\n```md\nTotal attempted to reward so far:\n({counts_for_limits[2]}/{limits[2]}) Major Rewards \n({counts_for_limits[1]}/{limits[1]}) Minor Rewards\n({counts_for_limits[0]}/{limits[0]}) Non-Consumables Rewards```"
-                        
-                        if (counts_for_limits[2] > limits[2]):
-                            await ctx.channel.send(rewardMajorErrorString)
+
+                        if counts_for_limits[2] > limits[2]:
+                            # set up error messages based on the allowed item counts inserted appropriately
+                            reward_major_error_string = f"You cannot award any more **{rewardConsumable['Minor/Major']}** reward items.\n```md\nTotal attempted to reward so far:\n({counts_for_limits[2]}/{limits[2]}) Major Rewards \n({counts_for_limits[1]}/{limits[1]}) Minor Rewards\n({counts_for_limits[0]}/{limits[0]}) Non-Consumables Rewards```"
+                            await ctx.channel.send(reward_major_error_string)
                             return userInfo
                             
                         # If it is a spell scroll, since we search for spells, we need to adjust the name
@@ -938,7 +882,7 @@ class Timer(commands.Cog):
                 
                 # add all awarded items to the players reward tracker
                 for key, items in character_add.items():
-                    if(key == "Magic Items"):
+                    if key == "Magic Items":
                         user_dic[key] += items
                     else:
                         user_dic[key]["Add"] += items
@@ -946,7 +890,6 @@ class Timer(commands.Cog):
                 player_reward_counts = balance_counts(player_reward_counts, player_item_limits)
                 # on completion inform the users that of the success and of the current standings with rewards
                 await ctx.channel.send(content=f"You have awarded ***{rewardUser.display_name}*** the following reward items: **{', '.join(item_list)}**.\n```md\nTotal rewarded so far:\n({player_reward_counts[2]}/{player_item_limits[2]}) Major Rewards \n({player_reward_counts[1]}/{player_item_limits[1]}) Minor Rewards\n({player_reward_counts[0]}/{player_item_limits[0]}) Non-Consumables Rewards\nDM Items\n({dm_reward_counts[2]}/{dm_item_limits[2]}) Major Rewards \n({dm_reward_counts[1]}/{dm_item_limits[1]}) Minor Rewards\n({dm_reward_counts[0]}/{dm_item_limits[0]}) Non-Consumables Rewards```")
-                
             else:
                 await ctx.channel.send(content=f"***{rewardUser}*** is not on the timer to receive rewards.")
         return userInfo
@@ -957,132 +900,84 @@ class Timer(commands.Cog):
     msg -> the message that caused the invocation, used to find the name of the character being added
     user -> the user being added, required since this command is invoked by add as well where the author is not the user necessarily
     """
-    #@timer.command()
-    async def addme(self,ctx, msg=None, userInfo="", user=""):
+    async def addme(self, main_core: InteractionCore, msg, user_info, user):
         # user found is used to check if the user can be found in one of the current entries in start
-        userFound = user.id in userInfo["Players"]
+        userFound = user.id in user_info["Players"]
         # the user to add
         addUser = user
-        channel = ctx.channel
-        dmChar = userInfo["DM"]
+        channel = main_core.context.channel
+        dmChar = user_info["DM"]
         # Check if the player that will be added will exceed the player limit
-        playerCount = len(userInfo["Players"])
+        playerCount = len(user_info["Players"])
         playerLimit = 7
-        
-        # make sure that only the the relevant user can respond
-        def addMeEmbedCheck(r, u):
-            sameMessage = False
-            if addEmbedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and (u == dmChar["Member"])
-        
-        role = userInfo["Role"]
+        role = user_info["Role"]
         # take the current time
         startTime = time.time()
-        
-        # if we didnt find the user we now need to the them to the system
+        addEmbed = discord.Embed()
+        core: InteractionCore = InteractionCore(main_core.context, None, addEmbed, main_core.system)
+        # if we didnt find the user we now need to find them to the system
         if not userFound:
-            
-            if addUser == userInfo["DM"]["Member"]:
+            if addUser == user_info["DM"]["Member"]:
                 role = "DM"
-            
             elif playerCount + 1 > playerLimit:
                 await channel.send(f'You cannot add more than {playerLimit} players to the timer.')
-                return userInfo
-            
+                return user_info
             # first we invoke the signup command
             # this will return a player entry
-            user_dic =  await self.signup(ctx, role=role, char=msg, author=addUser) 
+            user_dic =  await self.signup(main_core, role=role, char=msg, author=addUser)
             # if a character was found we then can proceed to setup the timer tracking
             if user_dic:
-                # create an embed object for user communication
-                addEmbed = discord.Embed()
                 # get confirmation to add the character to the game
                 addEmbed.title = f"Add ***{user_dic['Character']['Name']}*** to timer?"
                 addEmbed.description = f"***{addUser.mention}*** is requesting their character to be added to the timer.\n***{user_dic['Character']['Name']}*** - Level {user_dic['Character']['Level']}: {user_dic['Character']['Race']} {user_dic['Character']['Class']}\nConsumables: {', '.join(user_dic['Brought'])}\n\n✅: Add to timer\n\n❌: Deny"
                 # send the message to communicate with the DM and get their response
                 # ping the DM to get their attention to the message
-                addEmbedmsg = await channel.send(embed=addEmbed, content=dmChar["Member"].mention)
-                await addEmbedmsg.add_reaction('✅')
-                await addEmbedmsg.add_reaction('❌')
-
+                await core.send(dmChar["Member"].mention)
+                await core.message.add_reaction('✅')
+                await core.message.add_reaction('❌')
                 try:
                     # wait for a response from the user
-                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=addMeEmbedCheck , timeout=60)
+                    tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, dmChar["Member"], ['✅', '❌']), timeout=60)
                 # cancel when the user doesnt respond within the timefram
                 except asyncio.TimeoutError:
-                    await addEmbedmsg.delete()
-                    await channel.send(f'Timer addme cancelled. Try again using the following command:\n```yaml\n{commandPrefix}timer addme "character name" "consumable1, consumable2, [...]"```')
+                    await core.send(f'Timer addme cancelled. Try again using the following command:\n```yaml\n{commandPrefix}timer addme "character name" "consumable1, consumable2, [...]"```')
                     # cancel this command and avoid things being added to the timer
-                    return userInfo
+                    return user_info
                 else:
-                    await addEmbedmsg.clear_reactions()
+                    await core.message.clear_reactions()
                     # cancel if the DM wants to deny the user
                     if tReaction.emoji == '❌':
-                        await addEmbedmsg.edit(embed=None, content=f"Request to be added to timer denied.")
-                        await addEmbedmsg.clear_reactions()
+                        await core.send(f"Request to be added to timer denied.")
                         # cancel this command and avoid things being added to the timer
-                        return userInfo
-                    await addEmbedmsg.edit(embed=None, content=f"I've added ***{addUser.display_name}*** to the timer.")
-            
+                        return user_info
+                    await core.send(f"I've added ***{addUser.display_name}*** to the timer.")
                 if addUser == dmChar["Member"]:
-                    userInfo["DM"].update(user_dic)
+                    user_info["DM"].update(user_dic)
                 else:
                     # since the timer has already been going when this user is added it has to be partial rewards
                     user_dic["Duration"] = 0
                     user_dic["Latest Join"] = startTime
                     user_dic["State"] = "Partial"
-                    userInfo["Players"][addUser.id] = user_dic
+                    user_info["Players"][addUser.id] = user_dic
         # the following are the case where the player has already been on the timer
-        elif userInfo["Players"][user.id]["State"] in ["Full", "Partial"]:
+        elif user_info["Players"][user.id]["State"] in ["Full", "Partial"]:
             await channel.send(content='Your character has already been added to the timer.')
-        elif userInfo["Players"][user.id]["State"] in ["Removed", "Dead"]:
-            userInfo["Players"][user.id]["Latest Join"] = startTime
-            userInfo["Players"][user.id]["State"] = "Partial"
+        elif user_info["Players"][user.id]["State"] in ["Removed", "Dead"]:
+            user_info["Players"][user.id]["Latest Join"] = startTime
+            user_info["Players"][user.id]["State"] = "Partial"
             await channel.send(content='You have been re-added to the timer.')
-        
-        return userInfo
-    """
-    This command is used to add players to the prep list or the running timer
-    The code for adding players to the timer has been refactored into 'addme' and here just limits the addition to only one player
-    """
-    #@timer.command()
-    async def add(self,ctx, msg, userInfo=None):
-        addList = msg.mentions
-        addUser = None
-        # limit adds to only one player at a time
-        if len(addList) > 1:
-            await ctx.channel.send(content=f"I cannot add more than one player! Please try the command with one player and check your format and spelling.")
-            return None
-        # if there was no player added
-        elif addList == list():
-            await ctx.channel.send(content=f"You forgot to mention a player! Please try the command again and ping the player.")
-            return None
-        else:
-            # get the first ( and only ) mentioned user 
-            addUser = addList[0]
-            # if this was done during the prep phase then we only need to return the user
-            if prep:
-                return addUser
-            # in the duringTimer stage we need to add them to the timerDictionary instead
-            # the dictionary gets manipulated directly which affects all versions
-            else:
-                #otherwise we need to add the user properly to the timer and perform the setup
-                await self.addme(ctx, userInfo=userInfo, msg=msg, user=addUser) 
-        return userInfo
+        return user_info
     
-    async def addDuringTimer(self,ctx, msg=None, userInfo=None):
-        guild = ctx.guild
+    async def addDuringTimer(self,core, msg, userInfo):
         #if normal mentions were used then no users would have to be gotten later
         addList = msg.mentions
-        addUser = None
         # limit adds to only one player at a time
         if len(addList) > 1:
-            await ctx.channel.send(content=f"I cannot add more than one player! Please try the command with one player and check your format and spelling.")
+            await core.context.channel.send(content=f"I cannot add more than one player! Please try the command with one player and check your format and spelling.")
             return None
         # if there was no player added
         elif addList == list():
-            await ctx.channel.send(content=f"You forgot to mention a player! Please try the command again and ping the player.")
+            await core.context.channel.send(content=f"You forgot to mention a player! Please try the command again and ping the player.")
             return None
         else:
             # get the first ( and only ) mentioned user 
@@ -1090,11 +985,10 @@ class Timer(commands.Cog):
             # in the duringTimer stage we need to add them to the timerDictionary instead
             # the dictionary gets manipulated directly which affects all versions
             #otherwise we need to add the user properly to the timer and perform the setup
-            await self.addme(ctx, userInfo=userInfo, msg=msg, user=addUser) 
+            await self.addme(core, user_info=userInfo, msg=msg, user=addUser)
         return userInfo
 
-    #@timer.command()
-    async def removeme(self,ctx, msg=None, userInfo="",user="", death=False):
+    async def removeme(self,ctx, userInfo ,user, death=False):
         # take the current time
         endTime = time.time()
         # if no entry could be found we inform the user and return the unchanged state
@@ -1105,8 +999,7 @@ class Timer(commands.Cog):
         
         if user_dic["State"] == "Removed": 
             # since they have been removed last time, they cannot be removed again
-            await ctx.channel.send(content=f"You have already been removed from the timer.")  
-        
+            await ctx.channel.send(content=f"You have already been removed from the timer.")
         # if the player has been there the whole time
         else:
             if not userInfo["Paused"]:
@@ -1115,10 +1008,9 @@ class Timer(commands.Cog):
             if death:
                 user_dic["State"] = "Dead"
             await ctx.channel.send(content=f"***{user}***, you have been removed from the timer.")
-        
         return userInfo
     
-    async def pause(self,ctx, userInfo="", msg=""):
+    async def pause(self,ctx, userInfo, msg):
         channel = ctx.channel
         if userInfo["Paused"]:
             await channel.send(f'Sorry, the timer is already paused.')
@@ -1155,7 +1047,7 @@ class Timer(commands.Cog):
                 user_dic["Latest Join"] = pause_time                 
         return
         
-    async def unpause(self,ctx, userInfo="", silent=False):
+    async def unpause(self,ctx, userInfo, silent=False):
         channel = ctx.channel
         if not userInfo["Paused"]:
             await channel.send(f'Sorry, the timer is already running.')
@@ -1170,47 +1062,18 @@ class Timer(commands.Cog):
         if not silent:
             await channel.send(f'The timer is now runnning.')        
         return
-    
-    #@timer.command()
+
     async def death(self,ctx, msg=None, userInfo="", role=""):
         await self.removeDuringTimer(ctx, msg=msg, userInfo=userInfo, death=True)
-    
-    """
-    This command is used to remover players from the prep list or the running timer
-    The code for removing players from the timer has been refactored into 'removeme' and here just limits the addition to only one player
-    msg -> the message that caused the invocation of this command
-    userInfo-> this would be clearer as a None object since the final return element is a Member object
-    death -> if the removal is because the character died in the game
-    """
-    #@timer.command()
-    async def remove(self,ctx, msg, userInfo=None, death=False):
-        guild = ctx.guild
-        removeList = msg.mentions
 
+    async def removeDuringTimer(self,ctx, msg, userInfo, death=False):
+        removeList = msg.mentions
         if len(removeList) > 1:
             await ctx.channel.send(content=f"I cannot remove more than one player! Please try the command with one player and check your format and spelling.")
             return None
-        elif len(removeList) == 0:
-            await ctx.channel.send(content=f"I cannot find any mention of the user you are trying to remove. Please check your format and spelling.")
-        elif not removeList[0].id in userInfo["Players"]:
-            await ctx.channel.send(content=f"I cannot find the mentioned player in the roster.")
-            return None
-        else:
-            removeUser = removeList[0]
-            await self.removeme(ctx, userInfo=userInfo, msg=msg, user=removeList[0], death=death)
-                
-    async def removeDuringTimer(self,ctx, msg=None, userInfo=None, death=False):
-        guild = ctx.guild
-        removeList = msg.mentions
-        removeUser = ""
-
-        if len(removeList) > 1:
-            await ctx.channel.send(content=f"I cannot remove more than one player! Please try the command with one player and check your format and spelling.")
-            return None
-
         elif removeList != list():
             removeUser = removeList[0]
-            await self.removeme(ctx, msg, userInfo, user=removeUser,death=death)
+            await self.removeme(ctx, userInfo, removeUser,death=death)
         else:
             await ctx.channel.send(content=f"I cannot find any mention of the user you are trying to remove. Please check your format and spelling.")
         return userInfo
@@ -1220,9 +1083,8 @@ class Timer(commands.Cog):
     userInfo -> a dictionary of strings and player list pairs, the strings are made out of the kind of reward and the duration and the value is a list of players entries (format can be found as the return value in signup)
     author -> the Member object of the DM of the game
     """
-    #@timer.command()
-    async def stamp(self,ctx,userInfo, author="",embed="", embedMsg=""):
-        user = author.display_name
+    async def stamp(self,core: InteractionCore, userInfo):
+        ctx = core.context
         # calculate the total duration of the game so far
         end = time.time()
         pause_duration = (end - userInfo["Last Pause"])*userInfo["Paused"]
@@ -1232,6 +1094,7 @@ class Timer(commands.Cog):
             pause_shift = 1800 * (userInfo["Pause Type"]+1) + 90
             durationString = f"{durationString} || **PAUSE [{timeConversion(pause_shift-pause_duration)} Remaining]**"
         # reset the fields in the embed object
+        embed = core.embed
         embed.clear_fields()
         guild_text = "\n".join([guild_channel.mention for guild_channel in userInfo["Guilds"]])
         embed.description = guild_text
@@ -1240,7 +1103,7 @@ class Timer(commands.Cog):
             consumablesString = ""
             rewardsString = ""
             # if the game were without rewards we would not have to check for consumables
-            if player["Brought"] != []:
+            if player["Brought"]:
                 consumablesString = "\nConsumables: " + ', '.join(player["Brought"])
             rList = player["Inventory"]["Add"]+player["Consumables"]["Add"]+player["Magic Items"]
             if rList != list():
@@ -1252,14 +1115,13 @@ class Timer(commands.Cog):
                 pass
             # list that the character died
             elif player["State"] == "Dead":
-                duration = player["Duration"]
                 embed.add_field(name= f"~~{player['Member'].display_name}~~", value=f"{player['Character']['Name']} - **DEATH**{consumablesString}{rewardsString}", inline=False) 
             else:
                 duration = player["Duration"]+ (end - player["Latest Join"])* (not userInfo["Paused"])
                 embed.add_field(name= f"**{player['Member'].display_name}** - {timeConversion(duration)} (Latecomer)\n", value=f"{player['Character']['Name']}\nLevel {player['Character']['Level']}: {player['Character']['Race']} {player['Character']['Class']}{consumablesString}{rewardsString}", inline=False)
                 
         dm_text = "No Character"
-        if(userInfo["DM"]["Character ID"]):
+        if userInfo["DM"]["Character ID"]:
             item_rewards = userInfo["DM"]["Inventory"]["Add"]+userInfo["DM"]["Consumables"]["Add"]+userInfo["DM"]["Magic Items"]
             dm_text = userInfo["DM"]["Character"]["Name"]+ ("\nRewards:"+"\n"+(', '.join([x["Name"] for x in item_rewards])))*(item_rewards != list())
         embed.add_field(name= f"**DM: {userInfo['DM']['Member'].display_name}**", value=dm_text, inline=False)
@@ -1282,29 +1144,24 @@ Command Checklist
 6. DM removes a dead character: $timer death @player
 7. DM stops the one-shot: $timer stop
 8. DM pause the timer: $timer pause reason```"""
-            
         # check if the current message is the last message in the chat
         # this checks the 1 message after the current message, which if there is none will return an empty list therefore msgAfter remains False
-        async for message in ctx.channel.history(after=embedMsg, limit=1):
+        async for message in ctx.channel.history(after=core.message, limit=1):
             msgAfter = True
         # if it is the last message then we just need to update
         if not msgAfter:
-            await embedMsg.edit(embed=embed, content=stampHelp)
+            await core.send(stampHelp)
         else:
             # otherwise we delete the old message and resend the time stamp
-            if embedMsg:
-                await embedMsg.delete()
-            embedMsg = await ctx.channel.send(embed=embed, content=stampHelp)
+            await core.delete()
+            await core.send(stampHelp)
+        return None
 
-        return embedMsg
-
-    #@timer.command(aliases=['end'])
-    async def stop(self,ctx,userInfo):
+    async def stop(self, core: InteractionCore, userInfo):
+        ctx = core.context
         if userInfo["Paused"]:
             await self.unpause(ctx, userInfo=userInfo, silent=True)
         end = time.time() + time_bonus
-        tierNum = 0
-        guild = ctx.guild
         role = userInfo["Role"]
         game = userInfo["Game"]
         dmChar = userInfo["DM"]
@@ -1325,12 +1182,9 @@ Command Checklist
             tierNum = 0
         else:
             tierNum = 1
-    
-        deathChars = []
-        
+
         # Session Log Channel
         logChannel = self.bot.get_channel(settingsRecord[str(ctx.guild.id)]["Sessions"])  # 728456783466725427 737076677238063125
-        
         
         dbEntry = {}
         dbEntry["Role"] = role
@@ -1339,6 +1193,7 @@ Command Checklist
         dbEntry["End"] = end
         dbEntry["Game"] = game
         dbEntry["Status"] = "Processing"
+        dbEntry["Type"] = userInfo["Type"]
         dbEntry["Players"] = {}
         
         dbEntry["DDMRW"] = settingsRecord["ddmrw"] or userInfo["DDMRW"]
@@ -1468,19 +1323,8 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         
         #DM REWARD MATH STARTS HERE
         dmDBEntry = {}
-        if(dmChar["Character ID"]):
-            dm_char_level = dmChar["Character"]["Level"]
-            if dm_char_level < 5:
-                dm_tier_num = 1
-            elif dm_char_level < 11:
-                dm_tier_num = 2
-            elif dm_char_level < 17:
-                dm_tier_num = 3
-            else:
-                dm_tier_num = 4
-                
+        if dmChar["Character ID"]:
             player = dmChar
-            
             dmDBEntry["Magic Items"] = [x["Name"] for x in player["Magic Items"]]
             dmDBEntry["Consumables"] = player["Consumables"].copy()
             dmDBEntry["Consumables"]["Add"] = [x["Name"] for x in player["Consumables"]["Add"]]
@@ -1512,10 +1356,6 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         
         # get the db collection of guilds and set up variables to track relevant information
         guildsCollection = db.guilds
-        # if a member of the guild was in the game
-        guildMember = False
-        # list of all guild records that need to be update, with the updates applied
-        guildsRecordsList = list()
         guildsList = userInfo["Guilds"]
         # passed in parameter, check if there were guilds involved
         if guildsList != list():
@@ -1531,39 +1371,30 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 guildDBEntry["Drive"] = False
                 guildDBEntry["Mention"] = g.mention
                 guildDBEntry["Name"] = gRecord["Name"]
-                
                 dbEntry["Guilds"][gRecord["Name"]] = guildDBEntry
-                
-                # if the guild exists in the DB
         # create a list of of UpdateOne objects from the data entries for the bulk_write
         timerData = list(map(lambda item: UpdateOne({'_id': item["Character ID"]}, {"$set": {"GID": dbEntry["Log ID"]}}), playerList))
-        
-
         # try to update all the player entries
         try:
             playersCollection.bulk_write(timerData)
-
             logCollection.insert_one(dbEntry)
         except BulkWriteError as bwe:
             print(bwe.details)
             # if it fails, we need to cancel and use the error details
-            charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
+            await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
             return
         await sessionMessage.edit(embed=stopEmbed)
-
         try:
             # create a bulk write entry for the players
             usersData = list(map(lambda item: UpdateOne({'User ID':str(item["Member"].id) }, {'$set': {'User ID':str(item["Member"].id) }}, upsert=True), playerList))
             usersCollection.bulk_write(usersData)
         except BulkWriteError as bwe:
             print(bwe.details)
-            charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
+            await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
         except Exception as e:
             print ('MONGO ERROR: ' + str(e))
-            charEmbedmsg = await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
-        await generateLog(self, ctx, dbEntry["Log ID"], sessionInfo = dbEntry)
-            
-
+            await ctx.channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the timer again.")
+        await generateLog(self.bot, ctx, dbEntry["Log ID"], sessionInfo = dbEntry)
         return
     
     @timer.command()
@@ -1598,7 +1429,6 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
     @commands.cooldown(1, float('inf'), type=commands.BucketType.channel) 
     @commands.has_any_role('D&D Friend', 'Campaign Friend')
     async def resume(self,ctx):
-        
         channel = ctx.channel
         if channel.mention not in currentTimers:
             self.timer.get_command('resume').reset_cooldown(ctx)
@@ -1611,24 +1441,23 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         if author != ctx.author and not await self.permissionCheck(ctx.message, ctx.author):
             self.timer.get_command('resume').reset_cooldown(ctx)
             return
-            
+        stamp_embed = discord.Embed()
+        core: InteractionCore = InteractionCore(ctx, None, stamp_embed, userInfo['Type'])
         userInfo["State"] = "Running"
-        stampEmbed = discord.Embed()
-        stampEmbed.title = f' a '
-        stampEmbed.set_footer(text=f'#{ctx.channel}\nUse the following command to see a list of timer commands: {commandPrefix}help timer')
-        stampEmbed.set_author(name=f'DM: {author.name}', icon_url=author.display_avatar)
-        stampEmbedMsg =  await self.stamp(ctx, userInfo, ctx.author, stampEmbed)
-        await self.duringTimer(ctx, userInfo, stampEmbed, stampEmbedMsg)
+        stamp_embed.title = f' a '
+        stamp_embed.set_footer(text=f'#{ctx.channel}\nUse the following command to see a list of timer commands: {commandPrefix}help timer')
+        stamp_embed.set_author(name=f'DM: {author.name}', icon_url=author.display_avatar)
+        await self.stamp(core, userInfo)
+        await self.during_timer(core, userInfo)
         del currentTimers[channel.mention]
         self.timer.get_command('resume').reset_cooldown(ctx)
 
     """
     userInfo -> a dictionary of strings and player list pairs, the strings are made out of the kind of reward and the duration and the value is a list of players entries (format can be found as the return value in signup)
     """  
-    async def randomRew(self,ctx, msg=None, userInfo="", rewardType=None):
+    async def randomRew(self, core, msg, userInfo, rewardType):
+        ctx = core.context
         channel = ctx.channel
-        author = ctx.author
-        guild = ctx.guild
 
         rewardList = msg.mentions
         dmChar = userInfo["DM"]
@@ -1659,13 +1488,7 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
         
         charLevel = int(player["Character"]['Level'])
         # calculate the tier of the rewards
-        tierNum = 4
-        if charLevel < 5:
-            tierNum = 1
-        elif charLevel < 11:
-            tierNum = 2
-        elif charLevel < 17:
-            tierNum = 3
+        tierNum = determine_tier(charLevel)
 
         item_rewards = []
         if rewardUser == dmChar["Member"]:
@@ -1677,59 +1500,55 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                 item_rewards += player["Inventory"]["Add"] + player["Consumables"]["Add"] + player["Magic Items"]
         
         blocking = list(map(blocking_type, item_rewards))
-        rewardCollection = db.rit
-        randomItem = await randomReward(self, ctx, tier=tierNum, rewardType=rewardType, block=blocking, amount=1)
-        if randomItem == None:
+        randomItem = await randomReward(self, core, tier=tierNum, rewardType=rewardType, block=blocking, amount=1)
+        if randomItem is None:
             await channel.send(f'Try again!\n')
             return None
-
         return f"{randomItem[0]}"
-    def startsWithCheck(self, message, target):
+
+    def starts_with_check(self, message, target):
         return any([message.content.startswith(f"{commandPrefix}{x} {target}") for x in ["t", "timer"]])
-        
-    
+
     """
     This functions runs continuously while the timer is going on and waits for commands to come in and then invokes them itself
-    stampEmbed -> the Embed object containing the information in regards to current timer state
-    stampEmbedMsg -> the message containing stampEmbed
     """
-    async def duringTimer(self,ctx,  userInfo, stampEmbed, stampEmbedmsg):
+    async def during_timer(self, core: InteractionCore, userInfo):
+        ctx = core.context
         # set up the variable for the continuous loop
-        timerStopped = False
+        timer_stopped = False
         channel = ctx.channel
         author = userInfo["DM"]["Member"]
-        user = author.display_name
-        timerAlias = ["timer", "t"]
+        timer_alias = ["timer", "t"]
 
         #in no rewards games characters cannot die or get rewards
-        timerCommands = ['stop', 'end', 'add', 'remove', 'death', 'reward', 'stamp', 'undo rewards', "guild", 'major', 'minor', 'pause', 'unpause']
+        timer_commands = ['stop', 'end', 'add', 'remove', 'death', 'reward', 'stamp', 'undo rewards', "guild", 'major', 'minor', 'pause', 'unpause']
         
-        timerCombined = []
+        timer_combined = []
         #create a list of all command an alias combinations
-        for x in product(timerAlias,timerCommands):
-            timerCombined.append(f"{commandPrefix}{x[0]} {x[1]}")
+        for x in product(timer_alias,timer_commands):
+            timer_combined.append(f"{commandPrefix}{x[0]} {x[1]}")
         
         #repeat this entire chunk until the stop command is given
-        while not timerStopped:
+        while not timer_stopped:
             try:
                 #the additional check for  '-' being only in games with a tier allows for consumables to be used only in proper games
-                msg = await self.bot.wait_for('message', timeout=60.0, check=lambda m: (any(x in m.content for x in timerCombined) or m.content.startswith('-')) and m.channel == channel)
+                msg = await self.bot.wait_for('message', timeout=60.0, check=lambda m: (any(x in m.content for x in timer_combined) or m.content.startswith('-')) and m.channel == channel)
                 msg.content = msg.content.replace("“", "\"").replace("”", "\"")
                 
                 #unpause the timer
-                if (self.startsWithCheck(msg, "unpause")):
+                if self.starts_with_check(msg, "unpause"):
                     if await self.permissionCheck(msg, author):
                         await self.unpause(ctx, userInfo=userInfo)
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                        await self.stamp(core, userInfo)
                 #pause the timer
-                elif (self.startsWithCheck(msg, "pause")):
+                elif self.starts_with_check(msg, "pause"):
                     if await self.permissionCheck(msg, author):
-                        await self.pause(ctx, userInfo=userInfo, msg=msg)
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                        await self.pause(ctx, userInfo, msg)
+                        await self.stamp(core, userInfo)
                 # this is the command used to stop the timer
                 # it invokes the stop command with the required information, explanations for the parameters can be found in the documentation
-                # the 'end' alias could be removed for minimal efficiancy increases
-                elif (self.startsWithCheck(msg, "stop") or self.startsWithCheck(msg, "end")):
+                # the 'end' alias could be removed for minimal efficiency increases
+                elif self.starts_with_check(msg, "stop") or self.starts_with_check(msg, "end"):
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         confirm_embed = discord.Embed()
@@ -1738,64 +1557,62 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                         decision = await confirm(stop_confirm_message, ctx.author)
                         await stop_confirm_message.delete()
                         if decision == 1:
-                            await self.stop(ctx, userInfo=userInfo)
-                            timerStopped = True
-                       
+                            await self.stop(core, userInfo=userInfo)
+                            timer_stopped = True
                 # this behaves just like add below, but skips the ambiguity check of addme since only the author of the message could be added
-                elif (self.startsWithCheck(msg, "addme ")):
-                    userInfo = await self.addme(ctx, userInfo=userInfo, msg=msg, user=msg.author)
-                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                elif self.starts_with_check(msg, "addme "):
+                    userInfo = await self.addme(core, user_info=userInfo, msg=msg, user=msg.author)
+                    await self.stamp(core, userInfo)
                 # @player is a protection from people copying the command
-                elif (self.startsWithCheck(msg, "add ")) and '@player' not in msg.content:
+                elif (self.starts_with_check(msg, "add ")) and '@player' not in msg.content:
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         # update the userInfo with the new added player
-                        await self.addDuringTimer(ctx, userInfo=userInfo, msg=msg)
+                        await self.addDuringTimer(core, userInfo=userInfo, msg=msg)
                         # update the msg with the new stamp
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "removeme")):
-                    userInfo = await self.removeme(ctx, userInfo=userInfo, user=msg.author)
-                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "remove ")):
+                        await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "removeme"):
+                    userInfo = await self.removeme(ctx, userInfo, msg.author)
+                    await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "remove "):
                     if await self.permissionCheck(msg, author): 
                         await self.removeDuringTimer(ctx, msg, userInfo)
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "stamp")):
-                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "reward")):
+                        await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "stamp"):
+                        await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "reward"):
                     if await self.permissionCheck(msg, author):
-                        userInfo = await self.reward(ctx, msg=msg, userInfo=userInfo)
-                elif (self.startsWithCheck(msg, "major")):
+                        userInfo = await self.reward(core, msg, userInfo)
+                elif self.starts_with_check(msg, "major"):
                     if await self.permissionCheck(msg, author):
-                        rewardItem = await self.randomRew(ctx, msg=msg, userInfo=userInfo, rewardType="Major")
+                        rewardItem = await self.randomRew(core, msg=msg, userInfo=userInfo, rewardType="Major")
                         if rewardItem is not None:
                             msg.content = msg.content + " " + f'"{rewardItem}"'
-                            userInfo = await self.reward(ctx, msg=msg, userInfo=userInfo, exact=True)
-                elif (self.startsWithCheck(msg, "minor")):
+                            userInfo = await self.reward(core, msg, userInfo, exact=True)
+                elif self.starts_with_check(msg, "minor"):
                     if await self.permissionCheck(msg, author):
-                        rewardItem = await self.randomRew(ctx, msg=msg, userInfo=userInfo, rewardType="Minor")
+                        rewardItem = await self.randomRew(core, msg=msg, userInfo=userInfo, rewardType="Minor")
                         if rewardItem is not None:
                             msg.content = msg.content + " " + f'"{rewardItem}"'
-                            userInfo = await self.reward(ctx, msg=msg, userInfo=userInfo, exact=True)
-                elif (self.startsWithCheck(msg, "death")):
+                        await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "death"):
                     if await self.permissionCheck(msg, author):
                         await self.death(ctx, msg=msg, userInfo=userInfo)
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                        await self.stamp(core, userInfo)
                 elif msg.content.startswith('-') and msg.author != userInfo["DM"]["Member"]:
                     await self.deductConsumables(ctx, msg=msg, userInfo=userInfo)
-                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "undo rewards")):
+                    await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "undo rewards"):
                     # check if the author of the message has the right permissions for this command
                     if await self.permissionCheck(msg, author):
                         # update the userInfo with the new added player
                         await self.undoConsumables(ctx, msg, userInfo)
                         # update the msg with the new stamp
-                        stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                elif (self.startsWithCheck(msg, "guild")):
+                        await self.stamp(core, userInfo)
+                elif self.starts_with_check(msg, "guild"):
                     if await self.permissionCheck(msg, author):
                         guildCategoryID = settingsRecord[str(ctx.guild.id)]["Guild Rooms"]
-
-                        if (len(msg.channel_mentions) > 2):
+                        if len(msg.channel_mentions) > 2:
                             await channel.send(f"The number of guilds exceeds two. Please follow this format and try again:\n```yaml\n{commandPrefix}timer guild #guild1 #guild2```") 
                         else:
                             guildsList = msg.channel_mentions
@@ -1806,20 +1623,16 @@ In order to help determine if the adventurers fulfilled a pillar or a guild's qu
                                     invalidChannel = True
                             if not invalidChannel:
                                 userInfo["Guilds"] = guildsList
-                                stampEmbedmsg = await self.stamp(ctx, userInfo, author=author, embed=stampEmbed, embedMsg=stampEmbedmsg)
+                                await self.stamp(core, userInfo)
 
             except asyncio.TimeoutError:
-                try:
-                    stampEmbedmsg = await self.stamp(ctx, userInfo, author, embed=stampEmbed, embedMsg=stampEmbedmsg)
-                except discord.errors.DiscordServerError:
-                    print("discord server error recorded")
-                    pass
+                        await self.stamp(core, userInfo)
             else:
                 pass
             if userInfo["Paused"] and time.time()-60 - userInfo["Last Pause"] > 1800 * (userInfo["Pause Type"]+1):
                 await channel.send(f"Pause limit exceeded. Timer has been stopped") 
-                await self.stop(ctx, userInfo=userInfo)
-                timerStopped = True
+                await self.stop(core, userInfo=userInfo)
+                timer_stopped = True
                
 async def setup(bot):
     await bot.add_cog(Timer(bot))

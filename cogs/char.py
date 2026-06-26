@@ -683,6 +683,7 @@ class Character(commands.Cog):
         # Stats - Point Buy
         if not core.hasError():
             core, stats = await self.starting_stat_modification(core, [stats["STR"], stats["DEX"], stats["CON"], stats["INT"], stats["WIS"], stats["CHA"]], stat_bonus_record)
+            char_dict["Stats"] = stats
             if not core.isActive():
                 self.bot.get_command(command_name).reset_cooldown(ctx)
                 return None
@@ -924,6 +925,9 @@ class Character(commands.Cog):
         if not bRecord:
             core.addError(
                 f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n')
+        stat_bonus_record = race_record
+        if system == '5R':
+            stat_bonus_record = bRecord
         if not core.hasError():
             char_dict['Background'] = bRecord['Name']
             char_dict["GP"] += bRecord["GP"]
@@ -936,6 +940,7 @@ class Character(commands.Cog):
             core, stats = await self.starting_stat_modification(core,
                                                                 [stats["STR"], stats["DEX"], stats["CON"], stats["INT"],
                                                                  stats["WIS"], stats["CHA"]], bRecord)
+            char_dict["Stats"] = stats
         if not core.isActive():
             return None
 
@@ -1560,7 +1565,7 @@ class Character(commands.Cog):
         contents.insert(0, (f"General Information",description, False))
         
         contents.append((f"Characters", charString, False))
-        await paginate(ctx, self.bot, f"{search_author.display_name}" , contents, separator="\n", author = search_author)
+        await paginate(ctx, self.bot, f"{search_author.display_name}" , contents, separator="\n", author = author)
             
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()

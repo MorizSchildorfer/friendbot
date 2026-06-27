@@ -1528,7 +1528,7 @@ class Character(commands.Cog):
 
         totalGamesPlayed = 0
         charString = ""
-        charDictTiers = [[],[],[],[],[]]
+        charDictTiers = [[],[],[],[]]
         if charRecords:
             charRecords = sorted(charRecords, key=lambda k: k['Name']) 
             for c in charRecords:

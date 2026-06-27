@@ -1459,6 +1459,7 @@ class Character(commands.Cog):
 
         # Show Magic items in inventory.
         magic_items = char_dict["Magic Items"]
+        magic_items = {key: magic_items[key] for key in sorted(magic_items.keys())}
         if len(magic_items) > 0:
             contents.append((f"Magic Items", "\n".join(show_inventory(magic_items)), False))
 
@@ -1867,7 +1868,6 @@ class Character(commands.Cog):
 
         attune_list = list([value for key, value in char_dict["Magic Items"].items() if 'Attuned' in value and value['Attuned']])
         attune_info = "None"
-        print(attune_list)
         if len(attune_list) > 0:
             attune_info = ", ".join([render_magic_item(magic_item) for magic_item in attune_list])
         char_embed.add_field(name='Attunement', value=attune_info, inline=True)
@@ -2493,15 +2493,15 @@ class Character(commands.Cog):
         final_stat += bonus
         final_stat = max(min(final_stat, max_value), stat_setters[key])
         description = f"**{key}**: {base_stat}"
-        print(key, base_stat, max_value, final_stat) 
         # TODO handle all constellations (bonus, reduced to max, exactly max?, set beyond max)
         if final_stat != base_stat:
             if final_stat == max_value:
                 description += f" ({max_value} MAX)"
-            elif stat_setters[key] > max_value:
+            elif stat_setters[key] > min(max_value, base_stat + bonus):
                 description += f" (set to {stat_setters[key]})"
             elif bonus > 0:
                 description += f" (+{bonus})"
+        
         return final_stat, description
 
     def calculate_stat_bonuses(self, char_dict: dict, system: str):

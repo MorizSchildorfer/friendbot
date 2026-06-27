@@ -1177,10 +1177,10 @@ class Character(commands.Cog):
         desired = ["Name", "Consumables", "Magic Items", "Inventory", "Race", "Stats", "Class", "Spellbook", "GP", "Background", "Level", "Feats"]
         export = {}
         for key in desired:
-            if key in charRecords:
-                export[key] = charRecords[key]
+            if key in char_dict:
+                export[key] = char_dict[key]
         with io.StringIO(f"{export}") as f:
-            await channel.send(file=discord.File(f, f"{charRecords['Name']}.json"))
+            await channel.send(file=discord.File(f, f"{char_dict['Name']}.json"))
         ctx.command.reset_cooldown(ctx)
         return None
 

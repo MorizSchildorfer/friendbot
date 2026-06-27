@@ -233,10 +233,10 @@ class Character(commands.Cog):
 
             # todo refactor
 
-    @commands.command()
+    @commands.command(name="classes")
     @commands.cooldown(1, 60, type=commands.BucketType.user)
     @is_log_channel()
-    async def classes(self, ctx, system):
+    async def _classes(self, ctx, system):
         system = system.strip().upper()
         try:
             items = list(db.classes.find(

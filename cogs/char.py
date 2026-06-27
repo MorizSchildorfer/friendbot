@@ -1472,7 +1472,10 @@ class Character(commands.Cog):
             for entry in db_entries:
                 type = entry['Type']
                 sub_entries = {}
-                types[type] = sub_entries
+                if type in types:
+                    sub_entries = types[type]
+                else:
+                    types[type] = sub_entries
                 item_names = []
                 if isinstance(entry['Name'], str):
                     item_names.append(entry['Name'])

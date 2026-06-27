@@ -2178,7 +2178,6 @@ class Character(commands.Cog):
             level_up_embed.add_field(name="Would you like to choose a new multiclass?", value='✅: Yes\n\n🚫: No\n\n❌: Cancel')
         await core.send()
         emoji_options = ['🚫', '❌']
-        print(multi_class_blocker)
         if multi_class_blocker is None:
             emoji_options.append('✅')
             await core.message.add_reaction('✅')
@@ -2276,7 +2275,7 @@ class Character(commands.Cog):
             core, feats_picked, char_dict = await self.choose_feat(core, classes, feat_levels, char_dict)
             if len(feats_picked) > 0:
                 char_feats_gained_str = f"Feats Gained: **{''.join(feats_picked.keys())}**"
-
+        char_dict["HP"] += selected_record["Hit Die Average"]
         if free_spells is not None:
             char_dict['Free Spells'] = free_spells
 

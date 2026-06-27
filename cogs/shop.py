@@ -532,20 +532,20 @@ class Shop(commands.Cog):
             charDict[item_type][item_key]["Attuned"] and sum_sources(total_amount == count)):
             to_set[f"{item_type}.{item_key}.Attuned"] = False
 
-        charEmbed.title = f"Shop (Toss): {charDict['Name']}"
-        charEmbed.description = f"Are you sure you want to toss **{item_key}**?\n\n✅: Yes\n\n❌: Cancel"
+        level_up_embed.title = f"Shop (Toss): {charDict['Name']}"
+        level_up_embed.description = f"Are you sure you want to toss **{item_key}**?\n\n✅: Yes\n\n❌: Cancel"
 
         await core.send()
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=charEmbedCheck , timeout=60)
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']) , timeout=60)
         except asyncio.TimeoutError:
             await core.send(f'Shop cancelled. Try again using the command!')
             ctx.command.reset_cooldown(ctx)
             return None
         else:
-            await charEmbedmsg.clear_reactions()
+            await core.message.clear_reactions()
             if tReaction.emoji == '❌':
                 await core.send(f"Shop cancelled. Try again using the command!")
                 await core.message.clear_reactions()
@@ -558,7 +558,7 @@ class Shop(commands.Cog):
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")
                 else:
-                    charEmbed.description = f"The item **{item_key}** has been removed from your inventory."
+                    level_up_embed.description = f"The item **{item_key}** has been removed from your inventory."
                     await core.send()
                     ctx.command.reset_cooldown(ctx)
     
@@ -901,7 +901,7 @@ class Shop(commands.Cog):
         
         #increase the purchase level of the specific option
         char_dict[purchaseOption] += 1
-
+        level_up_embed = core.embed
         #update embed text to ask for confirmation
         level_up_embed.title = f"Downtime {trainingType} Training: {char_dict['Name']}"
         level_up_embed.description = f"Are you sure you want to learn your **{specificationText}** {purchasePossibilities} for {gpNeeded} GP?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
@@ -924,7 +924,7 @@ class Shop(commands.Cog):
             elif tReaction.emoji == '✅':
                 #update the appropriate DB value corresponding to the purchase and update the gold
                 try:
-                    db.players.update_one({'_id': char_dict['_id']}, {"$inc": {purchaseOption: 1, 'GP': gpNeeded}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$inc": {purchaseOption: 1, 'GP': -gpNeeded}})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")

@@ -229,7 +229,51 @@ class Character(commands.Cog):
             await ctx.channel.send(embed=race_embed)
     
         except Exception as e:
-            traceback.print_exc()  
+            traceback.print_exc()
+
+            # todo refactor
+
+        @commands.command()
+        @commands.cooldown(1, 60, type=commands.BucketType.user)
+        @is_log_channel()
+        async def classes(self, ctx, system):
+            system = system.strip().upper()
+            try:
+                items = list(db.classes.find(
+                    {"System": system},
+                ))
+                race_embed = discord.Embed()
+                race_embed.title = f"All Valid Classes:\n"
+
+                def group_sort(x):
+                    if "Grouped" in x:
+                        return x["Grouped"]
+                    return x["Name"]
+
+                items.sort(key=group_sort)
+                character = ""
+                out_strings = []
+                collector_string = ""
+                for race in items:
+                    if "Grouped" in race:
+                        race = race["Grouped"]
+                    else:
+                        race = race["Name"]
+                    if race[0] == character:
+                        collector_string += f"{race}\n"
+                    else:
+                        if collector_string:
+                            out_strings.append(collector_string)
+                        collector_string = f"{race}\n"
+                        character = race[0]
+                if collector_string:
+                    out_strings.append(collector_string)
+                for i in out_strings:
+                    race_embed.add_field(name=i[0], value=i, inline=True)
+                await ctx.channel.send(embed=race_embed)
+
+            except Exception as e:
+                traceback.print_exc()
 
 
     def getLeveLimit(self, roles):
@@ -451,7 +495,7 @@ class Character(commands.Cog):
             else:
                 broken.append(starting_class)
         if len(broken)>0:
-            core.addError(f':warning: **{broken}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
+            core.addError(f':warning: **{broken}** isn\'t on the list or it is banned! Check #allowed-and-banned-content or $classes {core.system} and check your spelling.')
         if is_multi_class and total_level != level:
             core.addError(':warning: Your classes do not add up to the total level. Please double-check your multiclasses.')
         if not core.hasError():
@@ -648,7 +692,7 @@ class Character(commands.Cog):
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
         if not race_record:
-            core.addError(f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
+            core.addError(f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content or $races {system} and check your spelling.')
         else:
             char_dict['Race'] = race_record['Name']
             if "Extra Feat" in race_record:
@@ -671,7 +715,7 @@ class Character(commands.Cog):
         if system == '5R':
             stat_bonus_record = bRecord
         if not bRecord:
-            core.addError(f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n')
+            core.addError(f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content or $backgrounds {system} and check your spelling.\n')
         if not core.hasError():
             char_dict['Background'] = bRecord['Name']
             backgroundGp = bRecord["GP"]
@@ -910,7 +954,7 @@ class Character(commands.Cog):
             return None
         if not race_record:
             core.addError(
-                f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.')
+                f'• {race} isn\'t on the list or it is banned! Check #allowed-and-banned-content or $races {system} and check your spelling.')
         else:
             char_dict['Race'] = race_record['Name']
             if "Extra Feat" in race_record:
@@ -927,7 +971,7 @@ class Character(commands.Cog):
         bRecord, core = await callAPI(core, 'backgrounds', bg)
         if not bRecord:
             core.addError(
-                f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content and check your spelling.\n')
+                f':warning: **{bg}** isn\'t on the list or it is banned! Check #allowed-and-banned-content $backgrounds {system} and check your spelling.\n')
         stat_bonus_record = race_record
         if system == '5R':
             stat_bonus_record = bRecord
@@ -1126,20 +1170,15 @@ class Character(commands.Cog):
     async def export(self, ctx, char):
         channel = ctx.channel
         command_name = ctx.command.name
-        if True:
-            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
-            return
         char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
-        desired = ["Name", "Consumables", "Magic Items", "Inventory", "Race", "STR", "INT", "CON", "WIS", "DEX", "CHA", "Class", "Spellbook", "GP", "Background", "Level", "Feats"]
+        desired = ["Name", "Consumables", "Magic Items", "Inventory", "Race", "Stats", "Class", "Spellbook", "GP", "Background", "Level", "Feats"]
         export = {}
         for key in desired:
             if key in charRecords:
                 export[key] = charRecords[key]
-            else:
-                print(key)
         with io.StringIO(f"{export}") as f:
             await channel.send(file=discord.File(f, f"{charRecords['Name']}.json"))
         ctx.command.reset_cooldown(ctx)
@@ -1152,68 +1191,47 @@ class Character(commands.Cog):
         channel = ctx.channel
         author = ctx.author
         guild = ctx.guild
-        command_name = ctx.command.name
-        if True:
-            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
-            return
+        char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
-            return None
-        def retireEmbedCheck(r, u):
-            sameMessage = False
-            if char_embedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
+            ctx.command.reset_cooldown(ctx)
         if char_dict:
             charID = char_dict['_id']
-
             char_embed.title = f"Are you sure you want to retire {char_dict['Name']}?"
             char_embed.description = "✅: Yes\n\n❌: Cancel"
-            if not char_embedmsg:
-                char_embedmsg = await channel.send(embed=char_embed)
-            else:
-                await char_embedmsg.edit(embed=char_embed)
+            await core.send()
 
-            await char_embedmsg.add_reaction('✅')
-            await char_embedmsg.add_reaction('❌')
+            await core.message.add_reaction('✅')
+            await core.message.add_reaction('❌')
             try:
-                tReaction, tUser = await self.bot.wait_for("reaction_add", check=retireEmbedCheck , timeout=60)
+                tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']) , timeout=60)
             except asyncio.TimeoutError:
-                await char_embedmsg.delete()
+                await core.delete()
                 await channel.send(f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
                 self.bot.get_command('retire').reset_cooldown(ctx)
                 return
             else:
-                await char_embedmsg.clear_reactions()
+                await core.message.clear_reactions()
                 if tReaction.emoji == '❌':
-                    await char_embedmsg.edit(embed=None, content=f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
-                    await char_embedmsg.clear_reactions()
+                    await core.send(f'Retire cancelled. Try again using the same command:\n```yaml\n{commandPrefix}retire "character name"```')
                     self.bot.get_command('retire').reset_cooldown(ctx)
                     return
                 elif tReaction.emoji == '✅':
                     char_embed.clear_fields()
                     try:
                         playersCollection = db.players
-                        
                         deadCollection = db.dead
                         if "Guild" in char_dict:
                             guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": char_dict['Guild'], '$options': 'i' }}))
                             # If there is only one of user's character in the guild remove the role.
-                            if (len(guildAmount) <= 1):
+                            if len(guildAmount) <= 1:
                                 await author.remove_roles(get(guild.roles, name = char_dict['Guild']), reason=f"Left guild {char_dict['Guild']}")
                         playersCollection.delete_one({'_id': charID})
-                        
                         deadCollection.insert_one(char_dict)
                     except Exception as e:
                         print ('MONGO ERROR: ' + str(e))
-                        char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
+                        await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
                     else:
-                        if char_embedmsg:
-                            await char_embedmsg.clear_reactions()
-                            await char_embedmsg.edit(embed=None, content =f"Congratulations! You have retired ***{char_dict['Name']}***. ")
-                        else: 
-                            char_embedmsg = await channel.send(embed=None, content=f"Congratulations! You have retired ***{char_dict['Name']}***.")
-
+                        await core.send(f"Congratulations! You have retired ***{char_dict['Name']}***. ")
         self.bot.get_command('retire').reset_cooldown(ctx)
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
@@ -2135,6 +2153,7 @@ class Character(commands.Cog):
         level_up_embed.title = f"{char_name}: Level Up! {char_level} → {next_level}"
         level_up_embed.description = f"{char_dict['Race']}: {format_classes(char_class)}\n**STR**: {stats['STR']} **DEX**: {stats['DEX']} **CON**: {stats['CON']} **INT**: {stats['INT']} **WIS**: {stats['WIS']} **CHA**: {stats['CHA']}"
         class_options = {}
+        char_dict["CP"] = remaining_cp
 
         # Multiclass Requirements
         starting_class = char_dict["Starting Class"]
@@ -2446,7 +2465,7 @@ class Character(commands.Cog):
         if len(matches) == 1:
             item_name = matches[0]
         else:
-            core, selected = paginate_options(core, self.bot, "Obtained Items", matches,
+            core, selected = await paginate_options(core, self.bot, "Obtained Items", matches,
                                               content=f"There seems to be multiple results for **`{item_name}`**, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.")
             if core.cancelled():
                 return core, None

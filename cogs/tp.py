@@ -74,7 +74,7 @@ class Tp(commands.Cog):
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         level = char_dict["Level"]
         tier = determine_tier(level)
@@ -179,7 +179,7 @@ class Tp(commands.Cog):
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         level = char_dict["Level"]
         tier = determine_tier(level)
@@ -387,7 +387,7 @@ class Tp(commands.Cog):
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         tp_embed = core.embed
         if tierNum.isdigit():

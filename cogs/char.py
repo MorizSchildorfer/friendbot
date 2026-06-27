@@ -2467,7 +2467,7 @@ class Character(commands.Cog):
         else:
             core, selected = await paginate_options(core, self.bot, "Obtained Items", matches,
                                               content=f"There seems to be multiple results for **`{item_name}`**, please choose the correct one.\nIf the result you are looking for is not here, please cancel the command with ❌ and be more specific.")
-            if core.cancelled():
+            if not core.isActive():
                 return core, None
             item_name = matches[selected]
         return core, item_name

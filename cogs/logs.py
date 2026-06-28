@@ -744,19 +744,20 @@ class Log(commands.Cog):
             for source, amount in temp.items():
                 add_to_inventory(used_consumables, i, amount, source)
         for i in player["Consumables"]["Add"]:
-            add_to_inventory(used_consumables, i, -1, "REWARD")
+            add_to_inventory(used_consumables, i, 1, "REWARD")
         reward_magic_items = {data['Name']: data for data in db.rit.find({"System": core.system, "Name": {"$in": player["Magic Items"]}})}
         magic_items = character["Magic Items"]
         for name, i in reward_magic_items.items():
             already_had_it = name in magic_items
-            add_to_inventory(magic_items, name, 1, "REWARD")  # TODO what about attunement?
+            add_to_inventory(magic_items, name, 1, "REWARD")
             if not already_had_it and "Attunement" in i:
                 magic_items[name]["Attunement"] = i["Attunement"]
                 magic_items[name]["Attuned"] = False
         # increase the relevant inventory entries and create them if necessary
         used_inventory = {}
+        inventory = character["Inventory"]
         for i in player["Inventory"]["Remove"]:
-            temp: dict = remove_from_inventory(core, consumables, i, 1)
+            temp: dict = remove_from_inventory(core, inventory, i, 1)
             for source, amount in temp.items():
                 add_to_inventory(used_inventory, i, amount, source)
         for i in player["Inventory"]["Add"]:

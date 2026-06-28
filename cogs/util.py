@@ -140,7 +140,9 @@ def remove_from_inventory(core: InteractionCore, inventory: dict, item: str, amo
 def show_inventory(inventory: dict) -> list:
     output = []
     for name, entry in inventory.items():
-        output.append(f"{name} x{sum_sources(entry)}")
+        count = sum_sources(entry)
+        if count > 0:
+            output.append(f"{name} x{count}")
     return output
 
 def sum_sources(entry: dict) -> int:

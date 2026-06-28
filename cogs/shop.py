@@ -554,7 +554,7 @@ class Shop(commands.Cog):
                 return None
             elif tReaction.emoji == '✅':
                 try:
-                    db.players.update_one({'_id': char_dict['_id']}, {"$set": set, "$inc": increase})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": to_set, "$inc": increase})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")

@@ -477,6 +477,7 @@ class Shop(commands.Cog):
     @shop.command()
     async def toss(self, ctx, char, searchQuery, count=1):
         channel = ctx.channel
+        author = ctx.author
         # extract the name of the consumable and transform it into a standardized format
         searchItem = searchQuery.lower().replace(' ', '')
         command_name = ctx.command.name

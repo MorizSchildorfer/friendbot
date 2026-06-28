@@ -486,7 +486,7 @@ class Shop(commands.Cog):
             return None
         
         item_type = None
-        item_list = charDict["Consumables"].keys()
+        item_list = char_dict["Consumables"].keys()
         item_key = None
         for j in item_list:
             # if found than we can mark it as such
@@ -495,14 +495,14 @@ class Shop(commands.Cog):
                 item_type = "Consumables"
                 break
         if not item_key:
-            for key, inv in charDict["Inventory"].items():
+            for key, inv in char_dict["Inventory"].items():
                 # if found than we can mark it as such
                 if searchItem == key.lower().replace(' ', '') and inv > 0:
                     item_key = key
                     item_type = "Inventory"
                     break
         if not item_key:
-            item_list = charDict["Magic Items"].keys()
+            item_list = char_dict["Magic Items"].keys()
             for key in item_list:
                 # if found than we can mark it as such
                 if searchItem == key.lower().replace(' ', ''):
@@ -519,7 +519,7 @@ class Shop(commands.Cog):
         if not item_key:
             await core.send(f"I could not find the item **{searchQuery}** in your inventory in order to remove it.")
             return None
-        total_amount = sum_sources(charDict[item_type][item_key])
+        total_amount = sum_sources(char_dict[item_type][item_key])
         if total_amount < count:
             await core.send(f"You only have **{total_amount}** {item_key} in your inventory.")
             return None
@@ -528,11 +528,11 @@ class Shop(commands.Cog):
         reductions = remove_from_inventory(core, char_dict['Item Type'], item_key, count)
         increase = {f"{item_type}.{item_key}.{source}": value for source, value in reductions.items()}
         if (item_type == "Magic Items" and
-            "Attuned" in charDict[item_type][item_key] and
-            charDict[item_type][item_key]["Attuned"] and sum_sources(total_amount == count)):
+            "Attuned" in char_dict[item_type][item_key] and
+            char_dict[item_type][item_key]["Attuned"] and sum_sources(total_amount == count)):
             to_set[f"{item_type}.{item_key}.Attuned"] = False
 
-        level_up_embed.title = f"Shop (Toss): {charDict['Name']}"
+        level_up_embed.title = f"Shop (Toss): {char_dict['Name']}"
         level_up_embed.description = f"Are you sure you want to toss **{item_key}**?\n\n✅: Yes\n\n❌: Cancel"
 
         await core.send()
@@ -553,7 +553,7 @@ class Shop(commands.Cog):
                 return None
             elif tReaction.emoji == '✅':
                 try:
-                    db.players.update_one({'_id': charDict['_id']}, {"$set": set, "$inc": increase})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": set, "$inc": increase})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")

@@ -497,7 +497,7 @@ class Shop(commands.Cog):
         if not item_key:
             for key, inv in char_dict["Inventory"].items():
                 # if found than we can mark it as such
-                if searchItem == key.lower().replace(' ', '') and inv > 0:
+                if searchItem == key.lower().replace(' ', '') and sum_sources(inv) > 0:
                     item_key = key
                     item_type = "Inventory"
                     break

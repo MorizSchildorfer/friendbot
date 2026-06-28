@@ -750,8 +750,8 @@ class Log(commands.Cog):
         for name, i in reward_magic_items.items():
             already_had_it = name in magic_items
             add_to_inventory(magic_items, name, 1, "REWARD")  # TODO what about attunement?
-            if not already_had_it and "Attunement" in r:
-                magic_items[name]["Attunement"] = r["Attunement"]
+            if not already_had_it and "Attunement" in i:
+                magic_items[name]["Attunement"] = i["Attunement"]
                 magic_items[name]["Attuned"] = False
         # increase the relevant inventory entries and create them if necessary
         used_inventory = {}

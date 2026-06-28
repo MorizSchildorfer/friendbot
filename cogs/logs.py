@@ -8,7 +8,7 @@ from discord.errors import Forbidden
 from datetime import datetime, timezone, timedelta
 from bfunc import db, traceBack, roleArray, settingsRecord, timezoneVar
 from cogs.util import calculateTreasure, callAPI, timeConversion, uwuize, noodleCheck, noodleBarrier, \
-    remove_from_inventory, InteractionCore, add_to_inventory, determine_tier
+    remove_from_inventory, InteractionCore, add_to_inventory, determine_tier, add_to_dictionary
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
 
@@ -739,10 +739,13 @@ class Log(commands.Cog):
 
         # remove the removed items from the list of original items and then combine the remaining and the new items
         used_consumables = {}
+        to_remove = {}
         for i in player["Consumables"]["Remove"]:
-            temp: dict = remove_from_inventory(core, consumables, i, 1)
+            add_to_dictionary(to_remove, i, 1)
+        for name, amount in to_remove.items():
+            temp: dict = remove_from_inventory(core, consumables, name, amount)
             for source, amount in temp.items():
-                add_to_inventory(used_consumables, i, amount, source)
+                add_to_inventory(used_consumables, name, amount, source)
         for i in player["Consumables"]["Add"]:
             add_to_inventory(used_consumables, i, 1, "REWARD")
         reward_magic_items = {data['Name']: data for data in db.rit.find({"System": core.system, "Name": {"$in": player["Magic Items"]}})}
@@ -756,10 +759,13 @@ class Log(commands.Cog):
         # increase the relevant inventory entries and create them if necessary
         used_inventory = {}
         inventory = character["Inventory"]
+        to_remove = {}
         for i in player["Inventory"]["Remove"]:
-            temp: dict = remove_from_inventory(core, inventory, i, 1)
+            add_to_dictionary(to_remove, i, 1)
+        for name, amount in to_remove.items():
+            temp: dict = remove_from_inventory(core, inventory, name, amount)
             for source, amount in temp.items():
-                add_to_inventory(used_inventory, i, amount, source)
+                add_to_inventory(used_inventory, name, amount, source)
         for i in player["Inventory"]["Add"]:
             add_to_inventory(used_inventory, i, 1, "REWARD")
 

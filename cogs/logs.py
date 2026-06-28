@@ -758,7 +758,7 @@ class Log(commands.Cog):
         for i in player["Inventory"]["Remove"]:
             temp: dict = remove_from_inventory(core, consumables, i, 1)
             for source, amount in temp.items():
-                add_to_inventory(used_inventory, i, source, amount)
+                add_to_inventory(used_inventory, i, amount, source)
         for i in player["Inventory"]["Add"]:
             add_to_inventory(used_inventory, i, 1, "REWARD")
 

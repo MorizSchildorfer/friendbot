@@ -742,7 +742,7 @@ class Log(commands.Cog):
         for i in player["Consumables"]["Remove"]:
             temp: dict = remove_from_inventory(core, consumables, i, 1)
             for source, amount in temp.items():
-                add_to_inventory(used_consumables, i, source, amount)
+                add_to_inventory(used_consumables, i, amount, source)
         for i in player["Consumables"]["Add"]:
             add_to_inventory(used_consumables, i, -1, "REWARD")
         reward_magic_items = {data['Name']: data for data in db.rit.find({"System": core.system, "Name": {"$in": player["Magic Items"]}})}

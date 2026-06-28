@@ -525,7 +525,7 @@ class Shop(commands.Cog):
             return None
         # remove the entry from the list of consumables of the character
         to_set = {}
-        reductions = remove_from_inventory(core, char_dict['Item Type'], item_key, count)
+        reductions = remove_from_inventory(core, char_dict[item_type], item_key, count)
         increase = {f"{item_type}.{item_key}.{source}": value for source, value in reductions.items()}
         if (item_type == "Magic Items" and
             "Attuned" in char_dict[item_type][item_key] and

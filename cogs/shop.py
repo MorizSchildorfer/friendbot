@@ -6,7 +6,7 @@ from discord.utils import get
 from discord.ext import commands
 from bfunc import db, commandPrefix,  alphaEmojis, traceBack, settingsRecord
 from cogs.util import callAPI, noodle_roles, paginate, disambiguate, findNoodleDataFromRoles, \
-    add_to_inventory, check_for_char_with_end, find_matching, sum_sources, InteractionCore, reaction_response_control, remove_from_inventory
+    add_to_inventory, check_for_char_with_end, find_matching, sum_sources, InteractionCore, reaction_response_control, remove_from_inventory, add_to_dictionary
 from math import floor
 
 def ordinal(n): 
@@ -238,9 +238,10 @@ class Shop(commands.Cog):
     Checks the player inventory of mundane items to check for the query buyItem
     """
     async def checkInventory(self, core, buyItem, char_dict):
-    
+        ctx = core.context
         channel = ctx.channel
         author = ctx.author
+        level_up_embed = core.embed
         # create a setup for disambiguation
         buyList = []
         buyString=""
@@ -335,7 +336,7 @@ class Shop(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
             # if they do not have enough instances of the item, cancel
-            if char_dict['Inventory'][f"{buyItem}"] < amount:
+            if sum_sources(char_dict['Inventory'][f"{buyItem}"]) < amount:
                 await channel.send(f"You do not have enough **{buyItem}s** to coat!")
                 ctx.command.reset_cooldown(ctx)
                 return None
@@ -395,7 +396,7 @@ class Shop(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
 
-            if char_dict['Inventory'][f"{buyItem}"] < amount:
+            if sum_sources(char_dict['Inventory'][f"{buyItem}"]) < amount:
                 await channel.send(f"You do not have enough **{buyItem}s** to coat!")
                 ctx.command.reset_cooldown(ctx)
                 return None
@@ -423,6 +424,7 @@ class Shop(commands.Cog):
     bRecord -> DB entry of the base item being covered
     """
     async def coat(self, core, cost, coatType, targetItem, amount, fullItemName, char_dict, bRecord):
+        ctx = core.context
         channel = ctx.channel
         author = ctx.author
         # total cost of the process
@@ -432,7 +434,8 @@ class Shop(commands.Cog):
             await core.send(f"You do not have enough gp to {coatType} {amount}x **{bRecord['Name']}**!")
             ctx.command.reset_cooldown(ctx)
             return None
-
+        new_gp = char_dict['GP'] -gpNeeded
+        level_up_embed = core.embed
         level_up_embed.title = f"Shop (Buy): {char_dict['Name']}"
         level_up_embed.description = f"Are you sure you want to coat {amount}x **{targetItem}** in {coatType} for **{gpNeeded} GP**?\n\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
         # get confirmation of the purchase from the user
@@ -453,19 +456,15 @@ class Shop(commands.Cog):
                 return None
             elif tReaction.emoji == '✅':
                 # deduct the amount from the item entry being coated
-                char_dict['Inventory'][f"{targetItem}"] -= amount
-                # if all are used, remove the entry
-                if int(char_dict['Inventory'][f"{targetItem}"]) <= 0:
-                    del char_dict['Inventory'][f"{targetItem}"]
-                # if the resulting item is already in the inventory, increment
-                if fullItemName in char_dict['Inventory']:
-                    char_dict['Inventory'][fullItemName] += amount
-                else:
-                    # otherwise create it
-                    char_dict['Inventory'][fullItemName] = amount
+                reductions = remove_from_inventory(core, char_dict['Inventory'], targetItem, amount)
+                increases = {"GP": -gpNeeded}
+                for source, minus in reductions.items():
+                    add_to_dictionary(increases, f"Inventory.{targetItem}.{source}", minus)
+                add_to_dictionary(increases, f"Inventory.{fullItemName}.BUY", amount)
+                
                 try:
                     # update the character entry with the new inventory and gold
-                    db.players.update_one({'_id': char_dict['_id']}, {"$set": {"Inventory": char_dict['Inventory'], 'GP': new_gp}})
+                    db.players.update_one({'_id': char_dict['_id']}, {"$inc":increases})
                 except Exception as e:
                     print ('MONGO ERROR: ' + str(e))
                     await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try shop buy again.")

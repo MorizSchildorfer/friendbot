@@ -1467,8 +1467,11 @@ class Character(commands.Cog):
         inventory  = char_dict['Inventory']
         if inventory:
             types = {}
-            search_names = list(inventory.keys())
-            db_entries: dict = list(db.shop.find({"System": char_dict['System'], "Name": {'$in': search_names}}))
+            search_map = {key: [key] for key in set(map(lambda item_name: item_name.replace("Silvered ", "", 1).replace("Adamantine ", "", 1), inventory.keys()))}
+            for key in inventory.keys():
+                if key not in search_map:
+                    search_map[key.replace("Silvered ", "", 1).replace("Adamantine ", "", 1)].append(key)
+            db_entries: dict = list(db.shop.find({"System": char_dict['System'], "Name": {'$in': list(search_map.keys())}}))
             for entry in db_entries:
                 type = entry['Type']
                 sub_entries = {}
@@ -1483,8 +1486,9 @@ class Character(commands.Cog):
                     for name in entry['Name']:
                         item_names.append(name)
                 for name in item_names:
-                    if name in inventory:
-                        sub_entries[name] = inventory[name]
+                    for variant in search_map[name]:
+                        if variant in inventory:
+                            sub_entries[variant] = inventory[variant]
             for k, v in types.items():
                 output = '\n'.join(sorted(show_inventory(v)))
                 contents.append((f"{k}", output, False))

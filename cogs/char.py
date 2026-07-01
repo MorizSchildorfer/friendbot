@@ -2353,22 +2353,26 @@ class Character(commands.Cog):
             role_name = 'Journeyfriend'
             role_remove_str = 'Junior Friend'
             await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
-            await author.add_roles(get(guild.roles, name = 'Roll20 Tier 2'))
-            await author.add_roles(get(guild.roles, name = 'Foundry Tier 2'))
+            await author.add_roles(get(guild.roles, name = '5E - Roll20 Tier 2'))
+            await author.add_roles(get(guild.roles, name = '5E - Foundry Tier 2'))
+            await author.add_roles(get(guild.roles, name = '5R - Roll20 Tier 2'))
+            await author.add_roles(get(guild.roles, name = '5R - Foundry Tier 2'))
         if 'Elite Friend' not in roles and 'Journeyfriend' in roles and level > 10:
             role_name = 'Elite Friend'
             role_remove_str = 'Journeyfriend'
             await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
-            await author.add_roles(get(guild.roles, name = 'Roll20 Tier 3'))
-            await author.add_roles(get(guild.roles, name = 'Foundry Tier 3'))
+            await author.add_roles(get(guild.roles, name = '5E - Roll20 Tier 3'))
+            await author.add_roles(get(guild.roles, name = '5E - Foundry Tier 3'))
+            await author.add_roles(get(guild.roles, name = '5R - Roll20 Tier 3'))
+            await author.add_roles(get(guild.roles, name = '5R - Foundry Tier 3'))
         if 'True Friend' not in roles and 'Elite Friend' in roles and level > 16:
             role_name = 'True Friend'
             role_remove_str = 'Elite Friend'
             await self.upgrade_role(author, char_name, guild, role_name, role_remove_str)
-            await author.add_roles(get(guild.roles, name = 'Roll20 Tier 4'))
-            await author.add_roles(get(guild.roles, name = 'Foundry Tier 4'))
-            await author.add_roles(get(guild.roles, name = 'Roll20 Tier 5'))
-            await author.add_roles(get(guild.roles, name = 'Foundry Tier 5'))
+            await author.add_roles(get(guild.roles, name = '5E - Roll20 Tier 4'))
+            await author.add_roles(get(guild.roles, name = '5E - Foundry Tier 4'))
+            await author.add_roles(get(guild.roles, name = '5R - Roll20 Tier 4'))
+            await author.add_roles(get(guild.roles, name = '5R - Foundry Tier 4'))
         if 'Ascended Friend' not in roles and 'True Friend' in roles and level > 19:
             role_name = 'Ascended Friend'
             role_remove_str = 'True Friend'

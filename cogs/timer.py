@@ -436,7 +436,7 @@ class Timer(commands.Cog):
                     # since two parameters are needed for 'add' we need to inform the user
                     if len(charList) == 1:
                         # again block repeat messages in case of a resume command, the check is different for some reason
-                        await main_core.channel.send("You're missing a character name for the player you're trying to add. Please try again.")
+                        await channel.send("You're missing a character name for the player you're trying to add. Please try again.")
                         return False
                     # in this case the character name is the second parameter
                     charName = charList[1]
@@ -448,10 +448,10 @@ class Timer(commands.Cog):
                     charList = shlex.split(char.content.split(f't addme ')[1].strip())
                     charName = charList[0]
                 else:
-                    await main_core.channel.send("I wasn't able to add this character. Please check your format.")
+                    await channel.send("I wasn't able to add this character. Please check your format.")
                     return False
         except ValueError as e:
-            await main_core.channel.send("Something was off with your character name. Did you miss a quotation mark?")
+            await channel.send("Something was off with your character name. Did you miss a quotation mark?")
             return False
         # if the last parameter is not the character name then we know that the player registered consumables
         if charList[len(charList) - 1] != charName:
@@ -833,17 +833,15 @@ class Timer(commands.Cog):
                         await ctx.channel.send(msg)
                         return userInfo
                     if item_type:
-                        query, spell_item_name, core = await spell_item_search(main_core, query, item_type)
+                        query, spell_item_name, core = await spell_item_search(core, query, item_type)
                         # if no spell was found then we inform the user of the failure and stop the command
                         if core.hasError():
                             await ctx.channel.send(core.showErrors())
                             return userInfo
 
-                    print("query", query)
                     # search for the item in the DB with the function from bfunc
                     # this does disambiguation already so if there are multiple results for the item they will have already selected which one specifically they want
                     rewardConsumable, core = await callAPI(core ,'rit',query, tier=tierNum, exact=exact)
-                    print("rewardConsumable", rewardConsumable)
                     #if no item could be found, return the unchanged parameters and inform the user
                     if not rewardConsumable:
                         await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')

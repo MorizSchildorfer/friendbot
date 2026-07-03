@@ -879,10 +879,10 @@ class Character(commands.Cog):
             'CHA': sCha}
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, name)
-        char_dict["Stats"] = stats
         if not char_dict:
             self.bot.get_command(command_name).reset_cooldown(ctx)
             return None
+        char_dict["Stats"] = stats
         system = char_dict["System"]
         char_remove_key_list = ['Image', 'Spellbook', 'Guild', 'Guild Rank']
         
@@ -1486,9 +1486,10 @@ class Character(commands.Cog):
                     for name in entry['Name']:
                         item_names.append(name)
                 for name in item_names:
-                    for variant in search_map[name]:
-                        if variant in inventory:
-                            sub_entries[variant] = inventory[variant]
+                    if name in search_map:
+                        for variant in search_map[name]:
+                            if variant in inventory:
+                                sub_entries[variant] = inventory[variant]
             for k, v in types.items():
                 output = '\n'.join(sorted(show_inventory(v)))
                 contents.append((f"{k}", output, False))

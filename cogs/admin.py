@@ -1214,15 +1214,16 @@ class Admin(commands.Cog, name="Admin"):
             reward_items[item_record["Type"]].append(item_record)
 
         for item in reward_items["Consumables"]:
-            add_to_dictionary(increment, f"Consumables.{item}.REWARD", 1)
+            add_to_dictionary(increment, f"Consumables.{item['Name']}.REWARD", 1)
         for item in reward_items["Inventory"]:
-            add_to_dictionary(increment, f"Inventory.{item}.REWARD", 1)
-        magic_items = character["Magic Items"]
-        for name, i in reward_items["Magic Items"]:
+            add_to_dictionary(increment, f"Inventory.{item['Name']}.REWARD", 1)
+        magic_items = char_dict["Magic Items"]
+        for item in reward_items["Magic Items"]:
+            name = item["Name"]
             already_had_it = name in magic_items
             add_to_inventory(magic_items, name, 1, "REWARD")
-            if not already_had_it and "Attunement" in i:
-                magic_items[name]["Attunement"] = i["Attunement"]
+            if not already_had_it and "Attunement" in item:
+                magic_items[name]["Attunement"] = item["Attunement"]
                 magic_items[name]["Attuned"] = False
         try:
             db.players.update_one({"_id": char_dict["_id"]}, {"$set": magic_items, "$inc": increment})

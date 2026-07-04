@@ -285,8 +285,7 @@ class Admin(commands.Cog, name="Admin"):
                 out.append({"Text" : line.strip()})
         result = db.liners_money.insert_many(out)
         print(len(result.inserted_ids))
-        
-        
+
     # command that allows one to update each field of the liners dictionary
     @commands.command()
     @admin_or_owner()
@@ -297,107 +296,106 @@ class Admin(commands.Cog, name="Admin"):
         liner_dic["Craft"] = list([line["Text"] for line in db.liners_craft.find()])
         liner_dic["Money"] = list([line["Text"] for line in db.liners_money.find()])
         await ctx.channel.send("All liners Updated")
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def transferUnchanged(self, ctx):
+    #     unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races", "rit", "classes"] #
+    #     for collection in unchanged:
+    #         entries = list(map(add_5e, connection.dnd[collection].find()))
+    #         try:
+    #             if len(entries) > 0:
+    #                 connection.dnd5r[collection].insert_many(entries)
+    #         except BulkWriteError as bwe:
+    #             print(bwe.details)
+    #             # if it fails, we need to cancel and use the error details
+    #             return
+    #         await ctx.channel.send(content=f"Transferred {collection}")
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def transferPure(self, ctx):
+    #     unchanged = ["liners_money", "liners_craft", "liners_meme", "liners_find", "guilds"] #
+    #     for collection in unchanged:
+    #         entries = list(connection.dnd[collection].find())
+    #         try:
+    #             if len(entries) > 0:
+    #                 connection.dnd5r[collection].insert_many(entries)
+    #         except BulkWriteError as bwe:
+    #             print(bwe.details)
+    #             # if it fails, we need to cancel and use the error details
+    #             return
+    #         await ctx.channel.send(content=f"Transferred {collection}")
+    #
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def transferLogs(self, ctx):
+    #     unchanged = ["logdata"] #
+    #     for collection in unchanged:
+    #         entries = list(map(map_logs, connection.dnd[collection].find()))
+    #         try:
+    #             if len(entries) > 0:
+    #                 connection.dnd5r[collection].insert_many(entries)
+    #         except BulkWriteError as bwe:
+    #             print(bwe.details)
+    #             # if it fails, we need to cancel and use the error details
+    #             return
+    #         await ctx.channel.send(content=f"Transferred {collection}")
+    #
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def transferMit(self, ctx):
+    #     unchanged = ["mit"]
+    #     for collection in unchanged:
+    #         entries = list(map(change_stat_bonus, map(add_5e, connection.dnd[collection].find())))
+    #         try:
+    #             if len(entries) > 0:
+    #                 connection.dnd5r[collection].insert_many(entries)
+    #         except BulkWriteError as bwe:
+    #             print(bwe.details)
+    #             # if it fails, we need to cancel and use the error details
+    #             return
+    #         await ctx.channel.send(content=f"Transferred {collection}")
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def transferPlayers(self, ctx):
+    #     unchanged = ["players"]
+    #     item_entries = connection.dnd5r["mit"].find({"System": "5E"})
+    #     item_records = {}
+    #     for entry in item_entries:
+    #         if not isinstance(entry["Name"], list):
+    #             item_records[entry["Name"]] = entry
+    #         else:
+    #             for name in entry["Name"]:
+    #                 item_records[name] = entry
+    #     class_entries = {c["Name"]: c for c in connection.dnd5r["classes"].find({"System": "5E"})}
+    #
+    #     for collection in unchanged:
+    #         players = connection.dnd[collection].find({"Class": {"$ne": "Friend"}})
+    #         entries = list(map(lambda x: fix_hp(x, class_entries), map(lambda x: change_player(x, item_records), map(add_5e, players))))
+    #         try:
+    #             if len(entries) > 0:
+    #                 connection.dnd5r[collection].insert_many(entries)
+    #         except BulkWriteError as bwe:
+    #             print(bwe.details)
+    #             # if it fails, we need to cancel and use the error details
+    #             return
+    #         await ctx.channel.send(content=f"Transferred {collection}")
+    #
+    # @commands.command()
+    # @admin_or_owner()
+    # async def delete5e(self, ctx, table):
+    #     try:
+    #         connection.dnd5r[table].delete_many({"System": "5E"})
+    #     except BulkWriteError as bwe:
+    #         print(bwe.details)
+    #         # if it fails, we need to cancel and use the error details
+    #         return
+    #     await ctx.channel.send(content="Completed")
 
-
-    @commands.command()
-    @admin_or_owner()
-    async def transferUnchanged(self, ctx):
-        unchanged = ["shop", "backgrounds", "spells", "feats", "special", "races", "rit", "classes"] # 
-        for collection in unchanged:
-            entries = list(map(add_5e, connection.dnd[collection].find()))
-            try:
-                if len(entries) > 0:
-                    connection.dnd5r[collection].insert_many(entries)
-            except BulkWriteError as bwe:
-                print(bwe.details)
-                # if it fails, we need to cancel and use the error details
-                return
-            await ctx.channel.send(content=f"Transferred {collection}")
-    
-    @commands.command()
-    @admin_or_owner()
-    async def transferPure(self, ctx):
-        unchanged = ["liners_money", "liners_craft", "liners_meme", "liners_find", "guilds"] # 
-        for collection in unchanged:
-            entries = list(connection.dnd[collection].find())
-            try:
-                if len(entries) > 0:
-                    connection.dnd5r[collection].insert_many(entries)
-            except BulkWriteError as bwe:
-                print(bwe.details)
-                # if it fails, we need to cancel and use the error details
-                return
-            await ctx.channel.send(content=f"Transferred {collection}")
-    
-    
-    @commands.command()
-    @admin_or_owner()
-    async def transferLogs(self, ctx):
-        unchanged = ["logdata"] # 
-        for collection in unchanged:
-            entries = list(map(map_logs, connection.dnd[collection].find()))
-            try:
-                if len(entries) > 0:
-                    connection.dnd5r[collection].insert_many(entries)
-            except BulkWriteError as bwe:
-                print(bwe.details)
-                # if it fails, we need to cancel and use the error details
-                return
-            await ctx.channel.send(content=f"Transferred {collection}")
-        
-    
-    @commands.command()
-    @admin_or_owner()
-    async def transferMit(self, ctx):
-        unchanged = ["mit"]
-        for collection in unchanged:
-            entries = list(map(change_stat_bonus, map(add_5e, connection.dnd[collection].find())))
-            try:
-                if len(entries) > 0:
-                    connection.dnd5r[collection].insert_many(entries)
-            except BulkWriteError as bwe:
-                print(bwe.details)
-                # if it fails, we need to cancel and use the error details
-                return
-            await ctx.channel.send(content=f"Transferred {collection}")
-
-    @commands.command()
-    @admin_or_owner()
-    async def transferPlayers(self, ctx):
-        unchanged = ["players"]
-        item_entries = connection.dnd5r["mit"].find({"System": "5E"})
-        item_records = {}
-        for entry in item_entries:
-            if not isinstance(entry["Name"], list):
-                item_records[entry["Name"]] = entry
-            else:
-                for name in entry["Name"]:
-                    item_records[name] = entry
-        class_entries = {c["Name"]: c for c in connection.dnd5r["classes"].find({"System": "5E"})}
-        
-        for collection in unchanged:
-            players = connection.dnd[collection].find({"Class": {"$ne": "Friend"}})
-            entries = list(map(lambda x: fix_hp(x, class_entries), map(lambda x: change_player(x, item_records), map(add_5e, players))))
-            try:
-                if len(entries) > 0:
-                    connection.dnd5r[collection].insert_many(entries)
-            except BulkWriteError as bwe:
-                print(bwe.details)
-                # if it fails, we need to cancel and use the error details
-                return
-            await ctx.channel.send(content=f"Transferred {collection}")
-
-    @commands.command()
-    @admin_or_owner()
-    async def delete5e(self, ctx, table):
-        try:
-            connection.dnd5r[table].delete_many({"System": "5E"})
-        except BulkWriteError as bwe:
-            print(bwe.details)
-            # if it fails, we need to cancel and use the error details
-            return
-        await ctx.channel.send(content="Completed")
-    
     @commands.command()
     @admin_or_owner()
     async def goldUpdate(self, ctx, tier: int, tp: int, gp: int):
@@ -525,7 +523,6 @@ class Admin(commands.Cog, name="Admin"):
             items = list(db.mit.find(
                {"Tier": tier, "TP": tp},
             ))
-            
             out = f"Items in Tier {tier} costing TP {tp}:\n"
             def alphaSort(item):
                 if "Grouped" in item:
@@ -755,7 +752,7 @@ class Admin(commands.Cog, name="Admin"):
         
         author = ctx.author
         
-        if(not await self.doubleVerify(ctx, moveEmbedmsg)):
+        if not await self.doubleVerify(ctx, moveEmbedmsg):
             return
         costs = [0, 1000, 4000, 7000]
         returnData =[]
@@ -781,7 +778,7 @@ class Admin(commands.Cog, name="Admin"):
         refundData = list(map(lambda item: UpdateOne({'_id': item['_id']}, item['fields']), returnData))
         
         try:
-            if(len(refundData)>0):
+            if len(refundData)>0:
                 db.players.bulk_write(refundData)
         except BulkWriteError as bwe:
             print(bwe.details)
@@ -798,7 +795,7 @@ class Admin(commands.Cog, name="Admin"):
         
         moveEmbedmsg = await  ctx.channel.send(content=f"Are you sure you want to change the value of {current_value} to {new_value}?\n No: ❌\n Yes: ✅")
         
-        if(not await self.doubleVerify(ctx, moveEmbedmsg)):
+        if not await self.doubleVerify(ctx, moveEmbedmsg):
             return
         count = db.players.update_many( {element: current_value},
                                     {"$set" : {element : new_value}})
@@ -808,18 +805,13 @@ class Admin(commands.Cog, name="Admin"):
     @commands.command()
     @admin_or_owner()
     async def moveItem(self, ctx, item, tier: int, tp: int):
-        
-        
         moveEmbedmsg, itemRecord = await self.refundKernel(ctx, item, "move", "moved")
         if moveEmbedmsg:
-            try:       
-                
+            try:
                 updatedGP = itemRecord["GP"]
-                
                 targetTierInfoItem = db.mit.find_one( {"TP": tp, "Tier": tier})
                 if(targetTierInfoItem):
                     updatedGP = targetTierInfoItem["GP"]
-                
                 db.mit.update_one( {"_id": itemRecord["_id"]},
                                     {"$set" : {"Tier" : tier, "TP" : tp, "GP": updatedGP}})
                                     
@@ -1032,7 +1024,6 @@ class Admin(commands.Cog, name="Admin"):
     async def react(self, ctx):	
         pass
     
-    
     #this function allows you to specify a channel and message and have the bot react with a given emote
     #Not tested with emotes the bot might not have access to
     @react.command()
@@ -1183,125 +1174,59 @@ class Admin(commands.Cog, name="Admin"):
     
     @commands.command()
     @admin_or_owner()
-    async def giveRewards(self, ctx, charName, user, cp: float, items=""):
+    async def giveRewards(self, ctx, name, user, cp: float, items=""):
         msg = ctx.message
-        rewardList = msg.raw_mentions
-        rewardUser = ""
-        # create an embed text object
-        charEmbed = discord.Embed()
-        charEmbedmsg = None
+        reward_list = msg.raw_mentions
         guild = ctx.guild
         
         # if nobody was listed, inform the user
-        if rewardList == list():
+        if reward_list == list():
             await ctx.channel.send(content=f"I could not find any mention of a user to hand out rewards.") 
-            #return the unchanged parameters
-            return 
-        else:
-            # get the first user mentioned
-            rewardUser = guild.get_member(rewardList[0])
-            charDict, charEmbedmsg = await checkForChar(ctx, charName, charEmbed, rewardUser, customError=True)
-            if charDict:
-                # character level
-                charLevel = int(charDict['Level'])
-                # since this checks for multiple things, this cannot be avoided
-                
-                if charDict["Level"] < 5:
-                    tierNum = 1
-                elif charDict["Level"] < 11:
-                    tierNum = 2
-                elif charDict["Level"] < 17:
-                    tierNum = 3
-                elif charDict["Level"] < 20:
-                    tierNum = 4
-                else:
-                    tierNum = 5
-                
-                # Uses calculateTreasure to determine the rewards from the quest based on the character
-                treasureArray  = calculateTreasure(charDict["Level"], charDict["CP"] , tierNum, cp*3600)
-                inc_dic = {"GP": treasureArray[2], "CP": treasureArray[0]}
-                inc_dic.update(treasureArray[1])
-                items = items.strip()
-                consumablesList = []
-                if items != "":
-                    consumablesList = items.split(',')
-                rewardList = {"Magic Items": [], "Consumables": [], "Inventory": []}
-                if charDict["Magic Items"] != "None":
-                    rewardList["Magic Items"] += charDict["Magic Items"].split(", ")
-                if charDict["Consumables"] != "None":
-                    rewardList["Consumables"] += charDict["Consumables"].split(", ")
-                for query in consumablesList:
-                    query = query.strip()
-                    # if the player is getting a spell scoll then we need to determine which spell they are going for
-                    # we do this by searching in the spell table instead
-                    if 'spell scroll' in query.lower():
-                        # extract the spell
-                        spellItem = query.lower().replace("spell scroll", "").replace('(', '').replace(')', '')
-                        # use the callAPI function from bfunc to search the spells table in the DB for the spell being rewarded
-                        sRecord, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg, 'spells', spellItem)
-                        
-                        # if no spell was found then we inform the user of the failure and stop the command
-                        if not sRecord:
-                            await ctx.channel.send(f'''**{query}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Reward Item Table, what tier it is, and your spelling.''')
-                            return 
+            return None
+        # get the first user mentioned
+        reward_user = guild.get_member(reward_list[0])
+        char_dict, level_up_embed, core = await check_for_char_with_end(ctx, name, author_check=reward_user)
+        if not char_dict:
+            await ctx.channel.send(content=f"I could not find {name} in the DB.")
+            return None
+        # character level
+        level = int(char_dict['Level'])
+        # Uses calculateTreasure to determine the rewards from the quest based on the character
+        treasure_array  = calculateTreasure(level, char_dict["CP"], cp*3600)
+        increment = {"GP": treasure_array[2], "CP": treasure_array[0]}
+        increment.update(treasure_array[1])
+        items = items.strip()
+        reward_queries = []
+        if items != "":
+            reward_queries = items.split(',')
+        reward_items = {"Magic Items": [], "Consumables": [], "Inventory": []}
+        for query in reward_queries:
+            item_record, core = await find_reward_item(core, query, level)
+            if not core.isActive():
+                return None
+            if core.hasError():
+                await ctx.channel.send(content=core.showErrors())
+                return None
+            #if no item could be found, return the unchanged parameters and inform the user
+            if not item_record:
+                await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
+                return None
+            reward_items[item_record["Type"]].append(item_record)
 
-                        else:
-                            # Converts number to ordinal - 1:1st, 2:2nd, 3:3rd...
-                            # floor(n/10)%10!=1, this acts as an if statement to check if the number is in the teens
-                            # (n%10<4), this acts as an if statement to check if the number is below 4
-                            # n%10 get the last digit of the number
-                            # by multiplying these number together we end up with calculation that will be 0 unless both conditions have been met, otherwise it is the digit
-                            # this number x is then used as the starting point of the selection and ::4 will then select the second letter by getting the x+4 element
-                            # technically it will get more, but since the string is only 8 characters it will return 2 characters always
-                            # th, st, nd, rd are spread out by 4 characters in the string 
-                            ordinal = lambda n: "%d%s" % (n,"tsnrhtdd"[(floor(n/10)%10!=1)*(n%10<4)*n%10::4])
-                            # change the query to be an accurate representation
-                            query = f"Spell Scroll ({ordinal(sRecord['Level'])} Level)"
-                    
-
-                    # search for the item in the DB with the function from bfunc
-                    # this does disambiguation already so if there are multiple results for the item they will have already selected which one specifically they want
-                    rewardConsumable, charEmbed, charEmbedmsg = await callAPI(ctx, charEmbed, charEmbedmsg ,'rit',query, tier=tierNum) 
-                
-                    #if no item could be found, return the unchanged parameters and inform the user
-                    if not rewardConsumable:
-                        await ctx.channel.send(f'**{query}** does not seem to be a valid reward item.')
-                        return 
-                    else:
-                        if 'spell scroll' in query.lower():
-                            rewardConsumable['Name'] = f"Spell Scroll ({sRecord['Name']})"
-                        rewardList[rewardConsumable["Type"]].append(rewardConsumable["Name"])
-                
-                # turn the list of added items into the new string
-                consumablesString = ", ".join(sorted(rewardList["Consumables"]))
-                   
-                # if the string is empty, turn it into none
-                consumablesString += "None"*(consumablesString=="")
-                
-                # magic items cannot be removed so we only care about addtions
-                # if we have no items and no additions, string is None
-                magicItemString = ", ".join(sorted(rewardList["Magic Items"]))
-
-                # if the string is empty, turn it into none
-                magicItemString += "None"*(magicItemString=="")
-                    
-                
-                # increase the relevant inventory entries and create them if necessary
-                for i in rewardList["Inventory"]:
-                    if i in charDict["Inventory"]:
-                        charDict["Inventory"][i] += 1
-                    else:
-                        charDict["Inventory"][i] = 1
-                out = {"Magic Items":magicItemString, "Consumables":consumablesString, "Inventory":charDict["Inventory"]}
-                         
-                        
-            else:
-                await ctx.channel.send(content=f"I could not find {charName} in the DB.")        
-                return
+        for item in reward_items["Consumables"]:
+            add_to_dictionary(increment, f"Consumables.{item}.REWARD", 1)
+        for item in reward_items["Inventory"]:
+            add_to_dictionary(increment, f"Inventory.{item}.REWARD", 1)
+        magic_items = character["Magic Items"]
+        for name, i in reward_items["Magic Items"]:
+            already_had_it = name in magic_items
+            add_to_inventory(magic_items, name, 1, "REWARD")
+            if not already_had_it and "Attunement" in i:
+                magic_items[name]["Attunement"] = i["Attunement"]
+                magic_items[name]["Attuned"] = False
         try:
-            db.players.update_one({"_id": charDict["_id"]}, {"$set": out, "$inc": inc_dic})
+            db.players.update_one({"_id": char_dict["_id"]}, {"$set": magic_items, "$inc": increment})
             await ctx.channel.send(content=f"Rewards have been given.")
-    
         except Exception as e:
             traceback.print_exc()
     

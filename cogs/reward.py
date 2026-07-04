@@ -3,7 +3,7 @@ import re
 import asyncio
 from discord.ext import commands
 from bfunc import db, roleArray, commandPrefix, alphaEmojis, traceback
-from cogs.util import checkForChar, calculateTreasure, timeConversion, InteractionCore
+from cogs.util import checkForChar, calculateTreasure, timeConversion, InteractionCore, reaction_response_control
 from random import *
 
 async def randomReward(self, core: InteractionCore, tier, rewardType, block=[], amount=None, start=None):

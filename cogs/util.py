@@ -150,7 +150,6 @@ def sum_sources(entry: dict) -> int:
 
 async def check_for_char_with_end(ctx, name: str, mod = False, author_check = None) -> tuple[dict, any, InteractionCore]:
     char_embed = discord.Embed()
-    command_name = ctx.command.qualified_name
     core = InteractionCore(ctx, None, char_embed)
     char_dict, core = await checkForChar(core, name, mod=mod, authorCheck=author_check)
     if not core.isActive():
@@ -823,7 +822,7 @@ async def checkForGuild(ctx, name, guildEmbed=""):
 
 def calculateTreasure(level, charcp, seconds, guildDouble=False, playerDouble=False, dmDouble=False, bonusDouble=False, tierBonus=False, gold_modifier = 100, tierOneDouble=False):
     # calculate the CP gained during the game
-    cp = ((seconds) // 900) / 4
+    cp = (seconds // 900) / 4
     cp_multiplier = 1 + guildDouble + playerDouble + dmDouble + bonusDouble + tierBonus + tierOneDouble
     # calculate the CP with the bonuses included
     cp *= cp_multiplier

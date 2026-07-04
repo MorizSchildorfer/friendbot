@@ -360,7 +360,6 @@ async def texttest(msg, author):
     return view.value
 
 async def disambiguate(options, msg, author, cancel=True, emojies = alphaEmojis):
-    reaction_response_control(msg, author, emojies[:options])
     try:
         reaction, _ = await bot.wait_for("reaction_add", check=reaction_response_control(msg, author, emojies[:options], cancel), timeout=60)
     except asyncio.TimeoutError:

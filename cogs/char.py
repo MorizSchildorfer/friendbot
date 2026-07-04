@@ -2243,6 +2243,7 @@ class Character(commands.Cog):
                         alpha_index += 1
                     level_up_embed.clear_fields()
                     level_up_embed.add_field(name=f"Which class would you like to level up?", value=option_text, inline=False)
+                    await core.send()
                     choice = await disambiguate(len(char_class), core.message, author)
                     if choice is None:
                         await core.send(f'Level up timed out! Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')

@@ -2253,7 +2253,7 @@ class Character(commands.Cog):
                         self.bot.get_command('levelup').reset_cooldown(ctx)
                         return None
                     await core.message.clear_reactions()
-                    choice_level_class = char_class.keys()[choice]
+                    choice_level_class = list(char_class.keys())[choice]
                 select_class = char_class[choice_level_class]
                 select_class['Level'] += 1
         level_up_embed.clear_fields()

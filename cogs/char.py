@@ -2238,7 +2238,7 @@ class Character(commands.Cog):
                 if len(char_class) > 1:
                     option_text = ""
                     alpha_index = 0
-                    for name, entry in char_class.keys():
+                    for name, entry in char_class.items():
                         option_text += f"{alphaEmojis[alpha_index]}: {name} Level {entry['Level']}\n"
                         alpha_index += 1
                     level_up_embed.clear_fields()

@@ -608,7 +608,6 @@ class Character(commands.Cog):
         
         name = name.strip()
         channel = ctx.channel
-        print(system, name, level, race, character_class, bg, sStr, sDex, sCon, sInt, sWis, sCha)
         # Prevents name, level, race, class, background from being blank. Resets infinite cooldown and prompts
         if not (await self.check_parameter(ctx, "name", name)
                 and await self.check_parameter(ctx, "level", level)
@@ -2122,7 +2121,7 @@ class Character(commands.Cog):
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         char_id = char_dict['_id']
         char_name = char_dict['Name']
@@ -2140,17 +2139,17 @@ class Character(commands.Cog):
 
         if 'Death' in char_dict.keys():
             await channel.send(f'You cannot level up a dead character. Use the following command to decide their fate:\n```yaml\n$death "{char_dict["Name"]}"```')
-            self.bot.get_command('levelup').reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
 
         if char_level > 19:
             await channel.send(f"***{char_dict['Name']}*** is level 20 and cannot level up anymore.")
-            self.bot.get_command('levelup').reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
 
         elif cp < cp_bound_array[tier-1][0]:
             await channel.send(f'***{char_name}*** is not ready to level up. They currently have **{cp}/{cp_bound_array[tier-1][1]}** CP.')
-            self.bot.get_command('levelup').reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
 
         class_records, core = await callAPI(core,'classes')
@@ -2195,7 +2194,7 @@ class Character(commands.Cog):
             tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, core.context.author, emoji_options), timeout=60)
         except asyncio.TimeoutError:
             await core.send(f'Level up timed out. Try again using the same command or one of its shorthand forms:\n```yaml\n{commandPrefix}levelup "character name"\n{commandPrefix}lvlup "character name"\n{commandPrefix}lvl "character name"\n{commandPrefix}lv "character name"```')
-            self.bot.get_command('levelup').reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         else:
             await core.message.clear_reactions()
@@ -2282,6 +2281,14 @@ class Character(commands.Cog):
         classes = {name: {"Class": records_dict[name], "Level": value['Level'], "Subclass": value["Subclass"]} for name, value in char_class.items()}
         if feat_levels != list():
             core, feats_picked, char_dict = await self.choose_feat(core, classes, feat_levels, char_dict)
+            
+            if not core.isActive():
+                ctx.command.reset_cooldown(ctx)
+                return None
+            if core.hasError():
+                core.send(core.showErrors())
+                ctx.command.reset_cooldown(ctx)
+                return None
             if len(feats_picked) > 0:
                 char_feats_gained_str = f"Feats Gained: **{''.join(feats_picked.keys())}**"
         char_dict["HP"] += selected_record["Hit Die Average"]
@@ -2310,7 +2317,7 @@ class Character(commands.Cog):
             await core.delete()
             await channel.send(
                 f'Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create "system" "character name" level "race" "class" "background" STR DEX CON INT WIS CHA "reward item1, reward item2, [...]"```')
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         else:
             await  core.message.clear_reactions()
@@ -2318,7 +2325,7 @@ class Character(commands.Cog):
                 core.cancel()
                 await core.send(f"Character creation cancelled. Try again using the same command:\n```yaml\n{commandPrefix}create \"system\" \"character name\" level \"race\" \"class\" \"background\" STR DEX CON INT WIS CHA \"reward item1, reward item2, [...]\"```")
                 await  core.message.clear_reactions()
-                self.bot.get_command(command_name).reset_cooldown(ctx)
+                ctx.command.reset_cooldown(ctx)
                 return None
         try:
             db.players.update_one({'_id': char_id}, {"$set": char_dict})
@@ -2544,7 +2551,6 @@ class Character(commands.Cog):
         for item in char_dict["Magic Items"].values():
             if "Stat Bonuses" in item and (not "Attuned" in item or item["Attuned"]):
                 applicable_entries.extend(item["Stat Bonuses"])
-        print(applicable_entries)
         for bonus in applicable_entries:
             types = bonus["Type"]
             stat = bonus["Stat"]
@@ -2556,9 +2562,6 @@ class Character(commands.Cog):
                 stat_setters[stat] = max(value, stat_setters[stat])
             if types == "BONUS":
                 stat_bonuses[stat] += value
-        print(stat_bonuses)
-        print(max_stat_bonuses)
-        print(stat_setters)
         return stat_bonuses, max_stat_bonuses, stat_setters
 
     #TODO switch to giving the stats dict
@@ -2706,7 +2709,6 @@ class Character(commands.Cog):
                 if feat_records == list():
                     feat_records, core = await callAPI(core,'feats')
                 featChoices = []
-                print(epic_boons_count, epic_boons_limit)
                 for feat in feat_records:
                     if feat['Name'] in char_feats or feat['Name'] in feats_picked:
                         continue

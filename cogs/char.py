@@ -1857,7 +1857,8 @@ class Character(commands.Cog):
             char_embed.colour = discord.Colour(0xbb0a1e)
 
         member = guild.get_member(int(char_dict['User ID']))
-        char_embed.set_author(name=member, icon_url=member.display_avatar)
+        if member:
+            char_embed.set_author(name=member, icon_url=member.display_avatar)
         char_embed.description = description
         char_embed.clear_fields()
         
@@ -2503,7 +2504,7 @@ class Character(commands.Cog):
         print(hp_bonus, level)
         total_hp = int(hp_bonus * level)
         con, _ = self.determine_stat(con, "CON", max_stat_bonuses, stat_bonuses, stat_setters)
-        total_hp += floor(((con - 10)/2) * level)
+        total_hp += floor(((con - 10)//2) * level)
         return total_hp
 
     def determine_stat(self, base_stat: int, key: str, max_stat_bonuses, stat_bonuses, stat_setters):

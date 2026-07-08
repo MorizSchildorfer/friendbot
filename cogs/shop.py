@@ -193,7 +193,7 @@ class Shop(commands.Cog):
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']) , timeout=60)
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']), timeout=60)
         except asyncio.TimeoutError:
             await core.send(f'Shop cancelled. Try again using the same command!')
             ctx.command.reset_cooldown(ctx)

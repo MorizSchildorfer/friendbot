@@ -261,72 +261,72 @@ async def generateLog(bot, ctx, num: int, sessionInfo=None, guildDBEntriesDic=No
         sessionLogEmbed.add_field(name=f"**{key}**\n", value=temp, inline=False)
         # add temp to the total output string
 
-        # list of all guilds
-        guildsListStr = ""
+    # list of all guilds
+    guildsListStr = ""
 
-        guildRewardsStr = ""
-        players[dm["ID"]] = dm
-        # passed in parameter, check if there were guilds involved
-        if guilds != dict():
-            guildsListStr = "Guilds: "
-            # for every guild in the game
-            for name, g in guilds.items():
-                guildsListStr += "\n" + (g["Drive"] * "**Recruitment Drive** ") + (g["Rewards"] * "**2xR** ") + g[
-                    "Mention"]
-                # get the DB record of the guild
-                #filter player list by guild
-                gPlayers = [p for p in players.values() if "Guild" in p and p["Guild"] == name]
-                if len(gPlayers) > 0:
-                    gain = 0
-                    for p in gPlayers:
-                        gain += p["CP"] // 3
+    guildRewardsStr = ""
+    players[dm["ID"]] = dm
+    # passed in parameter, check if there were guilds involved
+    if guilds != dict():
+        guildsListStr = "Guilds: "
+        # for every guild in the game
+        for name, g in guilds.items():
+            guildsListStr += "\n" + (g["Drive"] * "**Recruitment Drive** ") + (g["Rewards"] * "**2xR** ") + g[
+                "Mention"]
+            # get the DB record of the guild
+            #filter player list by guild
+            gPlayers = [p for p in players.values() if "Guild" in p and p["Guild"] == name]
+            if len(gPlayers) > 0:
+                gain = 0
+                for p in gPlayers:
+                    gain += p["CP"] // 3
 
-                    gain += sparklesGained * int("Guild" in dm and dm["Guild"] == name)
-                    guildRewardsStr += f"{g['Name']}: +{int(gain)} :sparkles:\n"
+                gain += sparklesGained * int("Guild" in dm and dm["Guild"] == name)
+                guildRewardsStr += f"{g['Name']}: +{int(gain)} :sparkles:\n"
 
-        noodleCongrats = noodleBarrier(noodles, noodleFinal)
-        game_channel = get(ctx.guild.text_channels, name=sessionInfo['Channel'])
-        if not game_channel:
-            game_channel = sessionInfo['Channel']
-        else:
-            game_channel = f"<#{game_channel.id}>"
-        sessionLogEmbed.title = f"\n**{game}**\n*Tier {tierNum} Quest*"
-        sessionLogEmbed.description = f"{game_channel}\n{guildsListStr}\n**Start**: {datestart} EDT\n**End**: {dateend} EDT\n**Runtime**: {totalDuration}\n**General " + description
-        status_text = "Log is being processed! Characters are currently on hold."
-        await editMessage.clear_reactions()
-        if sessionInfo["Status"] == "Approved":
-            status_text = "✅ Log approved! The DM and players have received their rewards and their characters can be used in further one-shots."
-        elif sessionInfo["Status"] == "Denied":
-            status_text = "❌ Log Denied! Characters have been cleared"
-            noodleCongrats = ""
-        elif sessionInfo["Status"] == "Pending":
-            status_text = "❔ Log Pending! DM has been messaged due to session log issues."
+    noodleCongrats = noodleBarrier(noodles, noodleFinal)
+    game_channel = get(ctx.guild.text_channels, name=sessionInfo['Channel'])
+    if not game_channel:
+        game_channel = sessionInfo['Channel']
+    else:
+        game_channel = f"<#{game_channel.id}>"
+    sessionLogEmbed.title = f"\n**{game}**\n*Tier {tierNum} Quest*"
+    sessionLogEmbed.description = f"{game_channel}\n{guildsListStr}\n**Start**: {datestart} EDT\n**End**: {dateend} EDT\n**Runtime**: {totalDuration}\n**General " + description
+    status_text = "Log is being processed! Characters are currently on hold."
+    await editMessage.clear_reactions()
+    if sessionInfo["Status"] == "Approved":
+        status_text = "✅ Log approved! The DM and players have received their rewards and their characters can be used in further one-shots."
+    elif sessionInfo["Status"] == "Denied":
+        status_text = "❌ Log Denied! Characters have been cleared"
+        noodleCongrats = ""
+    elif sessionInfo["Status"] == "Pending":
+        status_text = "❔ Log Pending! DM has been messaged due to session log issues."
 
-            await editMessage.add_reaction('<:nipatya:408137844972847104>')
-        gold_mod_text = f"Current GP earned: {gold_modifier}%\n"
-        sessionLogEmbed.set_footer(text=f"Game ID: {num}\n{status_text}\n{gold_mod_text}{noodleCongrats}")
-        if noodleCongrats:
-            await editMessage.add_reaction('🎉')
-            await editMessage.add_reaction('🎊')
-            await editMessage.add_reaction('🥳')
-            await editMessage.add_reaction('🍾')
-            await editMessage.add_reaction('🥂')
+        await editMessage.add_reaction('<:nipatya:408137844972847104>')
+    gold_mod_text = f"Current GP earned: {gold_modifier}%\n"
+    sessionLogEmbed.set_footer(text=f"Game ID: {num}\n{status_text}\n{gold_mod_text}{noodleCongrats}")
+    if noodleCongrats:
+        await editMessage.add_reaction('🎉')
+        await editMessage.add_reaction('🎊')
+        await editMessage.add_reaction('🥳')
+        await editMessage.add_reaction('🍾')
+        await editMessage.add_reaction('🥂')
 
-        # add the field for the DM's player rewards
-        dm_text = "**No Character**"
-        dm_name_text = "**No Rewards**"
-        # if no character signed up then the character parts are excluded
-        if "Character ID" in dm:
-            dm_char = playersCollection.find_one({"_id": dm["Character ID"]})
-            paused = "Paused" in dm_char and dm_char["Paused"]
-            dm_text = f"{'[PAUSED] ' * paused + dm['Character Name']} {', '.join(dmRewardsList * (not paused))}"
-            dm_name_text = f"DM {dm_double_string}Rewards (Tier {dm_tier_num}):\n**{dmtreasureArray[0]} CP, {sum(dmtreasureArray[1].values())} TP, {dmtreasureArray[2]} GP**\n"
-        sessionLogEmbed.add_field(value=f"{dm['Mention']} | {dm_text}\n{noodleFinalString}", name=dm_name_text)
+    # add the field for the DM's player rewards
+    dm_text = "**No Character**"
+    dm_name_text = "**No Rewards**"
+    # if no character signed up then the character parts are excluded
+    if "Character ID" in dm:
+        dm_char = playersCollection.find_one({"_id": dm["Character ID"]})
+        paused = "Paused" in dm_char and dm_char["Paused"]
+        dm_text = f"{'[PAUSED] ' * paused + dm['Character Name']} {', '.join(dmRewardsList * (not paused))}"
+        dm_name_text = f"DM {dm_double_string}Rewards (Tier {dm_tier_num}):\n**{dmtreasureArray[0]} CP, {sum(dmtreasureArray[1].values())} TP, {dmtreasureArray[2]} GP**\n"
+    sessionLogEmbed.add_field(value=f"{dm['Mention']} | {dm_text}\n{noodleFinalString}", name=dm_name_text)
 
-        # if there are guild rewards then add a field with relevant information
-        if guildRewardsStr != "":
-            sessionLogEmbed.add_field(value=guildRewardsStr, name=f"Guild Rewards", inline=False)
-        await editMessage.edit(embed=sessionLogEmbed)
+    # if there are guild rewards then add a field with relevant information
+    if guildRewardsStr != "":
+        sessionLogEmbed.add_field(value=guildRewardsStr, name=f"Guild Rewards", inline=False)
+    await editMessage.edit(embed=sessionLogEmbed)
 
     pass
 
@@ -764,8 +764,8 @@ class Log(commands.Cog):
             add_to_dictionary(to_remove, i, 1)
         for name, amount in to_remove.items():
             temp: dict = remove_from_inventory(core, inventory, name, amount)
-            for source, amount in temp.items():
-                add_to_inventory(used_inventory, name, amount, source)
+            for source, sub_amount in temp.items():
+                add_to_inventory(used_inventory, name, sub_amount, source)
         for i in player["Inventory"]["Add"]:
             add_to_inventory(used_inventory, i, 1, "REWARD")
 

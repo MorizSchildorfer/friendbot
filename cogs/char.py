@@ -1240,150 +1240,112 @@ class Character(commands.Cog):
         channel = ctx.channel
         author = ctx.author
         guild = ctx.guild
-        command_name = ctx.command.name
-        if True:
-            await channel.send("This command is not supported just yet. It should be available on the 1st of July")
-            return
         char_dict, char_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
+        if 'Death' not in char_dict:
+            await channel.send("Your character is not dead. You cannot use this command.")
+            self.bot.get_command('death').reset_cooldown(ctx)
+            return None
+        death_dict = char_dict['Death']
+        char_id = char_dict['_id']
+        char_level = char_dict['Level']
+        if char_level < 5:
+            gp_needed = 100
+        elif char_level < 11:
+            gp_needed = 500
+        elif char_level < 17:
+            gp_needed = 750
+        else:
+            gp_needed = 1000
 
-        def retireEmbedCheck(r, u):
-            sameMessage = False
-            if char_embedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '✅') or (str(r.emoji) == '❌')) and u == author
+        char_embed.title = f"Character Death - {char_dict['Name']}"
+        char_embed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
 
-        def deathEmbedCheck(r, u):
-            sameMessage = False
-            if char_embedmsg.id == r.message.id:
-                sameMessage = True
-            return sameMessage and ((str(r.emoji) == '1️⃣') or (str(r.emoji) == '2️⃣') or (char_dict['GP'] + deathDict["inc"]['GP']  >= gpNeeded and str(r.emoji) == '3️⃣') or (str(r.emoji) == '❌')) and u == author
-
-        if char_dict:
-            if 'Death' not in char_dict:
-                await channel.send("Your character is not dead. You cannot use this command.")
-                self.bot.get_command('death').reset_cooldown(ctx)
-                return
-            
-            deathDict = char_dict['Death']
-            charID = char_dict['_id']
-            charLevel = char_dict['Level']
-            if charLevel < 5:
-                gpNeeded = 100
-            elif charLevel < 11:
-                gpNeeded = 500
-            elif charLevel < 17:
-                gpNeeded = 750
-            elif charLevel < 21:
-                gpNeeded = 1000
-
-            char_embed.title = f"Character Death - {char_dict['Name']}"
-            char_embed.set_footer(text= "React with ❌ to cancel.\nPlease react with a choice even if no reactions appear.")
-
-            if char_dict['GP'] + deathDict["inc"]['GP'] < gpNeeded:
-                char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: ~~Revival~~ - You currently have {char_dict['GP'] + deathDict['inc']['GP']} GP but need {gpNeeded} GP to be revived."
-            else:
-                char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: Revival - Revives your character for {gpNeeded} GP."
-            if not char_embedmsg:
-                char_embedmsg = await channel.send(embed=char_embed)
-            else:
-                await char_embedmsg.edit(embed=char_embed)
-
-            await char_embedmsg.add_reaction('1️⃣')
-            await char_embedmsg.add_reaction('2️⃣')
-            if char_dict['GP'] + deathDict["inc"]['GP']  >= gpNeeded:
-                await char_embedmsg.add_reaction('3️⃣')
-            await char_embedmsg.add_reaction('❌')
-            try:
-                tReaction, tUser = await self.bot.wait_for("reaction_add", check=deathEmbedCheck , timeout=60)
-            except asyncio.TimeoutError:
-                await char_embedmsg.delete()
-                await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
-                self.bot.get_command('death').reset_cooldown(ctx)
-                return
-            else:
-                await char_embedmsg.clear_reactions()
-                if tReaction.emoji == '❌':
-                    await char_embedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
-                    await char_embedmsg.clear_reactions()
+        if char_dict['GP'] + death_dict["inc"]['GP'] < gp_needed:
+            char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: ~~Revival~~ - You currently have {char_dict['GP'] + death_dict['inc']['GP']} GP but need {gp_needed} GP to be revived."
+        else:
+            char_embed.description = f"Please choose between these three options for {char_dict['Name']}:\n\n1️⃣: Death - Retires your character.\n2️⃣: Survival - Forfeit rewards and survive.\n3️⃣: Revival - Revives your character for {gp_needed} GP."
+        await core.send()
+        emojis = ['1️⃣', '2️⃣', '❌']
+        await core.message.add_reaction('1️⃣')
+        await core.message.add_reaction('2️⃣')
+        if char_dict['GP'] + death_dict["inc"]['GP']  >= gp_needed:
+            await core.message.add_reaction('3️⃣')
+            emojis.append('3️⃣')
+        await core.message.add_reaction('❌')
+        try:
+            tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, emojis) , timeout=60)
+        except asyncio.TimeoutError:
+            await core.delete()
+            await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
+            ctx.command.reset_cooldown(ctx)
+            return None
+        else:
+            await core.message.clear_reactions()
+            if tReaction.emoji == '❌':
+                await core.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
+                ctx.command.reset_cooldown(ctx)
+                return None
+            elif tReaction.emoji == '1️⃣':
+                char_embed.title = f"Are you sure you want to retire {char_dict['Name']}?"
+                char_embed.description = "✅: Yes\n\n❌: Cancel"
+                char_embed.set_footer(text=None)
+                await core.send()
+                await core.message.add_reaction('✅')
+                await core.message.add_reaction('❌')
+                try:
+                    tReaction, tUser = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']) , timeout=60)
+                except asyncio.TimeoutError:
+                    await core.delete()
+                    await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
                     self.bot.get_command('death').reset_cooldown(ctx)
-
-                    return
-                elif tReaction.emoji == '1️⃣':
-                    char_embed.title = f"Are you sure you want to retire {char_dict['Name']}?"
-                    char_embed.description = "✅: Yes\n\n❌: Cancel"
-                    char_embed.set_footer(text=None)
-                    await char_embedmsg.edit(embed=char_embed)
-                    await char_embedmsg.add_reaction('✅')
-                    await char_embedmsg.add_reaction('❌')
-                    try:
-                        tReaction, tUser = await self.bot.wait_for("reaction_add", check=retireEmbedCheck , timeout=60)
-                    except asyncio.TimeoutError:
-                        await char_embedmsg.delete()
-                        await channel.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name"```')
+                    return None
+                else:
+                    await core.message.clear_reactions()
+                    if tReaction.emoji == '❌':
+                        await core.send(f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name" "charactername"```')
+                        await core.message.clear_reactions()
                         self.bot.get_command('death').reset_cooldown(ctx)
-                        return
-                    else:
-                        await char_embedmsg.clear_reactions()
-                        if tReaction.emoji == '❌':
-                            await char_embedmsg.edit(embed=None, content=f'Death cancelled. Try again using the same command:\n```yaml\n{commandPrefix}death "character name" "charactername"```')
-                            await char_embedmsg.clear_reactions()
-                            self.bot.get_command('death').reset_cooldown(ctx)
-                            return
-                        elif tReaction.emoji == '✅':
-                            char_embed.clear_fields()
-                            try:
-                                playersCollection = db.players
-                                deadCollection = db.dead
-                                playersCollection.delete_one({'_id': charID})
-                                guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": char_dict['Guild'], '$options': 'i' }}))
-                                # If there is only one of user's character in the guild remove the role.
-                                if (len(guildAmount) <= 1):
-                                    await author.remove_roles(get(guild.roles, name = char_dict['Guild']), reason=f"Left guild {char_dict['Guild']}")
+                        return None
+                    elif tReaction.emoji == '✅':
+                        char_embed.clear_fields()
+                        try:
+                            playersCollection = db.players
+                            deadCollection = db.dead
+                            playersCollection.delete_one({'_id': char_id})
+                            guildAmount = list(playersCollection.find({"User ID": str(author.id), "Guild": {"$regex": char_dict['Guild'], '$options': 'i' }}))
+                            # If there is only one of user's character in the guild remove the role.
+                            if len(guildAmount) <= 1:
+                                await author.remove_roles(get(guild.roles, name = char_dict['Guild']), reason=f"Left guild {char_dict['Guild']}")
+                            deadCollection.insert_one(char_dict)
+                            pass
+                        except Exception as e:
+                            print ('MONGO ERROR: ' + str(e))
+                            await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
+                        else:
+                            await core.send("Congratulations! You have retired your character.")
 
-                                usersCollection = db.users
-                                
-                                deadCollection.insert_one(char_dict)
-                                pass
-                                
-                            except Exception as e:
-                                print ('MONGO ERROR: ' + str(e))
-                                char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try retiring your character again.")
-                            else:
-                                if char_embedmsg:
-                                    await char_embedmsg.clear_reactions()
-                                    await char_embedmsg.edit(embed=None, content ="Congratulations! You have retired your character.")
-
-                                else: 
-                                    char_embedmsg = await channel.send(embed=None, content="Congratulations! You have retired your character.")
-                    
-                elif tReaction.emoji == '2️⃣' or tReaction.emoji == '3️⃣':
-                    char_embed.clear_fields()
-                    surviveString = f"Congratulations! ***{char_dict['Name']}*** has survived and has forfeited their rewards."
-                    data ={}
-                    if tReaction.emoji == '3️⃣':
-                        for d in char_dict["Death"].keys():
-                            data["$"+d] = char_dict["Death"][d]
-                        data["$inc"]["GP"] -= gpNeeded
-                        surviveString = f"Congratulations! ***{char_dict['Name']}*** has been revived and has kept their rewards!"
-                    data["$unset"] = {"Death":1}
-                    
-                    try:
-                        playersCollection = db.players
-                        playersCollection.update_one({'_id': charID}, data)
-                        
-                    except Exception as e:
-                        print ('MONGO ERROR: ' + str(e))
-                        char_embedmsg = await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
-                    else:
-                        if char_embedmsg:
-                            await char_embedmsg.clear_reactions()
-                            await char_embedmsg.edit(embed=None, content= surviveString)
-                        else: 
-                            char_embedmsg = await channel.send(embed=None, content=surviveString)
-        self.bot.get_command('death').reset_cooldown(ctx)
+            elif tReaction.emoji == '2️⃣' or tReaction.emoji == '3️⃣':
+                char_embed.clear_fields()
+                surviveString = f"Congratulations! ***{char_dict['Name']}*** has survived and has forfeited their rewards."
+                data ={}
+                if tReaction.emoji == '3️⃣':
+                    for d in char_dict["Death"].keys():
+                        data["$"+d] = char_dict["Death"][d]
+                    data["$inc"]["GP"] -= gp_needed
+                    surviveString = f"Congratulations! ***{char_dict['Name']}*** has been revived and has kept their rewards!"
+                data["$unset"] = {"Death":1}
+                try:
+                    db.players.update_one({'_id': char_id}, data)
+                except Exception as e:
+                    print ('MONGO ERROR: ' + str(e))
+                    await channel.send(embed=None, content="Uh oh, looks like something went wrong. Please try the command again.")
+                else:
+                    await core.send(surviveString)
+        ctx.command.reset_cooldown(ctx)
+        return None
 
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel_or_game()

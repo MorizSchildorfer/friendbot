@@ -603,7 +603,7 @@ class Character(commands.Cog):
         command_name = ctx.command.name
         if system not in ["5E", "5R"]:
             await ctx.channel.send(content=f":warning: Unknown System: {system}. Options: 5E, or 5R")
-            self.bot.get_command(command_name).reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
             return None
         
         name = name.strip()
@@ -1479,11 +1479,18 @@ class Character(commands.Cog):
     @commands.cooldown(1, 5, type=commands.BucketType.member)
     @is_log_channel()
     @commands.command(aliases=['u'])
-    async def user(self,ctx):
+    async def user(self, ctx, system = None):
         channel = ctx.channel
         author = ctx.author
         search_author = author
         contents = []
+        if system:
+            system = system.upper()
+            if system not in ["5E", "5R"]:
+                await ctx.channel.send(content=f":warning: Unknown System: {system}. Options: 5E, or 5R")
+                ctx.command.reset_cooldown(ctx)
+                return None
+            
         if len(ctx.message.mentions)>0 and "Mod Friend" in [role.name for role in author.roles]:
             search_author = ctx.message.mentions[0]
         usersCollection = db.users
@@ -1494,7 +1501,10 @@ class Character(commands.Cog):
             usersData = db.users.insert_one(userRecords)  
             await channel.send(f'A user profile has been created.') 
         playersCollection = db.players
-        charRecords = list(playersCollection.find({"User ID": str(search_author.id)}))
+        query = {"User ID": str(search_author.id)}
+        if system:
+            query["System"] = system
+        charRecords = list(playersCollection.find(query))
 
         totalGamesPlayed = 0
         charString = ""

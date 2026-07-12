@@ -90,7 +90,7 @@ class Help(commands.Cog):
         
         helpEmbedGen.add_field(name=f'▫️ Applying for Membership (only available in Direct Messages to Bot Friend)', value=f'{commandPrefix}membership', inline=False)
 
-        helpEmbedGen.add_field(name=f'▫️ Creating and Viewing Your User Profile', value=f'{commandPrefix}user', inline=False)
+        helpEmbedGen.add_field(name=f'▫️ Creating and Viewing Your User Profile', value=f'{commandPrefix}user "system"', inline=False)
 
         helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Races', value=f'{commandPrefix}races "system"', inline=False)
         helpEmbedGen.add_field(name=f'▫️ Viewing the List of Allowed Backgrounds', value=f'{commandPrefix}backgrounds "system"', inline=False)

@@ -976,8 +976,9 @@ class Character(commands.Cog):
             stat_bonus_record = bRecord
         if not core.hasError():
             char_dict['Background'] = bRecord['Name']
-            char_dict["GP"] += bRecord["GP"]
-            char_dict["Feats"] = [bRecord["Feat"]]
+            char_dict["GP"] += bRecord["GP"] 
+            if system == '5R':
+                char_dict["Feats"].append(bRecord["Feat"])
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
         if not core.isActive():
             ctx.command.reset_cooldown(ctx)

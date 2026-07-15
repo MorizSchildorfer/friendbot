@@ -2483,7 +2483,7 @@ class Character(commands.Cog):
     def determine_stat(self, base_stat: int, key: str, max_stat_bonuses, stat_bonuses, stat_setters):
         max_value = 20 + max_stat_bonuses[key]
         final_stat = base_stat
-        bonus = stat_bonuses[key]
+        bonus = stat_bonuses[key] + max_stat_bonuses[key]
         final_stat += bonus
         final_stat = max(min(final_stat, max_value), stat_setters[key])
         description = f"**{key}**: {base_stat}"

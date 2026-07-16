@@ -928,6 +928,7 @@ class Character(commands.Cog):
         if char_dict['Name'] != new_name:
             core = self.nameVerification(core, new_name, author)
         char_dict['Name'] = new_name
+        char_dict["Feats"] = []
 
         extra_cp = char_dict['CP']
         char_level = char_dict['Level']
@@ -2530,6 +2531,8 @@ class Character(commands.Cog):
             stat = bonus["Stat"]
             value = bonus["Value"]
             if types == "MAX":
+            if types == "MAX ONLY": # for feats that give bonuses, as a holdover
+                max_stat_bonuses[stat] += value
                 stat_bonuses[stat] += value
                 max_stat_bonuses[stat] += value
             if types == "FIXED":

@@ -987,7 +987,7 @@ class Character(commands.Cog):
         if not core.hasError():
             core, stats = await self.starting_stat_modification(core,
                                                                 [stats["STR"], stats["DEX"], stats["CON"], stats["INT"],
-                                                                 stats["WIS"], stats["CHA"]], bRecord)
+                                                                 stats["WIS"], stats["CHA"]], stat_bonus_record)
             char_dict["Stats"] = stats
         if not core.isActive():
             ctx.command.reset_cooldown(ctx)

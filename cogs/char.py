@@ -883,7 +883,7 @@ class Character(commands.Cog):
             return None
         char_dict["Stats"] = stats
         system = char_dict["System"]
-        char_remove_key_list = ['Image', 'Spellbook', 'Guild', 'Guild Rank']
+        char_remove_key_list = ['Image', 'Spellbook', 'Guild', 'Guild Rank', 'NoodleTraining', 'Proficiency']
         
         guild_name = ""
         

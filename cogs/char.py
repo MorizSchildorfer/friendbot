@@ -2531,13 +2531,11 @@ class Character(commands.Cog):
             stat = bonus["Stat"]
             value = bonus["Value"]
             if types == "MAX":
-            if types == "MAX ONLY": # for feats that give bonuses, as a holdover
-                max_stat_bonuses[stat] += value
                 stat_bonuses[stat] += value
                 max_stat_bonuses[stat] += value
-            if types == "FIXED":
+            elif types == "FIXED":
                 stat_setters[stat] = max(value, stat_setters[stat])
-            if types == "BONUS":
+            elif types == "BONUS":
                 stat_bonuses[stat] += value
         return stat_bonuses, max_stat_bonuses, stat_setters
 

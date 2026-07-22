@@ -598,19 +598,21 @@ class Shop(commands.Cog):
         reductions = remove_from_inventory(core, char_dict['Inventory'], item_record['Name'], amount)
         if core.hasError():
             await core.send("\n".join(core.errors))
+            ctx.command.reset_cooldown(ctx)
+            return
 
         if "Pack" in item_record:
             item_record['GP'] /= item_record['Pack']
 
         gp_refund = round((item_record['GP'] / 2) * amount, 2)
-        new_gp = char_dict['GP'] - gp_refund
+        new_gp = char_dict['GP'] + gp_refund
         level_up_embed.title = f"Shop (Sell): {char_dict['Name']}"
         level_up_embed.description = f"Are you sure you want to sell {amount}x **{item_record['Name']}** for **{gp_refund} GP**?\nCurrent GP: {char_dict['GP']} GP\nNew GP: {new_gp} GP\n\n✅: Yes\n\n❌: Cancel"
         await core.send()
         await core.message.add_reaction('✅')
         await core.message.add_reaction('❌')
         try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, ['✅', '❌']) , timeout=60)
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, ctx.author, ['✅', '❌']) , timeout=60)
         except asyncio.TimeoutError:
             await core.delete()
             await channel.send(f'Shop cancelled. Try again using the command!')
@@ -624,8 +626,8 @@ class Shop(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
             elif tReaction.emoji == '✅':
-                reductions = {f'Inventory.{item_record["Inventory"]}.{source}': value for source, value in reductions.items()}
-                reductions["GP"] : gp_refund
+                reductions = {f'Inventory.{item_record["Name"]}.{source}': value for source, value in reductions.items()}
+                reductions["GP"] = gp_refund
                 inc = {"$inc": reductions}
                 try:
                     db.players.update_one({'_id': char_dict['_id']}, inc)

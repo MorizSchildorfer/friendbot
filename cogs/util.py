@@ -91,8 +91,15 @@ class InteractionCore:
     ", ".join([self.system, self.status, self.errors.__str__()])
   )
 
+def format_magic_item(key: str, magic_item: dict) -> str:
+    output = key
+    if "Name" in magic_item:
+        output = magic_item["Name"]
+    if "Stage Name" in magic_item:
+        output = f"{output} ({magic_item['Stage Name']})"
+    return output
+    
 
-# TODO add a function to determine the display name for magic items
 # Todo add a function to check if a text could be referring to a specific item
 
 def determine_tier(level: int):
@@ -137,12 +144,12 @@ def remove_from_inventory(core: InteractionCore, inventory: dict, item: str, amo
                 amount -= from_source
     return reductions
 
-def show_inventory(inventory: dict) -> list:
+def show_inventory(inventory: dict, name_fn = lambda x, y: x) -> list:
     output = []
     for name, entry in inventory.items():
         count = sum_sources(entry)
         if count > 0:
-            output.append(f"{name} x{count}")
+            output.append(f"{name_fn(name, entry)} x{count}")
     return output
 
 def sum_sources(entry: dict) -> int:

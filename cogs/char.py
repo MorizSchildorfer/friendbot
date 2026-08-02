@@ -10,7 +10,7 @@ from discord.utils import get
 from math import floor
 from discord.ext import commands
 from bfunc import alphaEmojis, commandPrefix, left,right,back, db, traceBack, cp_bound_array, settingsRecord, bot
-from cogs.util import calculateTreasure, callAPI, check_for_char_with_end, paginate, disambiguate, timeConversion, confirm, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier, add_to_dictionary, sum_sources, select_inventory_choices, format_classes
+from cogs.util import calculateTreasure, callAPI, check_for_char_with_end, paginate, disambiguate, timeConversion, confirm, noodle_roles, findNoodleDataFromRoles, convert_to_seconds, reaction_response_control, InteractionCore, find_reward_item, paginate_options, add_to_inventory, show_inventory, determine_tier, add_to_dictionary, sum_sources, select_inventory_choices, format_classes, format_magic_item
 
 def search_magic_item(search: str, items: dict) -> list:
     results = []
@@ -1424,7 +1424,7 @@ class Character(commands.Cog):
         magic_items = char_dict["Magic Items"]
         magic_items = {key: magic_items[key] for key in sorted(magic_items.keys())}
         if len(magic_items) > 0:
-            contents.append((f"Magic Items", "\n".join(show_inventory(magic_items)), False))
+            contents.append((f"Magic Items", "\n".join(show_inventory(magic_items, format_magic_item)), False))
 
         member = guild.get_member(int(char_dict['User ID']))
         inventory  = char_dict['Inventory']
@@ -1685,7 +1685,7 @@ class Character(commands.Cog):
             bolding = ""
             if m in attune_list:
                 bolding = "**"
-            miString += f"• {bolding}{m}{bolding}"
+            miString += f"• {bolding}{format_magic_item(m, magic_items[m])}{bolding}"
             if v == 1:
                 miString+="\n"
             else:

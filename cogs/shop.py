@@ -815,7 +815,7 @@ class Shop(commands.Cog):
         elif scrollChoice == "Scroll":
             spellScrollAmount -= 1
             gp_needed = spell_record['Level'] * 50
-            if char_dict['Level'] >= 2 and spell_record['School'] in classes:
+            if char_dict['Level'] >= 2 and spell_record['School'] in classes['Wizard']['Subclass']:
                 gp_needed = gp_needed / 2
             if gp_needed > char_dict['GP']:
                 await core.send(f"***{char_dict['Name']}*** does not have enough GP to copy the **{spell_record['Name']}** spell into their {book_choice}.")
@@ -825,7 +825,7 @@ class Shop(commands.Cog):
                 await core.send(f"***{char_dict['Name']}*** does not have a spell scroll of **{spell_record['Name']}** to copy into their {book_choice}!")
                 ctx.command.reset_cooldown(ctx)
                 return None
-            increases = {f"Consumables.{spellCopied}.{source}" : value for source, value in remove_from_inventory(core, consumes, spellCopied)}
+            increases = {f"Consumables.{spellCopied}.{source}" : value for source, value in remove_from_inventory(core, consumes, spellCopied, 1).items()}
             increases["GP"] = -gp_needed
         if book_choice not in char_dict:
             char_dict[book_choice] = [{'Name':spell_record['Name'], 'School':spell_record['School']}]

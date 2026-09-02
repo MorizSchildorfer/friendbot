@@ -2754,6 +2754,7 @@ class Character(commands.Cog):
                 feats_picked[featPicked["Name"]] = featPicked
                 if featPicked['Name'] == "Ritual Caster":
                     ritualClasses = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"]
+                    content = "Please choose the class to pick spells from."
                     core, selection = await paginate_options(core, self.bot, f"Ritual Caster Class Selection", ritualClasses, content)
                     ritualClass = ritualClasses[selection]
                     featPicked['Name'] = f"{featPicked['Name']} ({ritualClass})"

@@ -101,7 +101,7 @@ class Tp(commands.Cog):
             await channel.send(f"You do not have **{item_name}**.")
             ctx.command.reset_cooldown(ctx)
             return None
-        upgrade_stage = char_dict["Magic Items"][item_name]["Stage"]
+        upgrade_stage = char_dict["Magic Items"][item_key]["Stage"]
         if upgrade_stage + 1 >= len(item_record['Predecessor']["Names"]):
             await channel.send(f"**{item_name}** is already at its highest stage.")
             ctx.command.reset_cooldown(ctx)

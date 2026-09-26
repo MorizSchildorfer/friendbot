@@ -9,6 +9,7 @@ from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dict
 import traceback as traces
 from random import *
 
+rarities : [str] = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"]
 
 def is_log_channel():
     async def predicate(ctx):
@@ -91,7 +92,6 @@ class Tp(commands.Cog):
         item_key = item_name
         if 'Grouped' in item_record:
             item_key = item_record['Grouped']
-        # check if the requested item is already in the inventory
         if "Predecessor" not in item_record:
             await channel.send(f"**{item_name}** is not upgradable.")
             ctx.command.reset_cooldown(ctx)
@@ -128,6 +128,124 @@ class Tp(commands.Cog):
 
         # display the cost of the item to the user
         level_up_embed.title = f"Upgrading a Magic Item: {char_dict['Name']}"
+
+        # if the user doesnt have the resources for the purchases, inform them and cancel
+        if tpNeeded > 0:
+            await channel.send(f"You do not have enough Tier {required_tier} TP or higher to upgrade **{item_name}**!")
+            ctx.command.reset_cooldown(ctx)
+            return None
+
+        used_tp_text = ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
+        level_up_embed.description = f"Are you sure you want to upgrade **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage]})** to **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage + 1]})** for **{tpNeeded_copy} TP**?\n\nLeftover TP: {used_tp_text}\n\n✅: Yes\n\n❌: Cancel"
+        level_up_embed.set_footer(text=None)
+        await core.send(embed=level_up_embed)
+        await core.message.add_reaction('✅')
+        await core.message.add_reaction('❌')
+        try:
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']) , timeout=60)
+        except asyncio.TimeoutError:
+            await channel.send(f'TP cancelled. Try again using the same command!')
+            ctx.command.reset_cooldown(ctx)
+            return None
+        else:
+            await core.message.clear_reactions()
+            if tReaction.emoji == '❌':
+                await core.message.edit(embed=None, content=f"TP cancelled. Try again using the same command!")
+                ctx.command.reset_cooldown(ctx)
+                return None
+            elif tReaction.emoji == '✅':
+                level_up_embed.clear_fields()
+                try:
+                    setData = {}
+                    incData = {f'Magic Items.{item_key}.Stage': 1}
+                    setData[f'Magic Items.{item_key}.Stage Name'] = item_record["Predecessor"]["Names"][upgrade_stage + 1]
+                    if 'Stat Bonuses' in item_record["Predecessor"]:
+                        setData[f'Magic Items.{item_key}.Stat Bonuses'] = item_record["Predecessor"]["Stat Bonuses"][upgrade_stage]
+                    for tp, value in used_tp.items():
+                        incData[f"Magic Items.{item_key}.Item Spend.{tp}"] = value
+                        incData[f"{tp}"] = -value
+                    db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})
+                except Exception as e:
+                    print ('MONGO ERROR: ' + str(e))
+                    await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
+                    ctx.command.reset_cooldown(ctx)
+                else:
+                    level_up_embed.description = f"You have upgraded **{item_name}** for {tpNeeded_copy} TP! :tada:\n\nCurrent TP: {used_tp_text}\n\n"
+                    await core.send()
+                    ctx.command.reset_cooldown(ctx)
+
+
+    @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
+    @tp.command()
+    async def evolve(self, ctx, char, magic_item):
+        author = ctx.author
+        channel = ctx.channel
+        command_name = ctx.command.name
+        char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
+        if not char_dict:
+            ctx.command.reset_cooldown(ctx)
+            return None
+        level = char_dict["Level"]
+        tier = determine_tier(level)
+        #make the call to the bfunc function to retrieve an item matching with magic_item
+        item_record, core = await callAPI(core, 'mit', magic_item, tier=tier)
+        #if an item was found
+        if not item_record:
+            await channel.send(
+                f'''**{magic_item}** belongs to a tier which you do not have access to or it doesn't exist! Check to see if it's on the Magic Item Table, what tier it is, and your spelling.''')
+            ctx.command.reset_cooldown(ctx)
+            return None
+
+        item_name = item_record['Name']
+        item_key = item_name
+        if 'Grouped' in item_record:
+            item_key = item_record['Grouped']
+            
+        if "Attunement" not in item_record or not item_record["Attunement"]:
+            await channel.send(f"**{item_name}** cannot be evolved since it is not attunable.")
+            ctx.command.reset_cooldown(ctx)
+            return None
+        elif item_key not in char_dict["Magic Items"]:
+            await channel.send(f"You do not have **{item_name}**.")
+            ctx.command.reset_cooldown(ctx)
+            return None
+        player_item = char_dict["Magic Items"][item_key]
+        if "Rarity" not in player_item or player_item["Rarity"] not in rarities:
+            await channel.send(f"**{item_name}** has no valid rarity recorded. This is most likely a mistake. Please reach out to Zeph.")
+            ctx.command.reset_cooldown(ctx)
+            return None
+        rarity_index = rarities.index(player_item["Rarity"])
+        if rarity_index >= rarities["Legendary"]:
+            await channel.send(f"Your **{item_name}** already has rarity **{player_item['Rarity']}** and cannot evolve further.")
+            ctx.command.reset_cooldown(ctx)
+            return None
+        
+        bought_evolutions : [str] = []
+        for magic_item in char_dict["Magic Items"]:
+            if "Evolutions" in magic_item:
+                bought_evolutions += list(magic_item["Evolutions"].keys())
+        query = {"Rarity": rarities[rarity_index + 1], "Name" : {"$nin": bought_evolutions}}
+        available_evolutions = list(db.evolutions.find(query))
+        tpBank = [0,0,0,0,0]
+        tpBankString = ""
+        #grab the available TP of the character
+        for x in range(1,6):
+            if f'T{x} TP' in char_dict:
+              tpBank[x-1] = (float(char_dict[f'T{x} TP']))
+              tpBankString += f"{tpBank[x-1]} T{x} TP, "
+        tpNeeded = float(item_record['Predecessor']["Costs"][upgrade_stage])
+        tpNeeded_copy = tpNeeded
+        used_tp = {}
+        for tp in range (int(required_tier) - 1, 5):
+            if tpBank[tp] > 0 and tpNeeded > 0:
+                tp += 1
+                tp_reduction = min(char_dict[f"T{tp} TP"],  tpNeeded)
+                char_dict[f"T{tp} TP"] -= tp_reduction
+                tpNeeded -= tp_reduction
+                used_tp[f"T{tp} TP"] = tp_reduction
+
+        # display the cost of the item to the user
+        level_up_embed.title = f"Evolving {item_name}: {char_dict['Name']}"
 
         # if the user doesnt have the resources for the purchases, inform them and cancel
         if tpNeeded > 0:

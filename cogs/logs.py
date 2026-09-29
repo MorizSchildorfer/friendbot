@@ -524,6 +524,10 @@ class Log(commands.Cog):
         dm["Double"] = False
         dm_time_bank = 0
         #DM REWARD MATH STARTS HERE
+        
+        paused_time = 0
+        if "Paused Time" in sessionInfo:
+            paused_time = sessionInfo["Paused Time"]
         if "Character ID" in dm:
             player = dm
             duration = player["CP"] * 3600
@@ -583,9 +587,6 @@ class Log(commands.Cog):
                                                  "$inc": {"Games": 1,
                                                           "Event Token": event_inc}}})
         else:
-            paused_time = 0
-            if "Paused Time" in sessionInfo:
-                paused_time = sessionInfo["Paused Time"]
             dm_time_bank = (sessionInfo["End"] - sessionInfo["Start"] - paused_time) * (
                         1 + sessionInfo["DDMRW"] + ("Bonus" in sessionInfo and sessionInfo["Bonus"]) + (
                             sessionInfo["Tier"] == 0 and "Tier Bonus" in sessionInfo and sessionInfo[

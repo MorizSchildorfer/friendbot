@@ -100,18 +100,18 @@ class Apps(commands.Cog):
             await appMember.add_roles(get(guild.roles, name = '5R - Roll20 Tier 0'), reason=f"Approved application - the user has been given the base role.")
             await appMember.add_roles(get(guild.roles, name = '5R - Foundry Tier 0'), reason=f"Approved application - the user has been given the base role.")
             
-            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for membership to the **D&D Friends** Discord server! The Mod team has approved your application and you have been assigned the appropriate roles. If you would like to opt-out of the *Tier Roles* in order to no longer be pinged/mentioned for one-shots, navigate to the `#role-management` channel and react to the approrpriate reactions.\n\nIf you have any further questions then please don't hesitate to ask in our `#help-for-players` channel or message a Mod Friend!")
+            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for friendship to the **D&D Friends** Discord server! The Mod team has approved your application and you have been assigned the appropriate roles. If you would like to opt-out of the *Tier Roles* in order to no longer be pinged/mentioned for one-shots, navigate to the `#role-management` channel and react to the approrpriate reactions.\n\nIf you have any further questions then please don't hesitate to ask in our `#help-for-players` channel or message a Mod Friend!")
             
         elif 'deny' in response:
             await botMsg.edit(embed=botEmbed, content=f"{appMember.mention} - **Denied** (Generic)")
             await botMsg.clear_reactions()
             await ctx.message.delete()
-            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for membership to the **D&D Friends** Discord server! Unfortunately, the Mod team has declined your application since you are not a good fit for the server. Although D&D is for everyone, not every server is for everyone and we hope you find other like-minded people to play D&D with. Good luck!")
+            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for friendship to the **D&D Friends** Discord server! Unfortunately, the Mod team has declined your application since you are not a good fit for the server. Although D&D is for everyone, not every server is for everyone and we hope you find other like-minded people to play D&D with. Good luck!")
         elif 'sub16' in response:
             await botMsg.edit(embed=botEmbed, content=f"{appMember.mention} - **Denied** (Under 16)")
             await botMsg.clear_reactions()
             await ctx.message.delete()
-            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for membership to th **D&D Friends** Discord server! Unfortunately, the Mod team has declined your application since you did not meet the cut-off age. Although D&D is for everyone, not every server is for everyone and we hope you find other like-minded people to play D&D with. Good luck!")
+            await appMember.send(f"Hello, {appMember.name}!\n\nThank you for applying for friendship to th **D&D Friends** Discord server! Unfortunately, the Mod team has declined your application since you did not meet the cut-off age. Although D&D is for everyone, not every server is for everyone and we hope you find other like-minded people to play D&D with. Good luck!")
     
     def is_private_channel():
         async def predicate(ctx):
@@ -123,7 +123,7 @@ class Apps(commands.Cog):
     @commands.cooldown(1, 60, type=commands.BucketType.user)
     async def submit(self, ctx, *, response):
         msg = ctx.message
-        sMessage = await ctx.channel.send(content=f'Hello, {msg.author.name}!\n\nThank you for submitting your membership application to the **D&D Friends** Discord server! It has been forwarded to the Mod team for review. Please give the Mod team at least 24 hours before you message one of them to inquire about the status of your membership application. Once it has been processed, you will receive another message from me with the status of your application and further instructions!')
+        sMessage = await ctx.channel.send(content=f'Hello, {msg.author.name}!\n\nThank you for submitting your friendship application to the **D&D Friends** Discord server! It has been forwarded to the Mod team for review. Please give the Mod team at least 24 hours before you message one of them to inquire about the status of your friendship application. Once it has been processed, you will receive another message from me with the status of your application and further instructions!')
                 
         # appchannel
         channelID = 388591318814949376
@@ -151,13 +151,13 @@ class Apps(commands.Cog):
     @commands.command()
     @is_private_channel()
     @commands.cooldown(1, 60, type=commands.BucketType.user)
-    async def membership(self, ctx):
+    async def friendship(self, ctx):
         msg = ctx.message
          
             
         text = f"""Hello {msg.author.name}! 
 
-Thank you for applying for membership to the D&D Friends Discord server. Please copy-paste the following template, answer all questions, and reply to me with your filled out template:
+Thank you for applying for friendship to the D&D Friends Discord server. Please copy-paste the following template, answer all questions, and reply to me with your filled out template:
 ```$submit
 
 **What is your age?**
@@ -167,7 +167,7 @@ Thank you for applying for membership to the D&D Friends Discord server. Please 
 • 
 ```
 
-By submitting this membership application, you are consenting to the following:
+By submitting this friendship application, you are consenting to the following:
 • You have read through the rules posted in the #dnd-friends-rules channel on the server and will abide by them at all times.
 • We are not liable for NSFW content in one-shots on the server and participating in one-shots is done at your own discretion as we can't be held liable if you end up in a situation with which you are uncomfortable. Although the public channels on the server are considered a "safe for work" (SFW) environment, we allow anyone to be a DM and host a one-shot on the server. Therefore, we do not have control over what people put in their quests and some quests may contain explicit or adult content, otherwise known as "not safe for work" (NSFW) content. Explicit or adult content in this context is considered to be: violence, gore, disturbing imagery, or otherwise implied risqué themes. However, we do urge those DMs to put a warning on their quest board post if they will be using such content so all players are fairly warned prior to the one-shot."""
         await ctx.channel.send(content=text)

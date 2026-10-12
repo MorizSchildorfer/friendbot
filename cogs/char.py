@@ -277,19 +277,7 @@ class Character(commands.Cog):
 
 
     def getLeveLimit(self, roles):
-        role_creation_dict = {
-            'D&D Friend': 2,
-            'Journeyfriend': 3,
-            'Elite Friend': 3,
-            'True Friend': 3,
-            'Ascended Friend': 3
-        }
-        # Check if level or roles are vaild
-        # A set that filters valid levels depending on user's roles
-        role_limit = 1
-        for d in role_creation_dict.keys():
-            if d in roles:
-                role_limit = max(role_limit, role_creation_dict[d])
+        role_limit = 5
 
         # If roles are present, add base levels + 1 for extra levels for these special roles.
         if ("Nitro Booster" in roles):

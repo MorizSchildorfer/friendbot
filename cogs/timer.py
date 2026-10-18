@@ -141,7 +141,7 @@ class Timer(commands.Cog):
                 #inform the user of the correct location to use the command and how to use it
                 await channel.send('Try this command in a game channel! ' + prepFormat)
                 #permit the use of the command again
-                self.timer.get_command(command_name').reset_cooldown(ctx)
+                self.timer.get_command(command_name).reset_cooldown(ctx)
                 return None
         #check if the userList was given in the proper way or if the norewards option was taken, this avoids issues with the game name when multiple players sign up
         if '"' not in ctx.message.content:

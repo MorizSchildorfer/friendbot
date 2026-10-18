@@ -306,7 +306,6 @@ class Tp(commands.Cog):
             if "Evolutions" in magic_item:
                 bought_evolutions += list(magic_item["Evolutions"].keys())
         query = {"Rarity": rarities[rarity_index + 1], "System": "5R", "Name" : {"$nin": bought_evolutions}}
-        print(query)
         available_evolutions = list(db.evolutions.find(query))
         
         options = list(map(lambda o: f"{o['Name']}", available_evolutions))
@@ -432,7 +431,8 @@ class Tp(commands.Cog):
         if 'Attunement' in item_record:
             new_item['Attunement'] = item_record['Attunement']
             new_item['Attuned'] = False
-            new_item['Rarity'] = item_record['Rarity']
+            if "Rarity" in item_record:
+                new_item['Rarity'] = item_record['Rarity']
         if 'Grouped' in item_record:
             item_key = item_record['Grouped']
             pass

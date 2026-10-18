@@ -5,11 +5,11 @@ import re
 from discord.utils import get        
 from discord.ext import commands
 from bfunc import db, commandPrefix, roleArray, traceBack, alphaEmojis, settingsRecord, liner_dic
-from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary, check_for_char_with_end, reaction_response_control
+from cogs.util import callAPI, checkForChar, uwuize, determine_tier, add_to_dictionary, check_for_char_with_end, reaction_response_control, InteractionCore, paginate_options
 import traceback as traces
 from random import *
 
-rarities : [str] = ["Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"]
+rarities : [str] = ["No Rarity", "Varies", "Common", "Uncommon", "Rare", "Very Rare", "Legendary", "Artifact"]
 
 def is_log_channel():
     async def predicate(ctx):
@@ -50,6 +50,7 @@ class Tp(commands.Cog):
         elif isinstance(error, commands.UnexpectedQuoteError) or isinstance(error, commands.ExpectedClosingQuoteError) or isinstance(error, commands.InvalidEndOfQuotedStringError):
              return
              
+        ctx.command.reset_cooldown(ctx)
         if msg:
             if ctx.command.name == "find": #changed error message
                 msg += f"Please follow this format:\n```yaml\n{commandPrefix}tp find \"character name\" \"magic item\"```\n"
@@ -61,12 +62,123 @@ class Tp(commands.Cog):
                 msg += f"Please follow this format:\n```yaml\n{commandPrefix}tp discard \"character name\"```\n"
             elif ctx.command.name == "abandon":
                 msg += f"Please follow this format:\n```yaml\n{commandPrefix}tp abandon \"character name\" tier```\n"
-            ctx.command.reset_cooldown(ctx)
             await ctx.channel.send(msg)
         else:
-            ctx.command.reset_cooldown(ctx)
             await traceBack(ctx,error)
 
+    # TODO Create a cost object to unify behaviors and choices and make it more flexible
+    async def pay(self, core: InteractionCore, name: str, tier: int, tp: int, gp: int, char_dict: dict, source: str, source_title: str):
+        ctx = core.context
+        tierNum = tier
+        gpNeeded = gp
+        author = core.context.author
+        tpBank = [0,0,0,0,0]
+        tpBankString = ""
+        #grab the available TP of the character
+        for x in range(1,6):
+            if f'T{x} TP' in char_dict:
+              tpBank[x-1] = (float(char_dict[f'T{x} TP']))
+              tpBankString += f"{tpBank[x-1]} T{x} TP, " 
+
+        tpNeeded = tp
+        used_tp = {}
+        for tp_index in range (int(tierNum) - 1, 5):
+            if tpBank[tp_index] > 0 and tpNeeded > 0:
+                tp_index += 1
+                tp_reduction = min(char_dict[f"T{tp_index} TP"],  tpNeeded)
+                char_dict[f"T{tp_index} TP"] -= tp_reduction
+                tpNeeded -= tp_reduction
+                used_tp[f"T{tp_index} TP"] = tp_reduction
+        embed = core.embed
+        # display the cost of the item to the user
+        embed.title = f"{source_title}: {char_dict['Name']}"
+        bought_with_tp = False
+        used_resources = {}
+        if gpNeeded is None:
+            bought_with_tp = True
+            if tpNeeded > 0:
+                await core.addError(f"You do not have enough Tier {tierNum} TP or higher to {source} **{item_record['Name']}**!")
+                ctx.command.reset_cooldown(ctx)
+                return core, {}, ""
+        # if the user doesnt have the resources for the purchases, inform them and cancel
+        else:
+            if tpNeeded > 0 and float(char_dict['GP']) < gpNeeded:
+                await core.addError(f"You do not have enough Tier {tierNum} TP or higher, or GP, to {source} **{item_record['Name']}**!")
+                ctx.command.reset_cooldown(ctx)
+                return core, {}, ""
+          
+            # get confirmation from the user for the purchase
+            elif tpNeeded > 0:
+                embed.description = f"Do you want to {source} **{name}** with TP or GP?\n\n You have don't have enough TP and **{char_dict[f'GP']} GP**.\n\n1️⃣: ~~{tp} TP~~ You do not have enough TP.\n2️⃣: {gp} GP)\n\n❌: Cancel"                 
+            elif float(char_dict['GP']) < gpNeeded:
+                embed.description = f"Do you want to {source} **{name}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {tp} TP\n2️⃣: ~~{gp} GP~~ You do not have enough GP.\n\n❌: Cancel"                 
+            else:
+                embed.description = f"Do you want to {source} **{name}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {tp} TP\n2️⃣: {gp} GP\n\n❌: Cancel"                 
+            
+            await core.send()
+            choices = []
+            if tpNeeded <= 0:
+                await core.message.add_reaction('1️⃣')
+                choices.append('1️⃣')
+            if float(char_dict['GP']) >= gpNeeded:
+                await core.message.add_reaction('2️⃣')
+                choices.append('2️⃣')
+            
+            choices.append('❌')
+            await core.message.add_reaction('❌')
+            try:
+                tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author, choices), timeout=60)
+            except asyncio.TimeoutError:
+                #cancel if the user didnt respond within the timeframe
+                await core.addError(f'Timed out')
+                ctx.command.reset_cooldown(ctx)
+                return core, {}, ""
+            else:
+                await core.message.clear_reactions()
+                #cancel if the user decided to cancel the purchase
+                if tReaction.emoji == '❌':
+                    core.cancel()
+                    await core.send(f"TP cancelled. Try again using the same command!")
+                    ctx.command.reset_cooldown(ctx)
+                    return core, {}, ""
+                #refund the TP in the item if the user decides to purchase with gold
+                elif tReaction.emoji == '2️⃣':
+                    bought_with_tp = False
+                # If user decides to buy item with TP:
+                elif tReaction.emoji == '1️⃣':
+                    bought_with_tp = True
+        if bought_with_tp:
+            used_resources = used_tp
+            remaining_resources_text = 'Leftover TP: ' + ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
+            embed.description = f"Are you sure you want to {source} **{name}** for **{tp} TP**?\n\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
+        else:
+            newGP = round(char_dict['GP'] - gp,2)
+            used_resources = {"GP": gp}
+            remaining_resources_text = f"New GP: {newGP} GP"
+            embed.description = f"Are you sure you want to {source} **{name}** for **{gp} GP**?\n\nCurrent GP: {char_dict['GP']}\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
+        
+        embed.set_footer(text=None)
+        await core.send()
+        await core.message.add_reaction('✅')
+        await core.message.add_reaction('❌')
+        try:
+            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']) , timeout=60)
+        except asyncio.TimeoutError:
+            await channel.send(f'TP cancelled. Try again using the same command!')
+            ctx.command.reset_cooldown(ctx)
+            core.addError("Timed out")
+            return core, {}, ""
+        else:
+            await core.message.clear_reactions()
+            if tReaction.emoji == '❌':
+                await core.message.edit(embed=None, content=f"Command cancelled. Try again using the same command!")
+                await core.message.clear_reactions()
+                ctx.command.reset_cooldown(ctx)
+                core.cancel()
+            elif tReaction.emoji == '✅':
+                embed.clear_fields()
+        return core, used_resources, remaining_resources_text
+    
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @tp.command()
     async def upgrade(self, ctx, char, magic_item):
@@ -107,72 +219,38 @@ class Tp(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return None
         # get the tier of the item
-        required_tier = item_record['Predecessor']["Tiers"][upgrade_stage]
-        tpBank = [0,0,0,0,0]
-        tpBankString = ""
-        #grab the available TP of the character
-        for x in range(1,6):
-            if f'T{x} TP' in char_dict:
-              tpBank[x-1] = (float(char_dict[f'T{x} TP']))
-              tpBankString += f"{tpBank[x-1]} T{x} TP, "
-        tpNeeded = float(item_record['Predecessor']["Costs"][upgrade_stage])
-        tpNeeded_copy = tpNeeded
-        used_tp = {}
-        for tp in range (int(required_tier) - 1, 5):
-            if tpBank[tp] > 0 and tpNeeded > 0:
-                tp += 1
-                tp_reduction = min(char_dict[f"T{tp} TP"],  tpNeeded)
-                char_dict[f"T{tp} TP"] -= tp_reduction
-                tpNeeded -= tp_reduction
-                used_tp[f"T{tp} TP"] = tp_reduction
-
-        # display the cost of the item to the user
-        level_up_embed.title = f"Upgrading a Magic Item: {char_dict['Name']}"
-
-        # if the user doesnt have the resources for the purchases, inform them and cancel
-        if tpNeeded > 0:
-            await channel.send(f"You do not have enough Tier {required_tier} TP or higher to upgrade **{item_name}**!")
+        required_costs = item_record['Predecessor']["Costs"][upgrade_stage]
+        if "GP" not in required_costs:
+            required_costs["GP"] = None
+        core, used_resources, remaining_resources_text = await self.pay(core, item_name, required_costs["Tier"], required_costs["TP"], required_costs['GP'], char_dict, "upgrade", "Upgrade a Magic Item")
+        if not core.isActive():
+            return None
+        if core.hasError():
+            core.embed.clear_fields()
+            core.embed.description = "Command had errors: \n" + core.showErrors()
+            await core.send()
             ctx.command.reset_cooldown(ctx)
             return None
-
-        used_tp_text = ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
-        level_up_embed.description = f"Are you sure you want to upgrade **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage]})** to **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage + 1]})** for **{tpNeeded_copy} TP**?\n\nLeftover TP: {used_tp_text}\n\n✅: Yes\n\n❌: Cancel"
-        level_up_embed.set_footer(text=None)
-        await core.send(embed=level_up_embed)
-        await core.message.add_reaction('✅')
-        await core.message.add_reaction('❌')
+        
+        setData = {}
+        incData = {f'Magic Items.{item_key}.Stage': 1}
+        setData[f'Magic Items.{item_key}.Stage Name'] = item_record["Predecessor"]["Names"][upgrade_stage + 1]
+        if 'Stat Bonuses' in item_record["Predecessor"]:
+            setData[f'Magic Items.{item_key}.Stat Bonuses'] = item_record["Predecessor"]["Stat Bonuses"][upgrade_stage]
+        for field, value in used_resources.items():
+            incData[f"Magic Items.{item_key}.Item Spend.{field}"] = value
+            incData[f"{field}"] = -value
         try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']) , timeout=60)
-        except asyncio.TimeoutError:
-            await channel.send(f'TP cancelled. Try again using the same command!')
+            db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})
+        except Exception as e:
+            print ('MONGO ERROR: ' + str(e))
+            await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
             ctx.command.reset_cooldown(ctx)
-            return None
         else:
-            await core.message.clear_reactions()
-            if tReaction.emoji == '❌':
-                await core.message.edit(embed=None, content=f"TP cancelled. Try again using the same command!")
-                ctx.command.reset_cooldown(ctx)
-                return None
-            elif tReaction.emoji == '✅':
-                level_up_embed.clear_fields()
-                try:
-                    setData = {}
-                    incData = {f'Magic Items.{item_key}.Stage': 1}
-                    setData[f'Magic Items.{item_key}.Stage Name'] = item_record["Predecessor"]["Names"][upgrade_stage + 1]
-                    if 'Stat Bonuses' in item_record["Predecessor"]:
-                        setData[f'Magic Items.{item_key}.Stat Bonuses'] = item_record["Predecessor"]["Stat Bonuses"][upgrade_stage]
-                    for tp, value in used_tp.items():
-                        incData[f"Magic Items.{item_key}.Item Spend.{tp}"] = value
-                        incData[f"{tp}"] = -value
-                    db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
-                    ctx.command.reset_cooldown(ctx)
-                else:
-                    level_up_embed.description = f"You have upgraded **{item_name}** for {tpNeeded_copy} TP! :tada:\n\nCurrent TP: {used_tp_text}\n\n"
-                    await core.send()
-                    ctx.command.reset_cooldown(ctx)
+            used_text = ", ".join([f"{value} {key}" for key, value in used_resources.items()])
+            level_up_embed.description = f"You have upgraded **{item_name}** for {used_text}! :tada:\n\n{remaining_resources_text}\n\n"
+            await core.send()
+            ctx.command.reset_cooldown(ctx)
 
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
@@ -183,6 +261,10 @@ class Tp(commands.Cog):
         command_name = ctx.command.name
         char_dict, level_up_embed, core = await check_for_char_with_end(ctx, char)
         if not char_dict:
+            ctx.command.reset_cooldown(ctx)
+            return None
+        if char_dict["System"] != "5R":
+            await channel.send(f"Item evolution is only available for the 5R system.")
             ctx.command.reset_cooldown(ctx)
             return None
         level = char_dict["Level"]
@@ -200,7 +282,6 @@ class Tp(commands.Cog):
         item_key = item_name
         if 'Grouped' in item_record:
             item_key = item_record['Grouped']
-            
         if "Attunement" not in item_record or not item_record["Attunement"]:
             await channel.send(f"**{item_name}** cannot be evolved since it is not attunable.")
             ctx.command.reset_cooldown(ctx)
@@ -215,81 +296,92 @@ class Tp(commands.Cog):
             ctx.command.reset_cooldown(ctx)
             return None
         rarity_index = rarities.index(player_item["Rarity"])
-        if rarity_index >= rarities["Legendary"]:
+        if rarity_index >= rarities.index("Legendary"):
             await channel.send(f"Your **{item_name}** already has rarity **{player_item['Rarity']}** and cannot evolve further.")
             ctx.command.reset_cooldown(ctx)
             return None
         
         bought_evolutions : [str] = []
-        for magic_item in char_dict["Magic Items"]:
+        for magic_item in char_dict["Magic Items"].values():
             if "Evolutions" in magic_item:
                 bought_evolutions += list(magic_item["Evolutions"].keys())
-        query = {"Rarity": rarities[rarity_index + 1], "Name" : {"$nin": bought_evolutions}}
+        query = {"Rarity": rarities[rarity_index + 1], "System": "5R", "Name" : {"$nin": bought_evolutions}}
+        print(query)
         available_evolutions = list(db.evolutions.find(query))
-        tpBank = [0,0,0,0,0]
-        tpBankString = ""
-        #grab the available TP of the character
-        for x in range(1,6):
-            if f'T{x} TP' in char_dict:
-              tpBank[x-1] = (float(char_dict[f'T{x} TP']))
-              tpBankString += f"{tpBank[x-1]} T{x} TP, "
-        tpNeeded = float(item_record['Predecessor']["Costs"][upgrade_stage])
-        tpNeeded_copy = tpNeeded
-        used_tp = {}
-        for tp in range (int(required_tier) - 1, 5):
-            if tpBank[tp] > 0 and tpNeeded > 0:
-                tp += 1
-                tp_reduction = min(char_dict[f"T{tp} TP"],  tpNeeded)
-                char_dict[f"T{tp} TP"] -= tp_reduction
-                tpNeeded -= tp_reduction
-                used_tp[f"T{tp} TP"] = tp_reduction
-
-        # display the cost of the item to the user
-        level_up_embed.title = f"Evolving {item_name}: {char_dict['Name']}"
-
-        # if the user doesnt have the resources for the purchases, inform them and cancel
-        if tpNeeded > 0:
-            await channel.send(f"You do not have enough Tier {required_tier} TP or higher to upgrade **{item_name}**!")
+        
+        options = list(map(lambda o: f"{o['Name']}", available_evolutions))
+        
+        if len(options) == 0:
+            await channel.send(f"There are no available evolutions for **{item_name}**.")
             ctx.command.reset_cooldown(ctx)
             return None
-
-        used_tp_text = ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
-        level_up_embed.description = f"Are you sure you want to upgrade **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage]})** to **{item_name} ({item_record['Predecessor']['Names'][upgrade_stage + 1]})** for **{tpNeeded_copy} TP**?\n\nLeftover TP: {used_tp_text}\n\n✅: Yes\n\n❌: Cancel"
-        level_up_embed.set_footer(text=None)
-        await core.send(embed=level_up_embed)
-        await core.message.add_reaction('✅')
-        await core.message.add_reaction('❌')
-        try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']) , timeout=60)
-        except asyncio.TimeoutError:
-            await channel.send(f'TP cancelled. Try again using the same command!')
+        core, choice_index = await paginate_options(core, self.bot, f"Available {rarities[rarity_index+1]} Evolutions", options)
+        if not core.isActive():
             ctx.command.reset_cooldown(ctx)
             return None
-        else:
-            await core.message.clear_reactions()
-            if tReaction.emoji == '❌':
-                await core.message.edit(embed=None, content=f"TP cancelled. Try again using the same command!")
-                ctx.command.reset_cooldown(ctx)
-                return None
-            elif tReaction.emoji == '✅':
-                level_up_embed.clear_fields()
-                try:
-                    setData = {}
-                    incData = {f'Magic Items.{item_key}.Stage': 1}
-                    setData[f'Magic Items.{item_key}.Stage Name'] = item_record["Predecessor"]["Names"][upgrade_stage]
-                    if 'Stat Bonuses' in item_record["Predecessor"]:
-                        setData[f'Magic Items.{item_key}.Stat Bonuses'] = item_record["Predecessor"]["Stat Bonuses"][upgrade_stage]
-                    for tp, value in used_tp.items():
-                        incData[f"Magic Items.{item_key}.Item Spend.{tp}"] = value
-                    db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})
-                except Exception as e:
-                    print ('MONGO ERROR: ' + str(e))
-                    await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
-                    ctx.command.reset_cooldown(ctx)
-                else:
-                    level_up_embed.description = f"You have upgraded **{item_name}** for {tpNeeded_copy} TP! :tada:\n\nCurrent TP: {used_tp_text}\n\n"
+        if core.hasError():
+            core.embed.clear_fields()
+            core.embed.description = "Command had errors: \n" + core.showErrors()
+            await core.send()
+            ctx.command.reset_cooldown(ctx)
+            return None
+        selected_evolution = available_evolutions[choice_index]
+        evolutions = {}
+        evolution = {'Rarity': selected_evolution['Rarity']}
+        if 'Evolutions' in player_item:
+            evolutions = player_item['Evolutions']
+        evolutions[selected_evolution['Name']] = evolution
+        if 'Stat Bonuses' in selected_evolution:
+            #TODO refactor, generalize and spread this behavior?
+            bonuses = selected_evolution['Stat Bonuses']
+            if bonuses[0]["Stat"] == "ANY":
+                feat_bonus_list = list(char_dict["Stats"].keys())
+                content=f"{selected_evolution['Name']} lets you choose a stat. React with [{alphaEmojis[0]}-{alphaEmojis[len(feat_bonus_list)-1]}] below with the stat(s) you would like to choose."
+                core, choice = await paginate_options(core, self.bot, "Evolution Stats", feat_bonus_list, content)
+                if not core.isActive():
+                    return None
+                if core.hasError():
+                    core.embed.clear_fields()
+                    core.embed.description = "Command had errors: \n" + core.showErrors()
                     await core.send()
                     ctx.command.reset_cooldown(ctx)
+                    return None
+                stat = feat_bonus_list[choice]
+                for bonus in bonuses:
+                    bonus["Stat"] = stat
+            evolution['Stat Bonuses'] = selected_evolution['Stat Bonuses'] 
+        core, used_resources, remaining_resources_text = await self.pay(core, item_name, selected_evolution['Tier'], selected_evolution['TP'], selected_evolution['GP'], char_dict, "evolve", "Evolve a Magic Item")
+        if not core.isActive():
+            return None
+        if core.hasError():
+            core.embed.clear_fields()
+            core.embed.description = "Command had errors: \n" + core.showErrors()
+            await core.send()
+            ctx.command.reset_cooldown(ctx)
+            return None
+        
+        setData = {}
+        incData = {}
+        setData[f'Magic Items.{item_key}.Evolutions'] = evolutions
+        item_spend = {}
+        for field, value in used_resources.items():
+            incData[f"Magic Items.{item_key}.Item Spend.{field}"] = value
+            incData[f"{field}"] = -value
+            item_spend[field] = value
+        evolution["Item Spend"] = item_spend
+        setData[f'Magic Items.{item_key}.Rarity'] = rarities[rarity_index + 1]
+        
+        try:
+            db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc" : incData})
+        except Exception as e:
+            print ('MONGO ERROR: ' + str(e))
+            await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
+            ctx.command.reset_cooldown(ctx)
+        else:
+            used_text = ", ".join([f"{value} {key}" for key, value in used_resources.items()])
+            level_up_embed.description = f"You have evolved **{item_name}** for {used_text}! :tada:\n\n{remaining_resources_text}\n\n"
+            await core.send()
+            ctx.command.reset_cooldown(ctx)
 
     async def acquireKernel(self, ctx , char, magic_item, source, sourcePast, sourceString, oneLiner):
         author = ctx.author
@@ -324,146 +416,54 @@ class Tp(commands.Cog):
         if item_record['Name'][0].lower() in "aeiou":
             indefinite = "an"
             
-        # get the tier of the item
-        tierNum = item_record['Tier']
-        # get the gold cost of the item
-        gpNeeded = item_record['GP']
-        #get the list of all items currently being worked towards
-
-        tpBank = [0,0,0,0,0]
-        tpBankString = ""
-        #grab the available TP of the character
-        for x in range(1,6):
-            if f'T{x} TP' in char_dict:
-              tpBank[x-1] = (float(char_dict[f'T{x} TP']))
-              tpBankString += f"{tpBank[x-1]} T{x} TP, " 
-
         # TODO extract this and use it in upgrade as well
-        tpNeeded = float(item_record['TP'])
-        used_tp = {}
-        for tp in range (int(tierNum) - 1, 5):
-            if tpBank[tp] > 0 and tpNeeded > 0:
-                tp += 1
-                tp_reduction = min(char_dict[f"T{tp} TP"],  tpNeeded)
-                char_dict[f"T{tp} TP"] -= tp_reduction
-                tpNeeded -= tp_reduction
-                used_tp[f"T{tp} TP"] = tp_reduction
-
-        # display the cost of the item to the user
-        level_up_embed.title = f"{sourceString}: {char_dict['Name']}"
-        
-        # if the user doesnt have the resources for the purchases, inform them and cancel
-        if tpNeeded > 0 and float(char_dict['GP']) < gpNeeded:
-            await channel.send(f"You do not have enough Tier {tierNum} TP or higher, or GP, to {source} **{item_record['Name']}**!")
-            ctx.command.reset_cooldown(ctx)
+        core, used_resources, remaining_resources_text = await self.pay(core, item_record["Name"], item_record['Tier'], item_record['TP'], item_record['GP'], char_dict, source, sourceString)
+        if not core.isActive():
             return None
-          
-        # get confirmation from the user for the purchase
-        elif tpNeeded > 0:
-            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have don't have enough TP and **{char_dict[f'GP']} GP**.\n\n1️⃣: ~~{item_record['TP']} TP (Treasure Points)~~ You do not have enough TP.\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
-        elif float(char_dict['GP']) < gpNeeded:
-            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: ~~{item_record['GP']} GP (gold pieces)~~ You do not have enough GP.\n\n❌: Cancel"                 
-        else:
-            level_up_embed.description = f"Do you want to {source} **{item_record['Name']}** with TP or GP?\n\n You have **{tpBankString}** and **{char_dict[f'GP']} GP**.\n\n1️⃣: {item_record['TP']} TP (Treasure Points)\n2️⃣: {item_record['GP']} GP (gold pieces)\n\n❌: Cancel"                 
-        
-        await core.send()
-        choices = []
-        if tpNeeded <= 0:
-            await core.message.add_reaction('1️⃣')
-            choices.append('1️⃣')
-        if float(char_dict['GP']) >= gpNeeded:
-            await core.message.add_reaction('2️⃣')
-            choices.append('2️⃣')
-        choices.append('❌')
-        await core.message.add_reaction('❌')
-        try:
-            tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,choices) , timeout=60)
-        except asyncio.TimeoutError:
-            #cancel if the user didnt respond within the timeframe
-            await core.send(f'TP cancelled. Try again using the same command!')
-            ctx.command.reset_cooldown(ctx)
-            return None
-        else:
-            await core.message.clear_reactions()
-            newGP = char_dict['GP']
-            bought_with_tp = False
-            #cancel if the user decided to cancel the purchase
-            if tReaction.emoji == '❌':
-                await core.send(f"TP cancelled. Try again using the same command!")
-                ctx.command.reset_cooldown(ctx)
-                return None
-            #refund the TP in the item if the user decides to purchase with gold
-            elif tReaction.emoji == '2️⃣':
-                newGP = round(char_dict['GP'] - gpNeeded,2)
-                remaining_resources_text = f"New GP: {newGP} GP"
-                #search for the item in the items currently worked towards
-                level_up_embed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['GP']} GP**?\n\nCurrent GP: {char_dict['GP']}\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
-
-            # If user decides to buy item with TP:
-            elif tReaction.emoji == '1️⃣':
-                bought_with_tp = True
-                remaining_resources_text = 'Leftover TP: ' + ', '.join([f'{char_dict[tp]} {tp}' for tp in used_tp.keys()])
-                level_up_embed.description = f"Are you sure you want to {source} **{item_record['Name']}** for **{item_record['TP']} TP**?\n\n{remaining_resources_text}\n\n✅: Yes\n\n❌: Cancel"
-
-            new_item = {'Name': item_record['Name'], "BUY": 1}
-            item_key = item_record['Name']
-            if 'Attunement' in item_record:
-                new_item['Attunement'] = item_record['Attunement']
-                new_item['Attuned'] = False
-            if 'Grouped' in item_record:
-                item_key = item_record['Grouped']
-                pass
-            if 'Predecessor' in item_record:
-                new_item['Stage'] = 0
-                new_item['Stage Name'] = item_record["Predecessor"]['Names'][0]
-            if 'Stat Bonuses' in item_record:
-                new_item['Stat Bonuses'] = item_record["Stat Bonuses"]
-            level_up_embed.set_footer(text=None)
+        if core.hasError():
+            core.embed.clear_fields()
+            core.embed.description = "Command had errors: \n" + core.showErrors()
             await core.send()
-            await core.message.add_reaction('✅')
-            await core.message.add_reaction('❌')
-            try:
-                tReaction, _ = await self.bot.wait_for("reaction_add", check=reaction_response_control(core.message, author,['✅', '❌']) , timeout=60)
-            except asyncio.TimeoutError:
-                await channel.send(f'TP cancelled. Try again using the same command!')
-                ctx.command.reset_cooldown(ctx)
-                return None
-            else:
-                await core.message.clear_reactions()
-                if tReaction.emoji == '❌':
-                    await core.message.edit(embed=None, content=f"TP cancelled. Try again using the same command!")
-                    await core.message.clear_reactions()
-                    ctx.command.reset_cooldown(ctx)
-                    return None
-                elif tReaction.emoji == '✅':
-                    level_up_embed.clear_fields()
-                    try:
-                        setData = {f"Magic Items.{item_key}": new_item}
-                        item_spend = {}
-                        if bought_with_tp:
-                            for tp, value in used_tp.items():
-                                setData[tp] = char_dict[tp]
-                                add_to_dictionary(item_spend, tp, value)
-                        else:
-                            setData['GP'] = newGP
-                            add_to_dictionary(item_spend, "GP", gpNeeded)
-                        new_item[f"Item Spend"] = item_spend
-                        db.players.update_one({'_id': char_dict['_id']}, {"$set": setData})
-                        db.stats.update_one({"Life": 1}, {"$inc" : {"Magic Items."+item_record['Name']: 1}})
-                    except Exception as e:
-                        await traceBack(ctx, e)
-                        ctx.command.reset_cooldown(ctx)
-                        print ('MONGO ERROR: ' + str(e))
-                        await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
-                        return None
-                    else:
-                        outputLiner = oneLiner.replace("<magic item>", str(item_record['Name'])).replace(f"a {str(item_record['Name'])}", f"{indefinite} {str(item_record['Name'])}")
-                        if bought_with_tp != "":
-                            level_up_embed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['TP']} TP! :tada:\n\n{remaining_resources_text}\n\n"
-                        elif newGP != "":
-                            level_up_embed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {item_record['GP']} GP! :tada:\n\n{remaining_resources_text}\n"
-                        await core.send()
-                        ctx.command.reset_cooldown(ctx)
+            ctx.command.reset_cooldown(ctx)
+            return None
+        
+        new_item = {'Name': item_record['Name'], "BUY": 1}
+        item_key = item_record['Name']
+        if 'Attunement' in item_record:
+            new_item['Attunement'] = item_record['Attunement']
+            new_item['Attuned'] = False
+            new_item['Rarity'] = item_record['Rarity']
+        if 'Grouped' in item_record:
+            item_key = item_record['Grouped']
+            pass
+        if 'Predecessor' in item_record:
+            new_item['Stage'] = 0
+            new_item['Stage Name'] = item_record["Predecessor"]['Names'][0]
+        if 'Stat Bonuses' in item_record:
+            new_item['Stat Bonuses'] = item_record["Stat Bonuses"]
+        try:
+            
+            incData = {}
+            item_spend = {}
+            for field, value in used_resources.items():
+                incData[field] = -value
+                add_to_dictionary(item_spend, field, value)
+            setData = {f"Magic Items.{item_key}": new_item}
+            new_item[f"Item Spend"] = item_spend
+            db.players.update_one({'_id': char_dict['_id']}, {"$set": setData, "$inc": incData})
+            db.stats.update_one({"Life": 1}, {"$inc" : {"Magic Items."+item_record['Name']: 1}})
+        except Exception as e:
+            await traceBack(ctx, e)
+            ctx.command.reset_cooldown(ctx)
+            print ('MONGO ERROR: ' + str(e))
+            await core.send(f"Uh oh, looks like something went wrong. Try again using the same command!")
+            return None
+        else:
+            used_text = ", ".join([f"{value} {key}" for key, value in used_resources.items()])
+            outputLiner = oneLiner.replace("<magic item>", str(item_record['Name'])).replace(f"a {str(item_record['Name'])}", f"{indefinite} {str(item_record['Name'])}")
+            level_up_embed.description = f"{outputLiner}\n\nYou have {sourcePast} **{item_record['Name']}** for {used_text}! :tada:\n\n{remaining_resources_text}\n"
+            await core.send()
+            ctx.command.reset_cooldown(ctx)
 
     @commands.cooldown(1, float('inf'), type=commands.BucketType.user)
     @tp.command()

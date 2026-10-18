@@ -21,16 +21,31 @@ def search_magic_item(search: str, items: dict) -> list:
 
 
 def render_magic_item(magic_item: dict) -> str:
-    print(magic_item)
     output = magic_item["Name"]
-    if "Stat Bonuses" in magic_item:
-        output += " [" + ", ".join([render_stat_bonus(bonus) for bonus in magic_item["Stat Bonuses"]]) + "]"
+    stat_bonuses = []
+    bonus_holders = [magic_item]
+    if "Evolutions" in magic_item:
+        bonus_holders.extend(magic_item["Evolutions"].values())
+    for holder in bonus_holders:
+        if "Stat Bonuses" in holder:
+            stat_bonuses.extend(holder["Stat Bonuses"])
+    if len(stat_bonuses) > 0:
+        output += " [" + ", ".join([render_stat_bonus(bonus) for bonus in stat_bonuses]) + "]"
     return output
+
+def render_feat(feat_name: str, feat: dict) -> str:
+    output = feat_name
+    if "Stat Bonuses" in feat:
+        output += " [" + ", ".join([render_stat_bonus(bonus) for bonus in feat["Stat Bonuses"]]) + "]"
+    return output
+
 
 def render_stat_bonus(stat_bonus: dict):
     prefix = "+"
     if stat_bonus["Type"] == "FIXED":
         prefix = "->"
+    if stat_bonus["Type"] == "MAX":
+        prefix = " MAX +"
     return f"{stat_bonus['Stat']}{prefix}{stat_bonus['Value']}"
 
 def is_log_channel():
@@ -503,7 +518,6 @@ class Character(commands.Cog):
                     for seList in item:
                         # Todo: add amounts as well
                         choice_text = ", ".join([f"{k} x{amount_text(v)}" for k, v in seList.items()])
-                        print("choice_text", choice_text)
                         choices[choice_text] = seList
                     options.append({"Starting Equipment": choices})
                 core, inventory = await select_inventory_choices(core, options, inventory, "CREATE")
@@ -580,7 +594,6 @@ class Character(commands.Cog):
             else:
                 if int(stats[stat_req[0]]) < int(stat_req[1]):
                     failed_requirement = f'{stat_req[0]} {stats[stat_req[0]]}'
-        print(entry['Class']['Name'], failed_requirement)
         return failed_requirement
 
     @is_log_channel()
@@ -630,7 +643,7 @@ class Character(commands.Cog):
           'GP': 0,
           'Magic Items': {},
           'Consumables': {},
-          'Feats': [],
+          'Feats': {},
           'Inventory': {},
           'Stat Bonuses': {},
           'Games': 0
@@ -709,7 +722,7 @@ class Character(commands.Cog):
             char_dict["GP"] += backgroundGp
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
             if system == '5R':
-                char_dict["Feats"].append(bRecord["Feat"])
+                char_dict["Feats"][bRecord["Feat"]] = {}
 
         # Stats - Point Buy
         if not core.hasError():
@@ -741,7 +754,7 @@ class Character(commands.Cog):
             await core.delete()
             if not core.isActive():
                 core.addError('Command cancelled')
-            error_text = '\n'.join(core.errors)
+            error_text = core.showErrors()
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
             self.bot.get_command(command_name).reset_cooldown(ctx)
@@ -916,7 +929,7 @@ class Character(commands.Cog):
         if char_dict['Name'] != new_name:
             core = self.nameVerification(core, new_name, author)
         char_dict['Name'] = new_name
-        char_dict["Feats"] = []
+        char_dict["Feats"] = {}
 
         extra_cp = char_dict['CP']
         char_level = char_dict['Level']
@@ -967,7 +980,7 @@ class Character(commands.Cog):
             char_dict['Background'] = bRecord['Name']
             char_dict["GP"] += bRecord["GP"] 
             if system == '5R':
-                char_dict["Feats"].append(bRecord["Feat"])
+                char_dict["Feats"][bRecord["Feat"]] = {}
             core, inventory = await select_inventory_choices(core, bRecord["Equipment"], inventory, "CREATE")
         if not core.isActive():
             ctx.command.reset_cooldown(ctx)
@@ -1004,7 +1017,7 @@ class Character(commands.Cog):
             await core.delete()
             if not core.isActive():
                 core.addError('Command cancelled')
-            error_text = '\n'.join(core.errors)
+            error_text = core.showErrors()
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
             ctx.command.reset_cooldown(ctx)
@@ -1038,7 +1051,7 @@ class Character(commands.Cog):
         if len(char_dict['Consumables']) > 0:
             core.embed.add_field(name='Consumables', value=", ".join(show_inventory(char_dict['Consumables'])),
                                  inline=False)
-        core.embed.add_field(name='Feats', value=", ".join(char_dict['Feats']), inline=True)
+        core.embed.add_field(name='Feats', value=", ".join(char_dict['Feats'].keys()), inline=True)
         stat_string = ""
         for stat_name, stat_value in stats.items():
             _, description = self.determine_stat(stat_value, stat_name, max_stat_bonuses, stat_bonuses, stat_setters)
@@ -1126,7 +1139,7 @@ class Character(commands.Cog):
         core.addError(error_messages)
         if core.hasError():
             char_embed.clear_fields()
-            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            char_embed.description = "Command had errors: \n" + core.showErrors()
             await core.send()
             bot.get_command('applyTime').reset_cooldown(ctx)
             return None
@@ -1356,7 +1369,7 @@ class Character(commands.Cog):
             return
         if core.hasError():
             char_embed.clear_fields()
-            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            char_embed.description = "Command had errors: \n" + core.showErrors()
             await core.send()
             self.bot.get_command('inv').reset_cooldown(ctx)
             return
@@ -1695,7 +1708,7 @@ class Character(commands.Cog):
 
         if core.hasError():
             await core.delete()
-            error_text = '\n'.join(core.errors)
+            error_text = core.showErrors()
             main_message = f":warning: Command aborted. Reasons: {error_text}"
             await ctx.channel.send(main_message)
             return None
@@ -1770,7 +1783,7 @@ class Character(commands.Cog):
             return
         if core.hasError():
             char_embed.clear_fields()
-            char_embed.description = "Command had errors: \n" + "\n".join(core.errors)
+            char_embed.description = "Command had errors: \n" + core.showErrors()
             await core.send()
             self.bot.get_command('info').reset_cooldown(ctx)
             return
@@ -1834,7 +1847,7 @@ class Character(commands.Cog):
             char_embed.add_field(name='TP', value=f"{tp_string}", inline=True)
         if 'Guild' in char_dict:
             char_embed.add_field(name='Guild', value=f"{char_dict['Guild']}: Rank {char_dict['Guild Rank']}", inline=True)
-        char_embed.add_field(name='Feats', value=", ".join(char_dict['Feats']), inline=False)
+        char_embed.add_field(name='Feats', value=", ".join([render_feat(name, feat) for name, feat in char_dict['Feats'].items()]), inline=False)
 
         attune_list = list([value for key, value in char_dict["Magic Items"].items() if 'Attuned' in value and value['Attuned']])
         attune_info = "None"
@@ -2249,7 +2262,7 @@ class Character(commands.Cog):
                 ctx.command.reset_cooldown(ctx)
                 return None
             if core.hasError():
-                core.send(core.showErrors())
+                await core.send(core.showErrors())
                 ctx.command.reset_cooldown(ctx)
                 return None
             if len(feats_picked) > 0:
@@ -2463,13 +2476,13 @@ class Character(commands.Cog):
 
     def calculate_bonus_hp(self, level: int, con: int, stat_bonuses: dict, max_stat_bonuses: dict, stat_setters: dict):
         hp_bonus, _ = self.determine_stat(0, "HP", max_stat_bonuses, stat_bonuses, stat_setters)
-        print(hp_bonus, level)
         total_hp = int(hp_bonus * level)
         con, _ = self.determine_stat(con, "CON", max_stat_bonuses, stat_bonuses, stat_setters)
         total_hp += floor(((con - 10)//2) * level)
         return total_hp
 
     def determine_stat(self, base_stat: int, key: str, max_stat_bonuses, stat_bonuses, stat_setters):
+        
         max_value = 20 + max_stat_bonuses[key]
         final_stat = base_stat
         bonus = stat_bonuses[key]
@@ -2482,6 +2495,8 @@ class Character(commands.Cog):
                 description += f" ({max_value} MAX)"
             elif stat_setters[key] > min(max_value, base_stat + bonus):
                 description += f" (set to {stat_setters[key]})"
+            elif  base_stat + bonus > max_value:
+                description += f" (CAPPED AT {max_value})"
             elif bonus > 0:
                 description += f" (+{bonus})"
         
@@ -2512,19 +2527,32 @@ class Character(commands.Cog):
                 applicable_entries.extend(record["Stat Bonuses"])
 
         for item in char_dict["Magic Items"].values():
-            if "Stat Bonuses" in item and (not "Attuned" in item or item["Attuned"]):
-                applicable_entries.extend(item["Stat Bonuses"])
+            item_bonuses = []
+            if "Stat Bonuses" in item:
+                item_bonuses = item["Stat Bonuses"]
+            if "Evolutions" in item:
+                for values in item['Evolutions'].values():
+                    print(values)
+                    if "Stat Bonuses" in values:
+                        item_bonuses.extend(values["Stat Bonuses"])
+            if (not "Attuned" in item or item["Attuned"]):
+                applicable_entries.extend(item_bonuses)
+                
+        for feat in char_dict["Feats"].values():
+            if "Stat Bonuses" in feat:
+                applicable_entries.extend(feat["Stat Bonuses"])
         for bonus in applicable_entries:
             types = bonus["Type"]
             stat = bonus["Stat"]
             value = bonus["Value"]
             if types == "MAX":
-                stat_bonuses[stat] += value
                 max_stat_bonuses[stat] += value
             elif types == "FIXED":
                 stat_setters[stat] = max(value, stat_setters[stat])
             elif types == "BONUS":
                 stat_bonuses[stat] += value
+        print(stat_bonuses)
+        print(max_stat_bonuses)
         return stat_bonuses, max_stat_bonuses, stat_setters
 
     #TODO switch to giving the stats dict
@@ -2613,7 +2641,7 @@ class Character(commands.Cog):
         level: int = char_dict["Level"]
         race: str = char_dict["Race"]
         char_stats: dict = char_dict["Stats"]
-        char_feats: list = char_dict["Feats"]
+        char_feats: {} = char_dict["Feats"]
         stat_names = list(char_stats.keys())
         author = core.context.author
         feat_records = []
@@ -2740,6 +2768,7 @@ class Character(commands.Cog):
                 if "Epic Boon" in featPicked:
                     epic_boons_count += 1
                 feats_picked[featPicked["Name"]] = featPicked
+                feat_object = {}
                 if featPicked['Name'] == "Ritual Caster":
                     ritualClasses = ["Bard", "Cleric", "Druid", "Sorcerer", "Warlock", "Wizard"]
                     content = "Please choose the class to pick spells from."
@@ -2768,6 +2797,10 @@ class Character(commands.Cog):
                     char_dict["Ritual Book"] = ritual_book
                 if 'Stat Bonuses' in featPicked:
                     feat_bonus = featPicked['Stat Bonuses']
+                    typ = "BONUS"
+                    feat_object["Stat Bonuses"] = []
+                    if "Epic Boon" in featPicked:
+                        typ = "MAX"
                     if '/' in feat_bonus or 'ANY' in feat_bonus:
                         if '/' in feat_bonus:
                             feat_bonus_list = feat_bonus[:len(feat_bonus) - 3].split('/')
@@ -2777,12 +2810,16 @@ class Character(commands.Cog):
                         core, choice = await paginate_options(core, self.bot, "Feat Stats", feat_bonus_list, content)
                         if not core.isActive():
                             return core, None, None
-                        char_stats[feat_bonus_list[choice]] = int(char_stats[feat_bonus_list[choice]]) + int(feat_bonus[-1:])
+                        stat = feat_bonus_list[choice]
+                        value = int(feat_bonus[-1:])
+                        feat_object["Stat Bonuses"].append({"Type": typ, "Value": value, "Stat": stat})
                     else:
                         feat_bonus_list = feat_bonus.split(', ')
                         for fb in feat_bonus_list:
-                            char_stats[fb[:3]] = int(char_stats[fb[:3]]) + int(fb[-1:])
-        char_dict['Feats'].extend(list([v['Name'] for v in feats_picked.values()]))
+                            stat = fb[:3]
+                            value = int(fb[-1:])
+                            feat_object["Stat Bonuses"].append({"Type": typ, "Value": value, "Stat": stat})
+                char_dict["Feats"][featPicked['Name']] = feat_object
         return core, feats_picked, char_dict
 
 async def setup(bot):

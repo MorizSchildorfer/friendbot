@@ -116,7 +116,7 @@ class Timer(commands.Cog):
         author = ctx.author
         #the name shown on the server
         user = author.display_name
-        print("i am here")
+        command_name = ctx.command.name
         #information on how to use the command, set up here for ease of reading and repeatability
         prepFormat =  f'Please follow this format:\n```yaml\n{commandPrefix}timer prep system "@player1 @player2 [...]" "quest name" #guild-channel-1 #guild-channel-2```'
         #prevent the command if not in a proper channel (game/campaign)
@@ -128,7 +128,7 @@ class Timer(commands.Cog):
                 #inform the user of the correct location to use the command and how to use it
                 await channel.send('Try this command in a game channel! ' + prepFormat)
                 #permit the use of the command again
-                self.timer.get_command('prep').reset_cooldown(ctx)
+                self.timer.get_command(command_name).reset_cooldown(ctx)
                 return None
         system = system.strip().upper()
         if system not in ["5E", "5R"]:
@@ -141,21 +141,21 @@ class Timer(commands.Cog):
                 #inform the user of the correct location to use the command and how to use it
                 await channel.send('Try this command in a game channel! ' + prepFormat)
                 #permit the use of the command again
-                self.timer.get_command('prep').reset_cooldown(ctx)
+                self.timer.get_command(command_name').reset_cooldown(ctx)
                 return None
         #check if the userList was given in the proper way or if the norewards option was taken, this avoids issues with the game name when multiple players sign up
         if '"' not in ctx.message.content:
             #this informs the user of the correct format
             await channel.send(f"Make sure you put quotes **`\"`** around your list of players and retry the command!\n\n{prepFormat}")
             #permit the use of the command again
-            self.timer.get_command('prep').reset_cooldown(ctx)
+            self.timer.get_command(command_name).reset_cooldown(ctx)
             return None
 
         #check if the user mentioned themselves in the command, this is also meant to avoid having the user be listed twice in the roster below
         if author in ctx.message.mentions:
             #inform the user of the proper command syntax
             await channel.send(f"You cannot start a timer with yourself in the player list! {prepFormat}")
-            self.timer.get_command('prep').reset_cooldown(ctx)
+            self.timer.get_command(command_name).reset_cooldown(ctx)
             return None
         # create a list of all expected players for the game so far, including the user who will always be the first
         # element creating an invariant of the DM being the first element
@@ -166,7 +166,7 @@ class Timer(commands.Cog):
 
         if len(playerRoster) > playerLimit:
             await channel.send(f'You cannot start a timer with more than {playerLimit - 1} players. Please try again.')
-            self.timer.get_command('prep').reset_cooldown(ctx)
+            self.timer.get_command(command_name).reset_cooldown(ctx)
             return None
 
         # create an Embed object to use for user communication and information
@@ -190,7 +190,7 @@ class Timer(commands.Cog):
         choice = await disambiguate(6, core.message, author, emojies = numberEmojis)
         if choice is None or choice == -1:
             await core.send(f"""Timer cancelled. {prepFormat}""")
-            self.timer.get_command('prep').reset_cooldown(ctx)
+            self.timer.get_command(command_name).reset_cooldown(ctx)
             return None
         #create the role variable for future use
         # the array is stored in bfunc and the options are 'New', 'Junior', 'Journey', 'Elite' and 'True' in this order
@@ -371,7 +371,7 @@ class Timer(commands.Cog):
                 if await self.permissionCheck(msg, author):
                     await channel.send(f'Timer cancelled! If you would like to prep a new quest {prepFormat.lower()}') 
                     # allow the call of this command again
-                    self.timer.get_command('prep').reset_cooldown(ctx)
+                    self.timer.get_command(command_name).reset_cooldown(ctx)
                     return None
             elif msg.content.startswith(f'{commandPrefix}timer guild') or msg.content.startswith(f'{commandPrefix}t guild'):
                 if await self.permissionCheck(msg, author):

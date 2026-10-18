@@ -8,6 +8,7 @@ import sys
 import io
 import traceback
 import collections
+import csv
 from math import ceil, floor
 from pymongo import UpdateOne
 from pymongo.errors import BulkWriteError
@@ -21,11 +22,19 @@ def add_5e(item):
     del item["_id"]
     return item
 
-
 def map_logs(item):
     if "Type" not in item:
         item["Type"] = "5E"
     return item
+    
+def change_costs(item):
+    new_costs = []
+    old_costs = item["Predecessor"]["Costs"]
+    print(item["Name"])
+    for i in range(0, len(old_costs)):
+        new_costs.append({"Tier": item["Predecessor"]["Tiers"][i],"TP": old_costs[i]})
+    print(new_costs)
+    return UpdateOne({'_id': item['_id']}, {"$set" : {"Predecessor.Costs" : new_costs}, "$unset": {"Predecessor.Tiers": True}})
 
 def convert_bonus_string(full):
     bonus_strings = full.split(",")
@@ -70,6 +79,62 @@ def fix_hp(player, class_entries):
         total_hp += class_entries[name]['Hit Die Average'] * level
     player["HP"] = total_hp
     return player
+
+def feat_stats(stat_string):
+    value = int(stat_string.split("+")[1])
+    stat_options = stat_string.split(" ")[0].split("/")
+    if stat_options[0] == "ANY":
+        stat_options = ["STR", "INT", "DEX", "CHA", "CON", "WIS"]
+    return value, stat_options
+
+def determine_highest_stat(options, stats):
+    highest = options[0]
+    for option in options:
+        if stats[option] > stats[highest]:
+            highest = option
+    return highest
+
+def change_player_feat_stats(player, all_stat_feat_records):
+    print(player["Name"])
+    new_feats = {}
+    player_feats = []
+    if "Feats" in player:
+        player_feats = player["Feats"]
+    stats = player["Stats"]
+    stats_over_twenty = {key: value for key, value in stats.items() if value >= 20}
+    for feat in player_feats:
+        if feat not in all_stat_feat_records:
+            new_feats[feat] = {}
+            continue
+        feat_record = all_stat_feat_records[feat]
+        value, stat_options = feat_stats(feat_record["Stat Bonuses"])
+        stat = determine_highest_stat(stat_options, stats)
+        stats[stat] = stats[stat] - value
+        typ = "BONUS"
+        bonuses = []
+        bonuses.append({"Type": "BONUS", "Value": value, "Stat": stat})
+        if "Epic Boon" in feat_record:
+            bonuses.append({"Type": "MAX", "Value": value, "Stat": stat})
+        new_feats[feat] = {"Stat Bonuses": bonuses}
+    player["Feats"] = new_feats
+    print(new_feats)
+    return player
+
+def change_player_item_stats(player):
+    print(player["Name"])
+    new_feats = {}
+    player_items = player["Magic Items"]
+    for key, item in player_items.items():
+        if "Stat Bonuses" not in item:
+            continue
+        bonuses = item["Stat Bonuses"]
+        new_bonuses = list(bonuses)
+        for bonus in bonuses:
+            if bonus["Type"] == "MAX":
+                new_bonuses.append({"Type": "BONUS", "Stat": bonus["Stat"], "Value": bonus["Value"]})
+        item["Stat Bonuses"] = new_bonuses
+    return player
+
 
 def change_player(player, all_item_records):
     print(player["Name"])
@@ -276,15 +341,55 @@ class Admin(commands.Cog, name="Admin"):
     
     @commands.command()
     async def zoop(self, ctx):
-        file1 = open('find.txt', 'r', encoding="utf8")
-        lines = file1.readlines()
-        out = []
-        for line in lines:
-            print(line)
-            if line.strip():
-                out.append({"Text" : line.strip()})
-        result = db.liners_money.insert_many(out)
-        print(len(result.inserted_ids))
+        fields = []  # Column names
+        rows = []    # Data rows
+        rarities = set()
+        filename = "items.csv"
+
+        with open(filename, 'r') as csvfile:
+            csvreader = csv.reader(csvfile)  # Reader object
+
+            fields = next(csvreader)  # Read header
+            for row in csvreader:     # Read rows
+                if not row[14].isnumeric():
+                    continue
+                rows.append(row)
+                rarities.add(row[2])
+
+            print("Total no. of rows: %d" % csvreader.line_num)  # Row count
+
+        print('Field names are: ' + ', '.join(fields))
+        print("Rarities:", ", ".join(rarities))
+        updates = []
+        no_record = []
+        for row in rows:
+            name = row[0]
+            rarity = row[2]
+            
+            query = name.strip()
+            query = query.replace('(', '\\(')
+            query = query.replace(')', '\\)')
+            query = query.replace('+', '\\+')
+            query = query.replace('.', '\\.')
+            query_data =  {"$regex": query,
+                            #make the check case-insensitively
+                            "$options": "i"
+                          }
+            item_record = db.mit.find_one({"$or": [{"Name": query_data}, {"Grouped":  query_data}], "System": "5R"})
+            print(name, rarity)
+            if item_record:
+                updates.append(UpdateOne({"_id": item_record["_id"]}, {"$set": {"Rarity": rarity}}))
+            else:
+                no_record.append(name)
+        print("No Records:", no_record)
+        try:
+            if len(updates) > 0:
+                db.mit.bulk_write(updates)
+        except BulkWriteError as bwe:
+            print(bwe.details)
+            # if it fails, we need to cancel and use the error details
+            return
+        
 
     # command that allows one to update each field of the liners dictionary
     @commands.command()
@@ -296,7 +401,7 @@ class Admin(commands.Cog, name="Admin"):
         liner_dic["Craft"] = list([line["Text"] for line in db.liners_craft.find()])
         liner_dic["Money"] = list([line["Text"] for line in db.liners_money.find()])
         await ctx.channel.send("All liners Updated")
-    #
+    
     # @commands.command()
     # @admin_or_owner()
     # async def transferUnchanged(self, ctx):
@@ -395,6 +500,76 @@ class Admin(commands.Cog, name="Admin"):
     #         # if it fails, we need to cancel and use the error details
     #         return
     #     await ctx.channel.send(content="Completed")
+    
+    @commands.command()
+    @admin_or_owner()
+    async def changePlayerFeats(self, ctx):
+        unchanged = ["players"]
+        relevant_feats = {feat["Name"] : feat for feat in db.feats.find({"Stat Bonuses": {"$exists": True}})}
+        for collection in unchanged:
+            entries = list(map(lambda p: UpdateOne({"_id": p["_id"]}, {"$set": {"Feats": p["Feats"], "Stats": p["Stats"]}}), map(lambda p: change_player_feat_stats(p, relevant_feats), db[collection].find())))
+            try:
+                if len(entries) > 0:
+                    db[collection].bulk_write(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Updated {collection}")
+    
+    @commands.command()
+    @admin_or_owner()
+    async def changePlayerItemStats(self, ctx):
+        unchanged = ["players"]
+        for collection in unchanged:
+            entries = list(map(lambda p: UpdateOne({"_id": p["_id"]}, {"$set": {"Magic Items": p["Magic Items"]}}), map(change_player_item_stats, db[collection].find())))
+            try:
+                if len(entries) > 0:
+                    db[collection].bulk_write(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Adjusted {collection}")
+    
+    
+    @commands.command()
+    @admin_or_owner()
+    async def changeUpgradeCosts(self, ctx):
+        unchanged = ["mit"]
+        for collection in unchanged:
+            entries = list(map(change_costs, db[collection].find({"Predecessor" : {"$exists": True}})))
+            try:
+                if len(entries) > 0:
+                    db[collection].bulk_write(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            await ctx.channel.send(content=f"Adjusted {collection}")
+    
+    @commands.command()
+    @admin_or_owner()
+    async def cleanAndTransferTables(self, ctx):
+        to_transfer = ["players"]#"settings", "mit", "players", "users", "shop", "backgrounds", "spells", "feats", "special", "races", "rit", "classes", "liners_money", "liners_craft", "liners_meme", "liners_find", "guilds"] #
+        for collection in to_transfer:
+            try:
+                connection.dnd[collection].delete_many({})
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            print(collection, "cleaned")
+            entries = list(connection.dnd5r[collection].find())
+            try:
+                if len(entries) > 0:
+                    connection.dnd[collection].insert_many(entries)
+            except BulkWriteError as bwe:
+                print(bwe.details)
+                # if it fails, we need to cancel and use the error details
+                return
+            print(collection, "transferred")
+        await ctx.channel.send(content="Completed")
 
     @commands.command()
     @admin_or_owner()

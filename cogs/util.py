@@ -97,6 +97,11 @@ def format_magic_item(key: str, magic_item: dict) -> str:
         output = magic_item["Name"]
     if "Stage Name" in magic_item:
         output = f"{output} ({magic_item['Stage Name']})"
+    if "Evolutions" in magic_item:
+        names = [evolv for evolv in magic_item['Evolutions'].keys()]
+        output += f" [{', '.join(names)}]"
+    if "Rarity" in magic_item:
+        output += f" |{magic_item['Rarity']}"
     return output
     
 
@@ -649,7 +654,6 @@ async def callAPI(core: InteractionCore, table=None, query=None, tier=5, exact=F
                             {"Grouped": query_data}]
     if table == "rit" or table == "mit":
         filterDic['Tier'] = {'$lt':tier+1}
-    print(filterDic)
     records = list(collection.find(filterDic))
     
     #turn the query into a regex expression
